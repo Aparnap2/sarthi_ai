@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	"iterateswarm-core/internal/api"
+	"iterateswarm-core/internal/auth"
 	"iterateswarm-core/internal/debug"
 	"iterateswarm-core/internal/redpanda"
 	"iterateswarm-core/internal/temporal"
@@ -46,6 +47,18 @@ func main() {
 	defer temporalClient.Close()
 	log.Println("Connected to Temporal")
 
+	// Create handler
+	handler := api.NewHandler(redpandaClient, temporalClient)
+
+	// Initialize Clerk auth
+	clerkConfig := auth.LoadClerkConfig()
+	clerkAuth := auth.NewClerkAuth(clerkConfig)
+	if clerkConfig.ClerkInstanceID != "" {
+		log.Println("Clerk auth initialized (instance: " + clerkConfig.ClerkInstanceID + ")")
+	} else {
+		log.Println("Clerk auth not configured (set CLERK_INSTANCE_ID to enable)")
+	}
+
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      "IterateSwarm Core",
@@ -59,15 +72,31 @@ func main() {
 	}))
 	app.Use(cors.New())
 
-	// Create handler
-	handler := api.NewHandler(redpandaClient, temporalClient)
-
-	// Routes
+	// Health check routes (no auth required)
 	app.Get("/health", handler.HandleHealth)
 	app.Get("/health/details", handler.HandleDetailedHealth)
+
+	// Webhook routes (no auth required - they use Discord verification)
 	app.Post("/webhooks/discord", handler.HandleDiscordWebhook)
 	app.Post("/webhooks/interaction", handler.HandleInteraction)
+
+	// Test route (no auth)
 	app.Get("/test/kafka", handler.HandleKafkaTest)
+
+	// Protected routes - require Clerk auth
+	protected := app.Group("/api")
+	if clerkConfig.ClerkInstanceID != "" {
+		protected.Use(clerkAuth.Middleware())
+	}
+
+	// Protected API endpoints
+	protected.Get("/me", func(ctx *fiber.Ctx) error {
+		return ctx.JSON(map[string]interface{}{
+			"user_id": auth.GetUserID(ctx),
+			"email":   auth.GetUserEmail(ctx),
+			"role":    auth.GetUserRole(ctx),
+		})
+	})
 
 	// Debug routes (LiteDebug Console)
 	debugHandler := debug.NewHandler(redpandaClient, temporalClient, "http://localhost:16686")

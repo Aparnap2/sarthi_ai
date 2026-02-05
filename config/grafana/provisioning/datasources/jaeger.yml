@@ -1,0 +1,10 @@
+# Jaeger data source for Grafana
+apiVersion: 1
+
+datasources:
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    editable: false
+    isDefault: false

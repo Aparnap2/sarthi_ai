@@ -5,8 +5,8 @@ go 1.24.0
 require (
 	github.com/Aparnap2/iterate_swarm/gen/go v0.0.0-00010101000000-000000000000
 	github.com/bwmarrin/discordgo v0.29.0
-	github.com/clerk/clerk-sdk-go/v2 v2.5.1
 	github.com/gofiber/fiber/v2 v2.52.11
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/go-github/v50 v50.2.0
 	github.com/google/uuid v1.6.0
 	github.com/segmentio/kafka-go v0.4.50
@@ -21,7 +21,6 @@ require (
 	github.com/cloudflare/circl v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
-	github.com/go-jose/go-jose/v3 v3.0.4 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect

@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -265,6 +266,12 @@ type SlackBlock struct {
 type SlackText struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
+}
+
+type SlackField struct {
+	Title string `json:"title"`
+	Value string `json:"value"`
+	Short bool   `json:"short"`
 }
 
 type SlackAttachment struct {
