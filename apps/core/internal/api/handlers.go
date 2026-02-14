@@ -152,7 +152,7 @@ func (h *Handler) HandleInteraction(c *fiber.Ctx) error {
 	)
 
 	// Signal the workflow (parse custom_id for action and workflowID)
-	parts := strings.Split(req.Data.CustomID, ":")
+parts := strings.Split(req.Data.CustomID, "_")
 	action := parts[0]
 	workflowID := ""
 	if len(parts) > 1 {
