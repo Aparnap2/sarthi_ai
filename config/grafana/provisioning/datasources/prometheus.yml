@@ -1,0 +1,13 @@
+# Prometheus data source for Grafana
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    editable: false
+    isDefault: true
+    json_data:
+      httpMethod: GET
+      cacheTimeout: 24h

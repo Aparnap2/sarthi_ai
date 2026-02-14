@@ -1,0 +1,33 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="p-6">
+    <h1 class="text-3xl font-bold mb-6">{{.Title}}</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Stats Cards -->
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h3 class="text-gray-500 text-sm font-medium">Total Feedback</h3>
+            <p class="text-3xl font-bold mt-2" hx-get="/api/stats/feedback" hx-trigger="load">...</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h3 class="text-gray-500 text-sm font-medium">Open Issues</h3>
+            <p class="text-3xl font-bold mt-2" hx-get="/api/stats/issues" hx-trigger="load">...</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h3 class="text-gray-500 text-sm font-medium">Pending Review</h3>
+            <p class="text-3xl font-bold mt-2" hx-get="/api/stats/pending" hx-trigger="load">...</p>
+        </div>
+    </div>
+
+    <!-- Feedback Table -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold">Latest Feedback</h2>
+        </div>
+        <div id="feedback-table" hx-get="/api/feedback" hx-trigger="load">
+            <div class="p-4 text-center text-gray-500">Loading...</div>
+        </div>
+    </div>
+</div>
+{{end}}

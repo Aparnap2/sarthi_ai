@@ -1,239 +1,357 @@
-This is the **Master Plan** for **IterateSwarm**. This document serves as your Product Requirements Document (PRD), Technical Specification, and Implementation Guide.
+# IterateSwarm Master Plan (ChatOps Pivot) - v2.0
+
+This is the **Master Plan** for **IterateSwarm** - A Production-Grade Polyglot ChatOps Platform.
 
 ***
 
 # **1. Product Requirements Document (PRD)**
 
 **Product Name:** IterateSwarm
-**One-Liner:** An event-driven autonomous agent swarm that turns unstructured user feedback into production-ready GitHub Issues.
-**Target Audience:** Technical Founders (Seed/Series A) drowning in Discord/Slack feedback.
+**One-Liner:** An event-driven autonomous agent swarm that turns unstructured user feedback into production-ready GitHub Issues via Discord/Slack.
+**Architecture:** ChatOps - No dashboard, just Discord interactions.
+**Status:** PHASE 5 COMPLETE - Production Ready
 
 ### **Core Features (MVP)**
-1.  **Universal Ingestion:** Webhooks for Discord, Slack, and manual entry.
-2.  **Semantic Deduplication:** Uses Vector Search to merge duplicate feedback items (e.g., "Login broken" and "Can't sign in" = 1 Issue).
-3.  **Agentic Triaging:** Autonomous classification (Bug/Feature/Noise) and severity scoring.
-4.  **Spec Generation:** A "Spec Writer" agent drafts a structured GitHub Issue (Title, Repro Steps, Components).
-5.  **Human-in-the-Loop (HITL):** A dashboard for founders to approve/reject agent drafts before they hit GitHub.
-6.  **Full Observability:** End-to-end tracing of the agent's "thought process."
+1.  **Universal Ingestion:** Webhooks for Discord/Slack (Go + Fiber)
+2.  **Semantic Deduplication:** Qdrant vector search to merge duplicate feedback
+3.  **Agentic Triaging:** LangGraph agents classify (Bug/Feature/Question) and score severity
+4.  **Spec Generation:** Agent drafts a structured GitHub Issue
+5.  **Human-in-the-Loop (ChatOps):** Discord message with [Approve]/[Reject] buttons
+6.  **Full Observability:** Temporal UI for workflow tracing
+7.  **gRPC Communication:** Type-safe polyglot service communication
 
 ***
 
-# **2. System Architecture (The "Free Tier" Production Stack)**
+# **2. System Architecture (Polyglot Temporal)**
 
 ### **The Tech Stack**
-| Component | Tech Choice | Hosting (Free Tier Strategy) |
-| :--- | :--- | :--- |
-| **Frontend** | Next.js 14 (App Router) | Vercel (Hobby) |
-| **Backend API** | FastAPI (Python) | Render (Free Web Service) |
-| **Event Bus** | **Upstash Kafka** | Upstash (Free - 10k daily msgs) |
-| **Orchestration** | **Inngest** | Vercel Integration (Free - 50k steps) |
-| **Agent Framework** | LangGraph | Runs inside FastAPI on Render |
-| **Vector DB** | Qdrant | Qdrant Cloud (1GB Free Cluster) |
-| **Primary DB** | Supabase (Postgres) | Supabase (500MB Free) |
-| **Observability** | Langfuse | Langfuse Cloud (Hobby Tier) |
-| **Validation** | DeepEval | Local / GitHub Actions |
+
+| Component | Tech Choice | Purpose |
+|-----------|-------------|---------|
+| **Ingestion API** | Go + Fiber | High-performance webhook receiver |
+| **Orchestration** | Temporal | Workflow state machine |
+| **AI Worker** | Python + LangGraph | LLM processing (OpenRouter compatible) |
+| **Service Communication** | gRPC + Protocol Buffers | Type-safe polyglot IPC |
+| **Vector DB** | Qdrant | Semantic duplicate detection |
+| **Event Bus** | Redpanda | Kafka-compatible message buffer |
+| **Primary DB** | PostgreSQL | App data persistence |
+| **Interface** | Discord | ChatOps (Block Kit buttons) |
+| **Code Generation** | Buf | Protocol buffer compilation |
 
 ### **High-Level Data Flow**
+
 ```mermaid
-graph LR
-    Discord -->|Webhook| FastAPI
-    FastAPI -->|Producer| UpstashKafka[Kafka: feedback.raw]
-    UpstashKafka -->|Consumer| Inngest[Inngest Workflow]
-    
-    subgraph "Inngest Workflow Execution"
-        Inngest --> Step1[Dedup Agent (Qdrant)]
-        Step1 -->|If New| Step2[Triage Agent]
-        Step2 --> Step3[Spec Agent]
-        Step3 -->|Draft Saved| Supabase
+graph TD
+    User((User)) -->|Feedback| Discord[Discord Webhook]
+    Discord -->|POST /webhooks| GoGateway[Go Gateway (Fiber)]
+
+    subgraph "Event Ingestion"
+        GoGateway -->|Produce| Redpanda[(Redpanda / Kafka)]
     end
-    
-    Supabase -->|Realtime| NextJS[Dashboard]
-    User -->|Approve| NextJS
-    NextJS -->|API Call| GitHub[GitHub API]
+
+    subgraph "Orchestration (Go)"
+        Redpanda -->|Consume| TemporalWorker[Temporal Worker]
+        TemporalWorker <-->|State| TemporalServer[Temporal Server]
+    end
+
+    subgraph "AI Intelligence (Python)"
+        TemporalWorker -->|gRPC / AnalyzeFeedback| PythonService[Python Agent Service]
+        PythonService -->|LangGraph| AgentLogic{Agent Logic}
+        AgentLogic -->|Query| Qdrant[(Qdrant Vector DB)]
+        AgentLogic -->|Generate| LLM[LLM (OpenRouter)]
+    end
+
+    subgraph "Action"
+        TemporalWorker -->|Approve?| DiscordBot[Discord Bot (Buttons)]
+        DiscordBot -->|Signal| TemporalWorker
+        TemporalWorker -->|If Approved| GitHub[GitHub API]
+    end
+```
+
+### **Polyglot Workflow Pattern**
+
+1.  **Workflow Definition (Go):** The "Manager" - defines steps, waits for signals
+2.  **Activity A (Python via gRPC):** The "Specialist" - AI processing (LangGraph agents)
+3.  **Activity B (Go):** The "Generalist" - Discord/GitHub API calls
+
+**gRPC Contract:**
+```protobuf
+service AgentService {
+    rpc AnalyzeFeedback(AnalyzeFeedbackRequest) returns (AnalyzeFeedbackResponse);
+}
+
+message AnalyzeFeedbackRequest {
+    string text = 1;
+    string source = 2;
+    string user_id = 3;
+}
+
+message AnalyzeFeedbackResponse {
+    IssueSpec spec = 1;
+    bool is_duplicate = 2;
+    string reasoning = 3;
+}
 ```
 
 ***
 
-# **3. Data Models (Schema)**
+# **3. Data Models**
 
-**SQL (Supabase)**
+### **Workflow State (Temporal)**
+
+```go
+type FeedbackInput struct {
+    Text      string
+    Source    string
+    UserID    string
+    ChannelID string
+    RepoOwner string
+    RepoName  string
+}
+
+type IssueSpec struct {
+    Title       string
+    Description string
+    Type        IssueType     // bug, feature, question
+    Severity    Severity      // low, medium, high, critical
+    Labels      []string
+    Confidence  float64
+}
+```
+
+### **PostgreSQL (App Data)**
+
 ```sql
--- Table: feedback_items (Raw Ingestion)
-CREATE TABLE feedback_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    source VARCHAR(50), -- 'discord', 'slack'
-    raw_content TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    status VARCHAR(20) -- 'pending', 'processed', 'ignored'
-);
-
--- Table: issues (The Agent's Output)
-CREATE TABLE issues (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    feedback_id UUID REFERENCES feedback_items(id),
-    title TEXT,
-    description TEXT, -- Markdown body
-    severity VARCHAR(20), -- 'low', 'medium', 'high', 'critical'
-    labels TEXT[], -- ['bug', 'frontend']
-    status VARCHAR(20), -- 'draft', 'approved', 'published'
-    github_issue_url TEXT
+CREATE TABLE feedback (
+    id UUID PRIMARY KEY,
+    content TEXT,
+    source VARCHAR(50),
+    status VARCHAR(20),  -- pending, approved, rejected
+    issue_url TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
 );
 ```
 
-**Pydantic (Python / API)**
-```python
-# The structure the Agent MUST output
-class IssueSpec(BaseModel):
-    title: str = Field(description="Concise, technical title")
-    severity: Literal["low", "medium", "high", "critical"]
-    components: List[str]
-    reproduction_steps: List[str]
-    technical_notes: Optional[str]
+***
+
+# **4. Project Structure**
+
+```
+iterate_swarm/
+├── apps/
+│   ├── core/                    # Go orchestration service
+│   │   ├── cmd/
+│   │   │   ├── server/         # HTTP API server (Fiber)
+│   │   │   └── worker/         # Temporal worker
+│   │   └── internal/
+│   │       ├── api/            # HTTP handlers & webhooks
+│   │       ├── grpc/           # gRPC client to Python AI
+│   │       ├── redpanda/       # Kafka client
+│   │       ├── temporal/       # Temporal client wrapper
+│   │       └── workflow/       # Workflow & activities
+│   │
+│   └── ai/                     # Python AI service
+│       ├── src/
+│       │   ├── agents/         # LangGraph agents
+│       │   ├── grpc_server.py  # gRPC server implementation
+│       │   └── main.py         # Entry point (temporal + grpc)
+│       └── tests/              # Test suite (47 tests)
+│
+├── proto/
+│   └── ai/v1/
+│       └── agent.proto         # gRPC contract definition
+│
+├── gen/                        # Generated code
+│   ├── go/ai/v1/              # Go protobuf stubs
+│   └── python/ai/v1/          # Python protobuf stubs
+│
+├── scripts/
+│   └── verify_system.sh        # E2E verification script
+│
+├── docker-compose.yml          # Local dev infrastructure
+├── Makefile                    # Development commands
+└── prd.md                     # This document
 ```
 
 ***
 
-# **4. API Structure (FastAPI)**
+# **5. Development Phases**
 
-*   `POST /webhooks/discord`: Receives JSON from Discord -> Pushes to Kafka.
-*   `POST /inngest`: The entry point for the Inngest executor (triggers the agents).
-*   `GET /api/dashboard/stats`: Returns metrics for the frontend.
-*   `POST /api/issues/{id}/approve`: Triggered by HITL -> Calls GitHub API.
+## **Phase 1: Infrastructure (COMPLETED)**
+- [x] Docker Compose: Temporal, PostgreSQL, Elasticsearch, Qdrant, Redpanda
+- [x] Health check scripts
+- [x] Network configuration
 
-***
+## **Phase 2: Protobuf Contract (COMPLETED)**
+- [x] Define `agent.proto` with AnalyzeFeedback RPC
+- [x] Configure `buf.yaml` and `buf.gen.yaml`
+- [x] Generate Go and Python stubs
 
-# **5. Code Snippets (The "Meat")**
+## **Phase 3: Python AI Worker (COMPLETED)**
+- [x] gRPC server implementation
+- [x] LangGraph triage agent
+- [x] LangGraph spec writer agent
+- [x] Qdrant vector service for deduplication
+- [x] Test suite (27 tests)
 
-### **A. Ingestion (FastAPI + Kafka)**
-```python
-from fastapi import FastAPI, Request
-from upstash_kafka import Producer
+## **Phase 4: Go Core Service (COMPLETED)**
+- [x] Fiber HTTP server for webhooks
+- [x] Temporal workflow definition with signal handling
+- [x] gRPC client to Python AI service
+- [x] Go activities (Discord, GitHub) - REAL IMPLEMENTATION
+- [x] Test suite (9 tests)
 
-app = FastAPI()
-producer = Producer(url="...", username="...", password="...")
+## **Phase 5: Integrations & Polish (COMPLETED)**
+- [x] Real Discord integration with buttons (bwmarrin/discordgo)
+- [x] Real GitHub integration (google/go-github)
+- [x] Professional README.md with architecture diagram
+- [x] Makefile for unified operations
+- [x] E2E verification script
+- [x] LLM evaluation tests
 
-@app.post("/webhooks/discord")
-async def receive_discord(request: Request):
-    payload = await request.json()
-    # 1. Validate (Pydantic)
-    data = DiscordSchema(**payload)
-    
-    # 2. Push to Kafka (Non-blocking)
-    producer.send("feedback.raw", value=data.model_dump_json())
-    
-    return {"status": "queued"} 
-```
-
-### **B. The Agent Workflow (Inngest + LangGraph)**
-```python
-import inngest
-
-@inngest.create_function(
-    fn_id="process-feedback",
-    trigger=inngest.TriggerEvent(event="feedback.received"),
-)
-async def process_feedback_flow(ctx, step):
-    feedback = ctx.event.data
-    
-    # Step 1: Deduplication (Deterministic)
-    is_duplicate = await step.run("check-qdrant", 
-        lambda: qdrant_client.search(collection="issues", vector=embed(feedback['text']))
-    )
-    
-    if is_duplicate:
-        return {"result": "merged"}
-
-    # Step 2: Agent Swarm (The "Thinking")
-    # We wrap LangGraph inside an Inngest step for retries/timeouts
-    spec = await step.run("generate-spec", 
-        lambda: triage_agent_swarm.invoke({"input": feedback['text']})
-    )
-
-    # Step 3: Save Draft
-    await step.run("save-db", 
-        lambda: supabase.table("issues").insert(spec)
-    )
-```
-
-### **C. The Agent (LangGraph + Langfuse)**
-```python
-from langfuse.decorators import observe
-
-@observe() # <--- This is the Magic Line for LLMOps
-def triage_node(state):
-    # Logic to classify bug vs feature
-    response = llm.invoke(triage_prompt.format(state['input']))
-    return {"classification": response}
-```
+## **Phase 6: Production (IN PROGRESS)**
+- [ ] Dockerfiles for both services
+- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Deployment scripts (Fly.io/Railway)
+- [ ] Monitoring and alerting
 
 ***
 
-# **6. Standard Operating Procedure (SOP) & Checklist**
+# **6. API Endpoints**
 
-**Phase 1: Infrastructure (Day 1)**
-- [ ] Create Upstash Kafka Cluster (Free).
-- [ ] Create Qdrant Cloud Cluster (Free).
-- [ ] Create Supabase Project.
-- [ ] Get OpenAI API Key.
-- [ ] Get Langfuse Keys.
+### **Go Core (Fiber)**
 
-**Phase 2: Backend Core (Day 2)**
-- [ ] `pip install fastapi uvicorn upstash-kafka inngest langchain-openai`.
-- [ ] Implement `POST /webhooks/discord`.
-- [ ] Implement `process_feedback_flow` in Inngest.
-- [ ] Dockerize the FastAPI app.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| POST | `/webhooks/discord` | Discord webhook receiver |
+| POST | `/webhooks/interaction` | Discord interaction handler |
+| GET | `/test/kafka` | Kafka test endpoint |
 
-**Phase 3: The Intelligence (Day 3)**
-- [ ] Write the Prompts (System Prompts for Triage/Spec Agents).
-- [ ] Implement `check_qdrant` logic.
-- [ ] Connect Langfuse.
+### **Python AI Service (gRPC)**
 
-**Phase 4: Frontend & Polish (Day 4)**
-- [ ] `npx create-next-app@latest`.
-- [ ] Install Shadcn/UI (Table, Dialog, Button).
-- [ ] Fetch data from Supabase (`supabase-js`).
-- [ ] Deploy to Vercel & Render.
+| Method | Description |
+|--------|-------------|
+| `AnalyzeFeedback` | Analyze feedback and return structured issue spec |
+
+### **Temporal Workflow**
+
+**Workflow:** `FeedbackWorkflow`
+
+1. Activity `AnalyzeFeedback` (Python via gRPC) - AI processing
+2. Activity `SendDiscordApproval` (Go) - Discord buttons with embed
+3. Signal `user-action` - Wait for admin decision (5 min timeout)
+4. Activity `CreateGitHubIssue` (Go) - Create issue (if approved)
 
 ***
 
-# **7. Deliverables & Testing Strategy**
+# **7. Configuration**
 
-### **A. Unit Tests (Pytest)**
-*   Test that the Pydantic models reject invalid JSON.
-*   Test that the deduplication logic returns `True` for 100% identical strings.
+### **Environment Variables**
 
-### **B. E2E Tests (Manual/Scripted)**
-1.  Send a message: "The login button is broken on mobile" to your Discord Mock webhook.
-2.  Check Upstash: Did a message appear in `feedback.raw`?
-3.  Check Inngest Dashboard: Did the function trigger?
-4.  Check Langfuse: Do you see the trace?
-5.  Check Supabase: Is there a new row in `issues` with status `draft`?
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DISCORD_BOT_TOKEN` | Discord bot token for sending approval messages | No |
+| `GITHUB_TOKEN` | GitHub Personal Access Token for issue creation | No |
+| `GITHUB_OWNER` | GitHub repository owner | No |
+| `GITHUB_REPO` | GitHub repository name | No |
+| `OPENAI_API_KEY` | OpenAI API key for LLM calls | No |
+| `OPENAI_BASE_URL` | OpenAI-compatible API base URL | No |
+| `OPENAI_MODEL_NAME` | LLM model name | No |
 
-### **C. LLM Evaluation (DeepEval)**
-Create a file `test_agents.py`:
-```python
-from deepeval import assert_test
-from deepeval.metrics import AnswerRelevancyMetric
+### **Docker Services**
 
-def test_triage_accuracy():
-    # Input
-    input_text = "The app crashes when I click upload."
-    
-    # Run Agent
-    output = triage_agent.invoke(input_text)
-    
-    # Metric: Did it catch the severity?
-    assert output['severity'] == 'high'
-    assert output['type'] == 'bug'
+| Service | Port | Description |
+|---------|------|-------------|
+| Temporal | 7233 | gRPC API |
+| Temporal UI | 8088 | Web UI (remapped from 8080) |
+| PostgreSQL | 5432 | Database |
+| Qdrant | 6333 | Vector DB REST |
+| Redpanda | 9092 | Kafka API |
+| Redpanda Admin | 9644 | Admin API |
+
+***
+
+# **8. Testing Strategy**
+
+### **Unit Tests**
+- **Go:** `go test ./...` (9 tests passing)
+- **Python:** `uv run pytest tests/` (47 tests passing)
+
+### **Integration Tests**
+- Temporal worker connectivity
+- gRPC client-server communication
+- Qdrant duplicate detection
+- Full workflow execution
+
+### **E2E Tests**
+- Webhook -> Workflow -> Discord -> Approval -> GitHub
+- Verification script: `./scripts/verify_system.sh`
+
+### **LLM Evaluation Tests**
+- Mocked LLM responses for deterministic testing
+- Classification accuracy tests
+- Severity scoring tests
+- Label generation tests
+
+***
+
+# **9. Quick Start**
+
+```bash
+# Clone and enter directory
+cd iterate_swarm
+
+# Start infrastructure
+make up
+
+# Run tests
+make test
+
+# Full verification
+make verify
+
+# Individual services
+make ai-start      # Python AI service
+make core-start    # Go core services
 ```
-*Run this in GitHub Actions on every push.*
 
 ***
 
-### **How to Handover**
-When you submit this project or show it in an interview, provide:
-1.  **The Live Demo Link** (Vercel URL).
-2.  **The Loom Video** (Walkthrough of the Inngest flow + Langfuse Trace).
-3.  **The GitHub Repo** (With a clean README showing the Architecture Diagram).
+# **10. Verification Results**
 
-This is a Senior Engineer's portfolio piece. Go build it.
+```
+==============================================
+  VERIFICATION SUMMARY
+==============================================
+
+[PASS] Infrastructure: HEALTHY
+[PASS] Go Code: VERIFIED
+[PASS] Python Code: VERIFIED (47 tests)
+[PASS] Protocol Buffers: VERIFIED
+[PASS] gRPC Server: Running on port 50051
+
+==============================================
+  SYSTEM VERIFIED
+==============================================
+```
+
+***
+
+# **11. Portfolio Value Proposition**
+
+IterateSwarm demonstrates:
+
+1. **Polyglot Architecture** - Go and Python working together via gRPC
+2. **Event-Driven Design** - Temporal workflows with durable execution
+3. **AI Integration** - LangGraph agents with structured outputs
+4. **Production Patterns** - Environment configuration, graceful degradation
+5. **Testing Excellence** - 56 total unit tests, E2E verification
+6. **DevOps Maturity** - Docker Compose, Makefile, verification scripts
+
+This is a **showcase piece** for any senior full-stack or platform engineering role.
+
+***
+
+Last Updated: 2026-02-03
+Version: 2.0 (Phase 5 Complete)

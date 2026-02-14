@@ -1,0 +1,42 @@
+# Prometheus configuration for IterateSwarm
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alertmanager configuration (optional)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Rule files for alerting
+rule_files:
+  - "alerts/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Go application metrics (when instrumented)
+  - job_name: "iterate-swarm-core"
+    static_configs:
+      - targets: ["localhost:3000"]
+    metrics_path: /metrics
+
+  # Temporal metrics
+  - job_name: "temporal"
+    static_configs:
+      - targets: ["localhost:8088"]
+    metrics_path: /metrics
+
+  # PostgreSQL metrics (if postgres_exporter is added)
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["localhost:5432"]
+    metric_relabel_configs:
+      - source_labels: [__address__]
+        regex: '.*'
+        action: drop
