@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: iterateswarm
+    runtime: go
+    buildCommand: cd apps/core && go build -o ../../bin/demo_server ./cmd/demo/main.go
+    startCommand: ./bin/demo_server
+    envVars:
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AZURE_OPENAI_DEPLOYMENT
+        sync: false
+      - key: PORT
+        value: 3000
