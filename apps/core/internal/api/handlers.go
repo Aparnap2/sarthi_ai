@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"runtime"
 	"strings"
 	"time"
@@ -9,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
+	"iterateswarm-core/internal/db"
 	"iterateswarm-core/internal/logging"
 	"iterateswarm-core/internal/redpanda"
 	"iterateswarm-core/internal/temporal"
@@ -25,8 +28,8 @@ type FeedbackRequest struct {
 // FeedbackResponse is the response after ingesting feedback.
 type FeedbackResponse struct {
 	FeedbackID string `json:"feedback_id"`
-	Status    string `json:"status"`
-	Message   string `json:"message"`
+	Status     string `json:"status"`
+	Message    string `json:"message"`
 }
 
 // InteractionRequest represents a Discord interaction (button click).
@@ -51,16 +54,18 @@ type InteractionUser struct {
 
 // Handler handles API requests.
 type Handler struct {
-	redpandaClient  *redpanda.Client
-	temporalClient  *temporal.Client
-	logger          *logging.Logger
+	redpandaClient *redpanda.Client
+	temporalClient *temporal.Client
+	repo           *db.Repository
+	logger         *logging.Logger
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(redpandaClient *redpanda.Client, temporalClient *temporal.Client) *Handler {
+func NewHandler(redpandaClient *redpanda.Client, temporalClient *temporal.Client, repo *db.Repository) *Handler {
 	return &Handler{
 		redpandaClient: redpandaClient,
 		temporalClient: temporalClient,
+		repo:           repo,
 		logger:         logging.NewLogger("api"),
 	}
 }
@@ -151,15 +156,16 @@ func (h *Handler) HandleInteraction(c *fiber.Ctx) error {
 		"channel_id", req.ChannelID,
 	)
 
-	// Signal the workflow (parse custom_id for action and workflowID)
-parts := strings.Split(req.Data.CustomID, "_")
-	action := parts[0]
-	workflowID := ""
-	if len(parts) > 1 {
-		workflowID = parts[1]
+	// P2-1 FIX: Use validated ParseCustomID function instead of inline parsing
+	action, workflowID, err := ParseCustomID(req.Data.CustomID)
+	if err != nil {
+		h.logger.Error("invalid custom_id format", err, "custom_id", req.Data.CustomID)
+		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
+			"error": "Invalid custom_id format",
+		})
 	}
 
-	err := h.temporalClient.SignalWorkflow(c.Context(), workflowID, "user-action", action)
+	err = h.temporalClient.SignalWorkflow(c.Context(), workflowID, "user-action", action)
 	if err != nil {
 		h.logger.Error("failed to signal workflow", err, "workflow_id", workflowID, "action", action)
 		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
@@ -195,14 +201,14 @@ func (h *Handler) HandleDetailedHealth(c *fiber.Ctx) error {
 	temporalDuration := time.Since(temporalStart)
 	if temporalErr != nil {
 		checks["temporal"] = map[string]interface{}{
-			"status":  "unhealthy",
-			"error":   temporalErr.Error(),
+			"status":     "unhealthy",
+			"error":      temporalErr.Error(),
 			"latency_ms": temporalDuration.Milliseconds(),
 		}
 		allHealthy = false
 	} else {
 		checks["temporal"] = map[string]interface{}{
-			"status":      "healthy",
+			"status":     "healthy",
 			"latency_ms": temporalDuration.Milliseconds(),
 		}
 	}
@@ -213,14 +219,14 @@ func (h *Handler) HandleDetailedHealth(c *fiber.Ctx) error {
 	redpandaDuration := time.Since(redpandaStart)
 	if redpandaErr != nil {
 		checks["redpanda"] = map[string]interface{}{
-			"status":  "unhealthy",
-			"error":   redpandaErr.Error(),
+			"status":     "unhealthy",
+			"error":      redpandaErr.Error(),
 			"latency_ms": redpandaDuration.Milliseconds(),
 		}
 		allHealthy = false
 	} else {
 		checks["redpanda"] = map[string]interface{}{
-			"status":      "healthy",
+			"status":     "healthy",
 			"latency_ms": redpandaDuration.Milliseconds(),
 		}
 	}
@@ -231,17 +237,17 @@ func (h *Handler) HandleDetailedHealth(c *fiber.Ctx) error {
 
 	// Build response
 	response := map[string]interface{}{
-		"status":      "healthy",
-		"timestamp":   time.Now().UTC().Format(time.RFC3339),
-		"service":     "iterateswarm-core",
-		"version":     "1.0.0",
-		"checks":      checks,
+		"status":    "healthy",
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"service":   "iterateswarm-core",
+		"version":   "1.0.0",
+		"checks":    checks,
 		"runtime": map[string]interface{}{
-			"goroutines": runtime.NumGoroutine(),
-			"cpu_cores":  runtime.NumCPU(),
-			"memory_alloc_mb":  float64(m.Alloc) / 1024 / 1024,
-			"total_alloc_mb":   float64(m.TotalAlloc) / 1024 / 1024,
-			"heap_alloc_mb":    float64(m.HeapAlloc) / 1024 / 1024,
+			"goroutines":      runtime.NumGoroutine(),
+			"cpu_cores":       runtime.NumCPU(),
+			"memory_alloc_mb": float64(m.Alloc) / 1024 / 1024,
+			"total_alloc_mb":  float64(m.TotalAlloc) / 1024 / 1024,
+			"heap_alloc_mb":   float64(m.HeapAlloc) / 1024 / 1024,
 		},
 	}
 
@@ -278,4 +284,218 @@ func (h *Handler) HandleKafkaTest(c *fiber.Ctx) error {
 		"status":  "sent",
 		"message": "Test message published to feedback-events",
 	})
+}
+
+// HandleDashboardStats returns dashboard statistics.
+func (h *Handler) HandleDashboardStats(c *fiber.Ctx) error {
+	ctx := c.Context()
+
+	// Check Temporal health
+	temporalHealthy := true
+	if err := h.temporalClient.Health(ctx); err != nil {
+		temporalHealthy = false
+	}
+
+	// Check Redpanda health
+	redpandaHealthy := true
+	if err := h.redpandaClient.Health(ctx); err != nil {
+		redpandaHealthy = false
+	}
+
+	// Query database stats
+	dbStats, err := h.queryDatabaseStats(ctx)
+	if err != nil {
+		h.logger.Warn("failed to query database stats", "error", err.Error())
+		dbStats = map[string]interface{}{
+			"pending_feedback":   0,
+			"processed_feedback": 0,
+			"draft_issues":       0,
+			"published_issues":   0,
+		}
+	}
+
+	return c.JSON(map[string]interface{}{
+		"workflow_count": 0, // TODO: Implement Temporal workflow count query
+		"queue_lag":      0, // TODO: Implement Redpanda queue lag monitoring
+		"services": map[string]interface{}{
+			"go":       map[string]string{"status": "up"},
+			"python":   map[string]string{"status": "up"},
+			"temporal": map[string]string{"status": boolToString(temporalHealthy)},
+			"redpanda": map[string]string{"status": boolToString(redpandaHealthy)},
+			"postgres": map[string]string{"status": "up"},
+		},
+		"stats":     dbStats,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+// queryDatabaseStats queries database statistics
+func (h *Handler) queryDatabaseStats(ctx context.Context) (map[string]interface{}, error) {
+	// Count feedback by status
+	pendingFeedback, err := h.repo.ListFeedback(ctx, db.ListFeedbackParams{
+		Limit:  0, // No limit
+		Offset: 0,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// For simplicity, we'll count manually here
+	// In a real implementation, we'd use aggregate queries
+	pendingCount := 0
+	processedCount := 0
+	for _, fb := range pendingFeedback {
+		switch fb.Status {
+		case "pending":
+			pendingCount++
+		case "processed":
+			processedCount++
+		}
+	}
+
+	// Count issues
+	issues, err := h.repo.ListIssues(ctx, db.ListIssuesParams{
+		Limit:  0,
+		Offset: 0,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	draftCount := 0
+	publishedCount := 0
+	for _, issue := range issues {
+		switch issue.Status {
+		case "draft":
+			draftCount++
+		case "published":
+			publishedCount++
+		}
+	}
+
+	stats := map[string]interface{}{
+		"pending_feedback":   pendingCount,
+		"processed_feedback": processedCount,
+		"draft_issues":       draftCount,
+		"published_issues":   publishedCount,
+	}
+
+	return stats, nil
+}
+
+// HandleFeedbackList returns a list of feedback items.
+func (h *Handler) HandleFeedbackList(c *fiber.Ctx) error {
+	// Parse pagination
+	page := c.QueryInt("page", 1)
+	pageSize := c.QueryInt("page_size", 10)
+
+	// Calculate offset
+	offset := (page - 1) * pageSize
+
+	// Query feedback from database
+	feedback, err := h.repo.ListFeedback(c.Context(), db.ListFeedbackParams{
+		Limit:  int32(pageSize),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		h.logger.Error("failed to query feedback from database", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
+			"error": "Failed to retrieve feedback",
+		})
+	}
+
+	// Convert to response format
+	responseItems := make([]map[string]interface{}, len(feedback))
+	for i, item := range feedback {
+		createdAt := item.CreatedAt.Time.Format(time.RFC3339) // Access the Time field of Timestamptz
+		responseItems[i] = map[string]interface{}{
+			"id":         item.ID,
+			"title":      extractTitle(item.Content), // Extract title from content
+			"body":       item.Content,
+			"source":     item.Source,
+			"user_id":    item.UserID.String(),
+			"status":     item.Status,
+			"created_at": createdAt,
+		}
+	}
+
+	return c.JSON(map[string]interface{}{
+		"data":      responseItems,
+		"total":     len(responseItems), // In a real implementation, we'd get the total count separately
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
+// extractTitle extracts a title from feedback content (simple implementation)
+func extractTitle(content string) string {
+	// For now, just take the first 50 characters and remove newlines
+	title := strings.Replace(content, "\n", " ", -1)
+	if len(title) > 50 {
+		title = title[:50] + "..."
+	}
+	return title
+}
+
+// boolToString converts boolean to string.
+func boolToString(b bool) string {
+	if b {
+		return "up"
+	}
+	return "down"
+}
+
+// ParseCustomID parses and validates Discord custom_id format
+// Issue: P2-1 - Input validation gaps for interaction payload parsing
+// Expected format: "action:workflow_id" or "action_workflow_id"
+// Returns: action, workflowID, error
+func ParseCustomID(customID string) (string, string, error) {
+	if customID == "" {
+		return "", "", fmt.Errorf("custom_id cannot be empty")
+	}
+
+	// Check for XSS or invalid characters
+	if strings.ContainsAny(customID, "<>\"'&;") {
+		return "", "", fmt.Errorf("custom_id contains invalid characters")
+	}
+
+	// Try colon separator first (new format)
+	parts := strings.Split(customID, ":")
+	if len(parts) == 2 {
+		action := parts[0]
+		workflowID := parts[1]
+
+		// Validate action
+		if action != "approve" && action != "reject" {
+			return "", "", fmt.Errorf("invalid action: %s (must be 'approve' or 'reject')", action)
+		}
+
+		// Validate workflowID is not empty
+		if workflowID == "" {
+			return "", "", fmt.Errorf("workflow_id cannot be empty")
+		}
+
+		return action, workflowID, nil
+	}
+
+	// Try underscore separator (legacy format)
+	parts = strings.Split(customID, "_")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid custom_id format: %s (expected 'action:workflow_id' or 'action_workflow_id')", customID)
+	}
+
+	action := parts[0]
+	workflowID := parts[1]
+
+	// Validate action
+	if action != "approve" && action != "reject" {
+		return "", "", fmt.Errorf("invalid action: %s (must be 'approve' or 'reject')", action)
+	}
+
+	// Validate workflowID is not empty
+	if workflowID == "" {
+		return "", "", fmt.Errorf("workflow_id cannot be empty")
+	}
+
+	return action, workflowID, nil
 }

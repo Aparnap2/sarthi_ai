@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"iterateswarm-core/internal/grpc"
+	"iterateswarm-core/internal/agents"
 	"iterateswarm-core/internal/logging"
+	"iterateswarm-core/internal/memory"
 	"iterateswarm-core/internal/retry"
 
 	"github.com/bwmarrin/discordgo"
@@ -18,15 +19,13 @@ import (
 
 // Activities contains the workflow activities.
 type Activities struct {
-	aiClient *grpc.Client
-	logger   *logging.Logger
+	logger *logging.Logger
 }
 
 // NewActivities creates a new Activities instance.
-func NewActivities(aiClient *grpc.Client) *Activities {
+func NewActivities() *Activities {
 	return &Activities{
-		aiClient: aiClient,
-		logger:   logging.NewLogger("workflow"),
+		logger: logging.NewLogger("workflow"),
 	}
 }
 
@@ -38,19 +37,7 @@ type AnalyzeFeedbackInput struct {
 	ChannelID string
 }
 
-// AnalyzeFeedbackOutput is the output from the AnalyzeFeedback activity.
-type AnalyzeFeedbackOutput struct {
-	IsDuplicate   bool
-	Reasoning    string
-	Title        string
-	Severity     string
-	IssueType    string
-	Description  string
-	Labels       []string
-	Confidence   float64
-}
-
-// AnalyzeFeedback calls the Python AI service to analyze feedback.
+// AnalyzeFeedback analyzes feedback using Go-based AI agents (replaces Python gRPC).
 func (a *Activities) AnalyzeFeedback(ctx context.Context, input AnalyzeFeedbackInput) (*AnalyzeFeedbackOutput, error) {
 	startTime := time.Now()
 	a.logger.Info("analyzing feedback",
@@ -59,24 +46,92 @@ func (a *Activities) AnalyzeFeedback(ctx context.Context, input AnalyzeFeedbackI
 		"text_length", len(input.Text),
 	)
 
-	resp, err := a.aiClient.AnalyzeFeedback(ctx, input.Text, input.Source, input.UserID)
+	// Step 1: Check for duplicates using Qdrant
+	qdrantClient, err := memory.NewQdrantClientFromEnv()
 	if err != nil {
-		a.logger.Error("analyze feedback failed", err,
-			"source", input.Source,
-			"user_id", input.UserID,
-		)
-		return nil, err
+		a.logger.Error("failed to create qdrant client", err)
+		return nil, fmt.Errorf("failed to create qdrant client: %w", err)
 	}
 
+	if err := qdrantClient.EnsureCollection(ctx); err != nil {
+		a.logger.Error("failed to ensure qdrant collection", err)
+		return nil, fmt.Errorf("failed to ensure collection: %w", err)
+	}
+
+	isDuplicate, _, err := qdrantClient.CheckDuplicate(ctx, input.Text)
+	if err != nil {
+		a.logger.Error("duplicate check failed", err)
+		return nil, fmt.Errorf("duplicate check failed: %w", err)
+	}
+
+	if isDuplicate {
+		a.logger.Info("feedback is duplicate, skipping analysis")
+		return &AnalyzeFeedbackOutput{
+			IsDuplicate: true,
+		}, nil
+	}
+
+	// Step 2: Triage (classify and determine severity)
+	// P1-2 FIX: Add nil check and validation before using agent
+	triageAgent := agents.NewTriageAgentFromEnv()
+	if triageAgent == nil {
+		a.logger.Error("triage agent is nil", fmt.Errorf("failed to create triage agent - check AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, and AZURE_OPENAI_DEPLOYMENT environment variables"))
+		return nil, fmt.Errorf("triage agent unavailable: AI service not configured")
+	}
+
+	triageResult, err := triageAgent.Classify(ctx, input.UserID, input.Text, input.Source)
+	if err != nil {
+		a.logger.Error("triage failed", err)
+		return nil, fmt.Errorf("triage failed: %w", err)
+	}
+
+	// Step 3: Generate spec
+	// P1-2 FIX: Add nil check before using agent
+	specAgent := agents.NewSpecAgentFromEnv()
+	if specAgent == nil {
+		a.logger.Error("spec agent is nil", fmt.Errorf("failed to create spec agent - check AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, and AZURE_OPENAI_DEPLOYMENT environment variables"))
+		return nil, fmt.Errorf("spec agent unavailable: AI service not configured")
+	}
+
+	specResult, err := specAgent.GenerateSpec(
+		ctx,
+		input.UserID,
+		input.Text,
+		input.Source,
+		triageResult.Classification,
+		triageResult.Severity,
+		triageResult.Reasoning,
+		triageResult.Confidence,
+	)
+	if err != nil {
+		a.logger.Error("spec generation failed", err)
+		return nil, fmt.Errorf("spec generation failed: %w", err)
+	}
+
+	// Step 4: Index for future duplicate detection
+	metadata := map[string]interface{}{
+		"user_id":        input.UserID,
+		"classification": triageResult.Classification,
+		"severity":       triageResult.Severity,
+		"confidence":     triageResult.Confidence,
+	}
+	if err := qdrantClient.IndexFeedback(ctx, input.UserID, input.Text, metadata); err != nil {
+		a.logger.Error("failed to index feedback", err)
+		// Don't fail if indexing fails
+	}
+
+	// Build description from spec
+	description := buildDescription(specResult)
+
+	// P3-1 FIX: Include confidence from AI response (not hardcoded)
 	output := &AnalyzeFeedbackOutput{
-		IsDuplicate:  resp.IsDuplicate,
-		Reasoning:    resp.Reasoning,
-		Title:        resp.Spec.Title,
-		Severity:     grpc.GetSeverity(resp),
-		IssueType:    grpc.GetIssueType(resp),
-		Description:  resp.Spec.Description,
-		Labels:       resp.Spec.Labels,
-		Confidence:   0.85,
+		IsDuplicate: false,
+		Title:       specResult.Title,
+		Description: description,
+		Labels:      specResult.SuggestedLabels,
+		Severity:    triageResult.Severity,
+		IssueType:   triageResult.Classification,
+		Confidence:  triageResult.Confidence, // Real confidence from Azure AI
 	}
 
 	duration := time.Since(startTime)
@@ -89,15 +144,35 @@ func (a *Activities) AnalyzeFeedback(ctx context.Context, input AnalyzeFeedbackI
 	return output, nil
 }
 
-// SendDiscordApprovalInput is the input for the SendDiscordApproval activity.
-type SendDiscordApprovalInput struct {
-	ChannelID     string
-	IssueTitle    string
-	IssueBody     string
-	IssueLabels   []string
-	Severity      string
-	IssueType     string
-	WorkflowRunID string
+// buildDescription creates a GitHub issue description from the spec result.
+func buildDescription(spec *agents.SpecResult) string {
+	var parts []string
+
+	if len(spec.ReproductionSteps) > 0 {
+		parts = append(parts, "## Reproduction Steps")
+		for i, step := range spec.ReproductionSteps {
+			parts = append(parts, fmt.Sprintf("%d. %s", i+1, step))
+		}
+		parts = append(parts, "")
+	}
+
+	if len(spec.AffectedComponents) > 0 {
+		parts = append(parts, "## Affected Components")
+		for _, comp := range spec.AffectedComponents {
+			parts = append(parts, fmt.Sprintf("- %s", comp))
+		}
+		parts = append(parts, "")
+	}
+
+	if len(spec.AcceptanceCriteria) > 0 {
+		parts = append(parts, "## Acceptance Criteria")
+		for _, criteria := range spec.AcceptanceCriteria {
+			parts = append(parts, fmt.Sprintf("- [ ] %s", criteria))
+		}
+		parts = append(parts, "")
+	}
+
+	return strings.Join(parts, "\n")
 }
 
 // severityColor maps severity levels to Discord embed colors.
@@ -111,9 +186,9 @@ var severityColor = map[string]int{
 
 // issueTypeEmoji maps issue types to emojis.
 var issueTypeEmoji = map[string]string{
-	"bug":        "🐛",
-	"feature":    "✨",
-	"question":   "❓",
+	"bug":         "🐛",
+	"feature":     "✨",
+	"question":    "❓",
 	"unspecified": "📝",
 }
 
@@ -123,7 +198,7 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 	a.logger.Info("sending discord approval request",
 		"channel_id", input.ChannelID,
 		"issue_title", input.IssueTitle,
-		"workflow_run_id", input.WorkflowRunID,
+		"workflow_id", input.WorkflowID,
 	)
 
 	// Get Discord bot token from environment
@@ -180,7 +255,7 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 			},
 			{
 				Name:   "Workflow ID",
-				Value:  input.WorkflowRunID,
+				Value:  input.WorkflowID,
 				Inline: false,
 			},
 		},
@@ -190,18 +265,18 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
-	// Create approve button
+	// P1-1 FIX: Use WorkflowID in custom_id format: "action:workflow_id"
+	// This ensures correct signal routing back to the workflow
 	approveBtn := discordgo.Button{
 		Label:    "Approve",
 		Style:    discordgo.SuccessButton,
-		CustomID: fmt.Sprintf("approve_%s", input.WorkflowRunID),
+		CustomID: fmt.Sprintf("approve:%s", input.WorkflowID),
 	}
 
-	// Create reject button
 	rejectBtn := discordgo.Button{
 		Label:    "Reject",
 		Style:    discordgo.DangerButton,
-		CustomID: fmt.Sprintf("reject_%s", input.WorkflowRunID),
+		CustomID: fmt.Sprintf("reject:%s", input.WorkflowID),
 	}
 
 	// Get channel info and send message with retry
@@ -239,16 +314,6 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 	)
 
 	return nil
-}
-
-// CreateGitHubIssueInput is the input for the CreateGitHubIssue activity.
-type CreateGitHubIssueInput struct {
-	Title     string
-	Body      string
-	Labels    []string
-	RepoOwner string
-	RepoName  string
-	Assignee  string
 }
 
 // CreateGitHubIssue creates a GitHub issue when approved.
