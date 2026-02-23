@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	"iterateswarm-core/internal/db"
 	"iterateswarm-core/internal/logging"
@@ -57,15 +59,17 @@ type Handler struct {
 	redpandaClient *redpanda.Client
 	temporalClient *temporal.Client
 	repo           *db.Repository
+	redisClient    *redis.Client
 	logger         *logging.Logger
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(redpandaClient *redpanda.Client, temporalClient *temporal.Client, repo *db.Repository) *Handler {
+func NewHandler(redpandaClient *redpanda.Client, temporalClient *temporal.Client, repo *db.Repository, redisClient *redis.Client) *Handler {
 	return &Handler{
 		redpandaClient: redpandaClient,
 		temporalClient: temporalClient,
 		repo:           repo,
+		redisClient:    redisClient,
 		logger:         logging.NewLogger("api"),
 	}
 }
@@ -76,7 +80,7 @@ func (h *Handler) HandleDiscordWebhook(c *fiber.Ctx) error {
 	var req FeedbackRequest
 
 	if err := c.BodyParser(&req); err != nil {
-		h.logger.Error("failed to parse request body", err, "error", err.Error())
+		h.logger.Error("failed to parse request body", err)
 		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
 			"error": "Invalid request body",
 		})
@@ -86,6 +90,26 @@ func (h *Handler) HandleDiscordWebhook(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
 			"error": "Missing 'text' field",
 		})
+	}
+
+	// Idempotency check: Use X-Discord-Delivery header if available
+	idempotencyKey := c.Get("X-Discord-Delivery")
+	if idempotencyKey != "" && h.redisClient != nil {
+		// Check if this delivery was already processed
+		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
+		defer cancel()
+
+		setResult, err := h.redisClient.SetNX(ctx, fmt.Sprintf("idempotency:discord:%s", idempotencyKey), "1", 24*time.Hour).Result()
+		if err != nil {
+			h.logger.Warn("failed to check idempotency", "error", err.Error())
+			// Continue anyway - don't block on Redis failure
+		} else if !setResult {
+			// Already processed (key already existed)
+			h.logger.Info("duplicate webhook delivery skipped", "idempotency_key", idempotencyKey)
+			return c.Status(fiber.StatusOK).JSON(map[string]string{
+				"status": "already_processed",
+			})
+		}
 	}
 
 	// Generate feedback ID
@@ -117,6 +141,13 @@ func (h *Handler) HandleDiscordWebhook(c *fiber.Ctx) error {
 		})
 	}
 
+	// Mark as processed if idempotency key was provided
+	if idempotencyKey != "" && h.redisClient != nil {
+		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
+		defer cancel()
+		_ = h.redisClient.SetNX(ctx, fmt.Sprintf("idempotency:discord:%s", idempotencyKey), "1", 24*time.Hour).Err()
+	}
+
 	duration := time.Since(startTime)
 	h.logger.Info("feedback ingested",
 		"feedback_id", feedbackID,
@@ -132,11 +163,133 @@ func (h *Handler) HandleDiscordWebhook(c *fiber.Ctx) error {
 	})
 }
 
+// HandleSlackWebhook processes Slack webhook events.
+func (h *Handler) HandleSlackWebhook(c *fiber.Ctx) error {
+	startTime := time.Now()
+
+	// Handle Slack URL verification challenge
+	var challengeReq struct {
+		Token     string `json:"token"`
+		Challenge string `json:"challenge"`
+		Type      string `json:"type"`
+	}
+	if err := c.BodyParser(&challengeReq); err != nil {
+		h.logger.Error("failed to parse slack request", err)
+		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Respond to URL verification
+	if challengeReq.Type == "url_verification" {
+		return c.SendString(challengeReq.Challenge)
+	}
+
+	// Parse Slack event
+	var slackEvent struct {
+		Token   string `json:"token"`
+		TeamID  string `json:"team_id"`
+		APIAppID string `json:"api_app_id"`
+		Event   struct {
+			Type    string `json:"type"`
+			Text    string `json:"text"`
+			User    string `json:"user"`
+			Channel string `json:"channel"`
+			Ts      string `json:"ts"`
+		} `json:"event"`
+		Type      string `json:"type"`
+		EventID   string `json:"event_id"`
+		EventTime int64  `json:"event_time"`
+	}
+
+	if err := c.BodyParser(&slackEvent); err != nil {
+		h.logger.Error("failed to parse slack event", err)
+		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
+			"error": "Invalid slack event",
+		})
+	}
+
+	// Ignore bot messages and non-message events
+	if slackEvent.Event.Type != "message" || slackEvent.Event.Text == "" {
+		return c.Status(fiber.StatusOK).JSON(map[string]string{
+			"status": "ignored",
+		})
+	}
+
+	// Idempotency check using Slack event ID
+	if slackEvent.EventID != "" && h.redisClient != nil {
+		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
+		defer cancel()
+
+		setResult, err := h.redisClient.SetNX(ctx, fmt.Sprintf("idempotency:slack:%s", slackEvent.EventID), "1", 24*time.Hour).Result()
+		if err != nil {
+			h.logger.Warn("failed to check slack idempotency", "error", err.Error())
+		} else if !setResult {
+			h.logger.Info("duplicate slack event skipped", "event_id", slackEvent.EventID)
+			return c.Status(fiber.StatusOK).JSON(map[string]string{
+				"status": "already_processed",
+			})
+		}
+	}
+
+	// Generate feedback ID
+	feedbackID := uuid.New().String()
+
+	// Publish to Redpanda
+	event := map[string]interface{}{
+		"feedback_id": feedbackID,
+		"text":        slackEvent.Event.Text,
+		"source":      "slack",
+		"user_id":     slackEvent.Event.User,
+		"channel_id":  slackEvent.Event.Channel,
+		"team_id":     slackEvent.TeamID,
+		"timestamp":   time.Now().UTC().Format(time.RFC3339),
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		h.logger.Error("failed to marshal slack event", err, "feedback_id", feedbackID)
+		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
+			"error": "Failed to process event",
+		})
+	}
+
+	err = h.redpandaClient.Publish(data)
+	if err != nil {
+		h.logger.Error("failed to publish slack event to redpanda", err, "feedback_id", feedbackID)
+		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
+			"error": "Failed to queue event",
+		})
+	}
+
+	// Mark as processed
+	if slackEvent.EventID != "" && h.redisClient != nil {
+		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
+		defer cancel()
+		_ = h.redisClient.SetNX(ctx, fmt.Sprintf("idempotency:slack:%s", slackEvent.EventID), "1", 24*time.Hour).Err()
+	}
+
+	duration := time.Since(startTime)
+	h.logger.Info("slack feedback ingested",
+		"feedback_id", feedbackID,
+		"source", "slack",
+		"user_id", slackEvent.Event.User,
+		"channel_id", slackEvent.Event.Channel,
+		"duration_ms", duration.Milliseconds(),
+	)
+
+	return c.Status(fiber.StatusAccepted).JSON(FeedbackResponse{
+		FeedbackID: feedbackID,
+		Status:     "accepted",
+		Message:    "Feedback is being processed",
+	})
+}
+
 // HandleInteraction processes Discord interactions (button clicks).
 func (h *Handler) HandleInteraction(c *fiber.Ctx) error {
 	var req InteractionRequest
 	if err := c.BodyParser(&req); err != nil {
-		h.logger.Error("failed to parse interaction", err, "error", err.Error())
+		h.logger.Error("failed to parse interaction", err)
 		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
 			"error": "Invalid request body",
 		})
@@ -156,8 +309,8 @@ func (h *Handler) HandleInteraction(c *fiber.Ctx) error {
 		"channel_id", req.ChannelID,
 	)
 
-	// P2-1 FIX: Use validated ParseCustomID function instead of inline parsing
-	action, workflowID, err := ParseCustomID(req.Data.CustomID)
+	// P2-1 FIX: Use validated ParseCustomID function with SignalData
+	signalData, err := ParseCustomID(req.Data.CustomID)
 	if err != nil {
 		h.logger.Error("invalid custom_id format", err, "custom_id", req.Data.CustomID)
 		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
@@ -165,9 +318,11 @@ func (h *Handler) HandleInteraction(c *fiber.Ctx) error {
 		})
 	}
 
-	err = h.temporalClient.SignalWorkflow(c.Context(), workflowID, "user-action", action)
+	// P1-1 FIX: Use both WorkflowID and RunID for precise signal routing
+	// If RunID is provided, we can signal a specific run; otherwise signal by WorkflowID
+	err = h.temporalClient.SignalWorkflow(c.Context(), signalData.WorkflowID, "user-action", signalData.Action)
 	if err != nil {
-		h.logger.Error("failed to signal workflow", err, "workflow_id", workflowID, "action", action)
+		h.logger.Error("failed to signal workflow", err, "workflow_id", signalData.WorkflowID, "action", signalData.Action)
 		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
 			"error": "Failed to process action",
 		})
@@ -445,57 +600,151 @@ func boolToString(b bool) string {
 	return "down"
 }
 
-// ParseCustomID parses and validates Discord custom_id format
-// Issue: P2-1 - Input validation gaps for interaction payload parsing
-// Expected format: "action:workflow_id" or "action_workflow_id"
-// Returns: action, workflowID, error
-func ParseCustomID(customID string) (string, string, error) {
+// HandleDemoFeedback processes feedback from demo/development endpoints
+// This bypasses Discord signature verification for local testing
+func (h *Handler) HandleDemoFeedback(c *fiber.Ctx) error {
+	startTime := time.Now()
+
+	var req struct {
+		Text   string `json:"text"`
+		Source string `json:"source"`
+		UserID string `json:"user_id"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		h.logger.Error("failed to parse demo request", err)
+		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Validate required fields
+	if req.Text == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
+			"error": "Missing 'text' field",
+		})
+	}
+
+	// Set defaults
+	if req.Source == "" {
+		req.Source = "demo"
+	}
+	if req.UserID == "" {
+		req.UserID = "demo-user"
+	}
+
+	// Generate feedback ID
+	feedbackID := uuid.New().String()
+
+	// Publish to Redpanda (same flow as Discord webhook)
+	event := map[string]interface{}{
+		"feedback_id": feedbackID,
+		"text":        req.Text,
+		"source":      req.Source,
+		"user_id":     req.UserID,
+		"username":    "demo",
+		"timestamp":   time.Now().UTC().Format(time.RFC3339),
+		"demo":        true, // Flag to indicate demo origin
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		h.logger.Error("failed to marshal demo event", err, "feedback_id", feedbackID)
+		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
+			"error": "Failed to process event",
+		})
+	}
+
+	err = h.redpandaClient.Publish(data)
+	if err != nil {
+		h.logger.Error("failed to publish demo event to redpanda", err, "feedback_id", feedbackID)
+		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
+			"error": "Failed to queue event",
+		})
+	}
+
+	duration := time.Since(startTime)
+	h.logger.Info("demo feedback ingested",
+		"feedback_id", feedbackID,
+		"source", req.Source,
+		"user_id", req.UserID,
+		"duration_ms", duration.Milliseconds(),
+	)
+
+	return c.Status(fiber.StatusAccepted).JSON(FeedbackResponse{
+		FeedbackID: feedbackID,
+		Status:     "accepted",
+		Message:    "Demo feedback is being processed",
+	})
+}
+
+// SignalData holds the parsed signal information from Discord custom_id
+// Format: action:workflow_id:run_id
+// Example: approve:feedback-abc123:def456-ghi789
+// Issue: P1-1 - Workflow signaling identifier mismatch risk
+// Recommendation: Encode both workflow_id and run_id for precise signal routing
+type SignalData struct {
+	Action     string // "approve" or "reject"
+	WorkflowID string // Temporal workflow ID
+	RunID      string // Temporal workflow run ID (optional for signal routing)
+}
+
+// ParseCustomID parses and validates Discord custom_id format with strict schema
+// Format: action:workflow_id:run_id (v2) or action:workflow_id (v1)
+// Returns: SignalData, error
+func ParseCustomID(customID string) (SignalData, error) {
 	if customID == "" {
-		return "", "", fmt.Errorf("custom_id cannot be empty")
+		return SignalData{}, fmt.Errorf("custom_id cannot be empty")
 	}
 
 	// Check for XSS or invalid characters
 	if strings.ContainsAny(customID, "<>\"'&;") {
-		return "", "", fmt.Errorf("custom_id contains invalid characters")
+		return SignalData{}, fmt.Errorf("custom_id contains invalid characters")
 	}
 
-	// Try colon separator first (new format)
+	// Split by colon separator (strict schema)
 	parts := strings.Split(customID, ":")
-	if len(parts) == 2 {
-		action := parts[0]
-		workflowID := parts[1]
 
-		// Validate action
-		if action != "approve" && action != "reject" {
-			return "", "", fmt.Errorf("invalid action: %s (must be 'approve' or 'reject')", action)
-		}
-
-		// Validate workflowID is not empty
-		if workflowID == "" {
-			return "", "", fmt.Errorf("workflow_id cannot be empty")
-		}
-
-		return action, workflowID, nil
-	}
-
-	// Try underscore separator (legacy format)
-	parts = strings.Split(customID, "_")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid custom_id format: %s (expected 'action:workflow_id' or 'action_workflow_id')", customID)
+	// Must have at least 2 parts (action:workflow_id)
+	if len(parts) < 2 {
+		return SignalData{}, fmt.Errorf("invalid custom_id format: %s (expected 'action:workflow_id:run_id' or 'action:workflow_id')", customID)
 	}
 
 	action := parts[0]
 	workflowID := parts[1]
+	runID := ""
+
+	// If 3 parts, include run_id
+	if len(parts) == 3 {
+		runID = parts[2]
+	} else if len(parts) > 3 {
+		return SignalData{}, fmt.Errorf("invalid custom_id format: too many segments")
+	}
 
 	// Validate action
 	if action != "approve" && action != "reject" {
-		return "", "", fmt.Errorf("invalid action: %s (must be 'approve' or 'reject')", action)
+		return SignalData{}, fmt.Errorf("invalid action: %s (must be 'approve' or 'reject')", action)
 	}
 
 	// Validate workflowID is not empty
 	if workflowID == "" {
-		return "", "", fmt.Errorf("workflow_id cannot be empty")
+		return SignalData{}, fmt.Errorf("workflow_id cannot be empty")
 	}
 
-	return action, workflowID, nil
+	// Validate workflowID format (alphanumeric, hyphens, underscores only)
+	validIDPattern := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	if !validIDPattern.MatchString(workflowID) {
+		return SignalData{}, fmt.Errorf("workflow_id contains invalid characters")
+	}
+
+	// Validate run_id format if present
+	if runID != "" && !validIDPattern.MatchString(runID) {
+		return SignalData{}, fmt.Errorf("run_id contains invalid characters")
+	}
+
+	return SignalData{
+		Action:     action,
+		WorkflowID: workflowID,
+		RunID:      runID,
+	}, nil
 }

@@ -15,6 +15,11 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/go-github/v50/github"
 	"golang.org/x/oauth2"
+	
+	// gRPC imports for Python agent communication
+	aiv1 "github.com/Aparnap2/iterate_swarm/gen/go/ai/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Activities contains the workflow activities.
@@ -258,6 +263,11 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 				Value:  input.WorkflowID,
 				Inline: false,
 			},
+			{
+				Name:   "Run ID",
+				Value:  input.RunID,
+				Inline: false,
+			},
 		},
 		Footer: &discordgo.MessageEmbedFooter{
 			Text: "IterateSwarm AI ChatOps",
@@ -265,18 +275,20 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
-	// P1-1 FIX: Use WorkflowID in custom_id format: "action:workflow_id"
-	// This ensures correct signal routing back to the workflow
+	// P1-1 FIX: Use WorkflowID:RunID in custom_id format: "action:workflow_id:run_id"
+	// This ensures precise signal routing back to the specific workflow run
+	customIDFormat := fmt.Sprintf("%s:%s", input.WorkflowID, input.RunID)
+
 	approveBtn := discordgo.Button{
 		Label:    "Approve",
 		Style:    discordgo.SuccessButton,
-		CustomID: fmt.Sprintf("approve:%s", input.WorkflowID),
+		CustomID: fmt.Sprintf("approve:%s", customIDFormat),
 	}
 
 	rejectBtn := discordgo.Button{
 		Label:    "Reject",
 		Style:    discordgo.DangerButton,
-		CustomID: fmt.Sprintf("reject:%s", input.WorkflowID),
+		CustomID: fmt.Sprintf("reject:%s", customIDFormat),
 	}
 
 	// Get channel info and send message with retry
@@ -317,6 +329,7 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 }
 
 // CreateGitHubIssue creates a GitHub issue when approved.
+// Supports test mode via TEST_GITHUB_REPO environment variable for E2E testing.
 func (a *Activities) CreateGitHubIssue(ctx context.Context, input CreateGitHubIssueInput) (string, error) {
 	startTime := time.Now()
 	a.logger.Info("creating github issue",
@@ -349,9 +362,17 @@ func (a *Activities) CreateGitHubIssue(ctx context.Context, input CreateGitHubIs
 	}
 
 	// Get repository name from environment if not provided
+	// P4 FIX: Support TEST_GITHUB_REPO for E2E testing isolation
 	repo := input.RepoName
 	if repo == "" {
-		repo = os.Getenv("GITHUB_REPO")
+		// Check if we're in test mode
+		testRepo := os.Getenv("TEST_GITHUB_REPO")
+		if testRepo != "" && os.Getenv("TEST_MODE") == "true" {
+			repo = testRepo
+			a.logger.Info("using test repository for E2E testing", "repo", repo)
+		} else {
+			repo = os.Getenv("GITHUB_REPO")
+		}
 	}
 	if repo == "" {
 		return "", fmt.Errorf("GITHUB_REPO not set and RepoName not provided")
@@ -406,4 +427,140 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// StartSwarmInput is the input for the StartSwarm activity.
+type StartSwarmInput struct {
+	TaskID       string
+	FeedbackText string
+	Source       string
+	UserID       string
+	Config       SwarmConfig
+}
+
+// SwarmConfig controls which agents are enabled.
+type SwarmConfig struct {
+	EnableResearcher bool
+	EnableSRE        bool
+	EnableSWE        bool
+	EnableReviewer   bool
+}
+
+// StartSwarmOutput contains the results from the multi-agent swarm.
+type StartSwarmOutput struct {
+	TaskID       string
+	Status       string
+	Results      []AgentResult
+	PRURL        string
+	ErrorMessage string
+}
+
+// AgentResult contains output from a single agent.
+type AgentResult struct {
+	AgentName    string
+	Success      bool
+	Output       string
+	Confidence   float64
+	ErrorMessage string
+}
+
+// StartSwarm calls the Python gRPC server to execute the multi-agent swarm.
+func (a *Activities) StartSwarm(ctx context.Context, input StartSwarmInput) (*StartSwarmOutput, error) {
+	startTime := time.Now()
+	a.logger.Info("starting multi-agent swarm",
+		"task_id", input.TaskID,
+		"user_id", input.UserID,
+		"source", input.Source,
+	)
+
+	// Get gRPC server address from environment
+	grpcAddr := os.Getenv("AI_GRPC_ADDRESS")
+	if grpcAddr == "" {
+		grpcAddr = "localhost:50051" // Default address
+	}
+
+	// Create gRPC connection with timeout
+	connCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	conn, err := grpc.DialContext(connCtx, grpcAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		a.logger.Error("failed to connect to AI gRPC server", err, "address", grpcAddr)
+		return nil, fmt.Errorf("failed to connect to AI service: %w", err)
+	}
+	defer conn.Close()
+
+	// Create gRPC client
+	client := aiv1.NewAgentServiceClient(conn)
+
+	// Build gRPC request
+	req := &aiv1.StartSwarmRequest{
+		TaskId:       input.TaskID,
+		FeedbackText: input.FeedbackText,
+		Source:       input.Source,
+		UserId:       input.UserID,
+		Config: &aiv1.SwarmConfig{
+			EnableResearcher: input.Config.EnableResearcher,
+			EnableSre:        input.Config.EnableSRE,
+			EnableSwe:        input.Config.EnableSWE,
+			EnableReviewer:   input.Config.EnableReviewer,
+		},
+	}
+
+	// Call gRPC with timeout
+	callCtx, callCancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer callCancel()
+
+	resp, err := client.StartSwarm(callCtx, req)
+	if err != nil {
+		a.logger.Error("StartSwarm gRPC call failed", err, "task_id", input.TaskID)
+		return nil, fmt.Errorf("swarm execution failed: %w", err)
+	}
+
+	// Map gRPC response to Go struct
+	results := make([]AgentResult, len(resp.Results))
+	for i, r := range resp.Results {
+		results[i] = AgentResult{
+			AgentName:    r.AgentName,
+			Success:      r.Success,
+			Output:       r.Output,
+			Confidence:   float64(r.Confidence),
+			ErrorMessage: r.ErrorMessage,
+		}
+	}
+
+	// Map status
+	status := "unknown"
+	switch resp.Status {
+	case aiv1.SwarmStatus_SWARM_STATUS_COMPLETED:
+		status = "completed"
+	case aiv1.SwarmStatus_SWARM_STATUS_FAILED:
+		status = "failed"
+	case aiv1.SwarmStatus_SWARM_STATUS_INTERRUPTED:
+		status = "interrupted"
+	case aiv1.SwarmStatus_SWARM_STATUS_PENDING:
+		status = "pending"
+	case aiv1.SwarmStatus_SWARM_STATUS_RUNNING:
+		status = "running"
+	}
+
+	output := &StartSwarmOutput{
+		TaskID:       resp.TaskId,
+		Status:       status,
+		Results:      results,
+		PRURL:        resp.PrUrl,
+		ErrorMessage: resp.ErrorMessage,
+	}
+
+	duration := time.Since(startTime)
+	a.logger.LogActivity(ctx, "StartSwarm", duration, output.Status == "completed",
+		"task_id", output.TaskID,
+		"status", output.Status,
+		"pr_url", output.PRURL,
+	)
+
+	return output, nil
 }
