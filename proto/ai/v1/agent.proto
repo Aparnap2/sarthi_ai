@@ -7,6 +7,7 @@ option go_package = "github.com/Aparnap2/iterate_swarm/gen/go/ai/v1;aiv1";
 // Agent service handles AI-powered analysis
 service AgentService {
   rpc AnalyzeFeedback(AnalyzeFeedbackRequest) returns (AnalyzeFeedbackResponse);
+  rpc StartSwarm(StartSwarmRequest) returns (StartSwarmResponse);
 }
 
 message AnalyzeFeedbackRequest {
@@ -19,6 +20,51 @@ message AnalyzeFeedbackResponse {
   IssueSpec spec = 1;
   bool is_duplicate = 2;
   string reasoning = 3;  // Why the AI made this decision
+}
+
+// StartSwarmRequest initiates the multi-agent swarm for end-to-end feedback processing
+message StartSwarmRequest {
+  string task_id = 1;
+  string feedback_text = 2;
+  string source = 3;
+  string user_id = 4;
+  SwarmConfig config = 5;
+}
+
+// SwarmConfig controls which agents are enabled for the swarm
+message SwarmConfig {
+  bool enable_researcher = 1;
+  bool enable_sre = 2;
+  bool enable_swe = 3;
+  bool enable_reviewer = 4;
+}
+
+// StartSwarmResponse contains the results from the multi-agent swarm execution
+message StartSwarmResponse {
+  string task_id = 1;
+  SwarmStatus status = 2;
+  repeated AgentResult results = 3;
+  string pr_url = 4;  // If SWE agent created PR
+  string error_message = 5;  // If status is FAILED
+}
+
+// SwarmStatus represents the overall execution status
+enum SwarmStatus {
+  SWARM_STATUS_UNSPECIFIED = 0;
+  SWARM_STATUS_PENDING = 1;
+  SWARM_STATUS_RUNNING = 2;
+  SWARM_STATUS_COMPLETED = 3;
+  SWARM_STATUS_FAILED = 4;
+  SWARM_STATUS_INTERRUPTED = 5;  // HITL interrupt
+}
+
+// AgentResult contains the output from a single agent
+message AgentResult {
+  string agent_name = 1;
+  bool success = 2;
+  string output = 3;
+  float confidence = 4;
+  string error_message = 5;  // If success is false
 }
 
 message IssueSpec {

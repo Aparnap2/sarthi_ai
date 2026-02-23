@@ -21,6 +21,65 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// SwarmStatus represents the overall execution status
+type SwarmStatus int32
+
+const (
+	SwarmStatus_SWARM_STATUS_UNSPECIFIED SwarmStatus = 0
+	SwarmStatus_SWARM_STATUS_PENDING     SwarmStatus = 1
+	SwarmStatus_SWARM_STATUS_RUNNING     SwarmStatus = 2
+	SwarmStatus_SWARM_STATUS_COMPLETED   SwarmStatus = 3
+	SwarmStatus_SWARM_STATUS_FAILED      SwarmStatus = 4
+	SwarmStatus_SWARM_STATUS_INTERRUPTED SwarmStatus = 5 // HITL interrupt
+)
+
+// Enum value maps for SwarmStatus.
+var (
+	SwarmStatus_name = map[int32]string{
+		0: "SWARM_STATUS_UNSPECIFIED",
+		1: "SWARM_STATUS_PENDING",
+		2: "SWARM_STATUS_RUNNING",
+		3: "SWARM_STATUS_COMPLETED",
+		4: "SWARM_STATUS_FAILED",
+		5: "SWARM_STATUS_INTERRUPTED",
+	}
+	SwarmStatus_value = map[string]int32{
+		"SWARM_STATUS_UNSPECIFIED": 0,
+		"SWARM_STATUS_PENDING":     1,
+		"SWARM_STATUS_RUNNING":     2,
+		"SWARM_STATUS_COMPLETED":   3,
+		"SWARM_STATUS_FAILED":      4,
+		"SWARM_STATUS_INTERRUPTED": 5,
+	}
+)
+
+func (x SwarmStatus) Enum() *SwarmStatus {
+	p := new(SwarmStatus)
+	*p = x
+	return p
+}
+
+func (x SwarmStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SwarmStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_ai_v1_agent_proto_enumTypes[0].Descriptor()
+}
+
+func (SwarmStatus) Type() protoreflect.EnumType {
+	return &file_ai_v1_agent_proto_enumTypes[0]
+}
+
+func (x SwarmStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SwarmStatus.Descriptor instead.
+func (SwarmStatus) EnumDescriptor() ([]byte, []int) {
+	return file_ai_v1_agent_proto_rawDescGZIP(), []int{0}
+}
+
 type Severity int32
 
 const (
@@ -60,11 +119,11 @@ func (x Severity) String() string {
 }
 
 func (Severity) Descriptor() protoreflect.EnumDescriptor {
-	return file_ai_v1_agent_proto_enumTypes[0].Descriptor()
+	return file_ai_v1_agent_proto_enumTypes[1].Descriptor()
 }
 
 func (Severity) Type() protoreflect.EnumType {
-	return &file_ai_v1_agent_proto_enumTypes[0]
+	return &file_ai_v1_agent_proto_enumTypes[1]
 }
 
 func (x Severity) Number() protoreflect.EnumNumber {
@@ -73,7 +132,7 @@ func (x Severity) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Severity.Descriptor instead.
 func (Severity) EnumDescriptor() ([]byte, []int) {
-	return file_ai_v1_agent_proto_rawDescGZIP(), []int{0}
+	return file_ai_v1_agent_proto_rawDescGZIP(), []int{1}
 }
 
 type IssueType int32
@@ -112,11 +171,11 @@ func (x IssueType) String() string {
 }
 
 func (IssueType) Descriptor() protoreflect.EnumDescriptor {
-	return file_ai_v1_agent_proto_enumTypes[1].Descriptor()
+	return file_ai_v1_agent_proto_enumTypes[2].Descriptor()
 }
 
 func (IssueType) Type() protoreflect.EnumType {
-	return &file_ai_v1_agent_proto_enumTypes[1]
+	return &file_ai_v1_agent_proto_enumTypes[2]
 }
 
 func (x IssueType) Number() protoreflect.EnumNumber {
@@ -125,7 +184,7 @@ func (x IssueType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use IssueType.Descriptor instead.
 func (IssueType) EnumDescriptor() ([]byte, []int) {
-	return file_ai_v1_agent_proto_rawDescGZIP(), []int{1}
+	return file_ai_v1_agent_proto_rawDescGZIP(), []int{2}
 }
 
 type AnalyzeFeedbackRequest struct {
@@ -248,6 +307,306 @@ func (x *AnalyzeFeedbackResponse) GetReasoning() string {
 	return ""
 }
 
+// StartSwarmRequest initiates the multi-agent swarm for end-to-end feedback processing
+type StartSwarmRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	FeedbackText  string                 `protobuf:"bytes,2,opt,name=feedback_text,json=feedbackText,proto3" json:"feedback_text,omitempty"`
+	Source        string                 `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	UserId        string                 `protobuf:"bytes,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Config        *SwarmConfig           `protobuf:"bytes,5,opt,name=config,proto3" json:"config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartSwarmRequest) Reset() {
+	*x = StartSwarmRequest{}
+	mi := &file_ai_v1_agent_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartSwarmRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartSwarmRequest) ProtoMessage() {}
+
+func (x *StartSwarmRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_ai_v1_agent_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartSwarmRequest.ProtoReflect.Descriptor instead.
+func (*StartSwarmRequest) Descriptor() ([]byte, []int) {
+	return file_ai_v1_agent_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *StartSwarmRequest) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *StartSwarmRequest) GetFeedbackText() string {
+	if x != nil {
+		return x.FeedbackText
+	}
+	return ""
+}
+
+func (x *StartSwarmRequest) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *StartSwarmRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *StartSwarmRequest) GetConfig() *SwarmConfig {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+// SwarmConfig controls which agents are enabled for the swarm
+type SwarmConfig struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	EnableResearcher bool                   `protobuf:"varint,1,opt,name=enable_researcher,json=enableResearcher,proto3" json:"enable_researcher,omitempty"`
+	EnableSre        bool                   `protobuf:"varint,2,opt,name=enable_sre,json=enableSre,proto3" json:"enable_sre,omitempty"`
+	EnableSwe        bool                   `protobuf:"varint,3,opt,name=enable_swe,json=enableSwe,proto3" json:"enable_swe,omitempty"`
+	EnableReviewer   bool                   `protobuf:"varint,4,opt,name=enable_reviewer,json=enableReviewer,proto3" json:"enable_reviewer,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SwarmConfig) Reset() {
+	*x = SwarmConfig{}
+	mi := &file_ai_v1_agent_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SwarmConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SwarmConfig) ProtoMessage() {}
+
+func (x *SwarmConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_ai_v1_agent_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SwarmConfig.ProtoReflect.Descriptor instead.
+func (*SwarmConfig) Descriptor() ([]byte, []int) {
+	return file_ai_v1_agent_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *SwarmConfig) GetEnableResearcher() bool {
+	if x != nil {
+		return x.EnableResearcher
+	}
+	return false
+}
+
+func (x *SwarmConfig) GetEnableSre() bool {
+	if x != nil {
+		return x.EnableSre
+	}
+	return false
+}
+
+func (x *SwarmConfig) GetEnableSwe() bool {
+	if x != nil {
+		return x.EnableSwe
+	}
+	return false
+}
+
+func (x *SwarmConfig) GetEnableReviewer() bool {
+	if x != nil {
+		return x.EnableReviewer
+	}
+	return false
+}
+
+// StartSwarmResponse contains the results from the multi-agent swarm execution
+type StartSwarmResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Status        SwarmStatus            `protobuf:"varint,2,opt,name=status,proto3,enum=ai.v1.SwarmStatus" json:"status,omitempty"`
+	Results       []*AgentResult         `protobuf:"bytes,3,rep,name=results,proto3" json:"results,omitempty"`
+	PrUrl         string                 `protobuf:"bytes,4,opt,name=pr_url,json=prUrl,proto3" json:"pr_url,omitempty"`                      // If SWE agent created PR
+	ErrorMessage  string                 `protobuf:"bytes,5,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"` // If status is FAILED
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartSwarmResponse) Reset() {
+	*x = StartSwarmResponse{}
+	mi := &file_ai_v1_agent_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartSwarmResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartSwarmResponse) ProtoMessage() {}
+
+func (x *StartSwarmResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_ai_v1_agent_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartSwarmResponse.ProtoReflect.Descriptor instead.
+func (*StartSwarmResponse) Descriptor() ([]byte, []int) {
+	return file_ai_v1_agent_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *StartSwarmResponse) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *StartSwarmResponse) GetStatus() SwarmStatus {
+	if x != nil {
+		return x.Status
+	}
+	return SwarmStatus_SWARM_STATUS_UNSPECIFIED
+}
+
+func (x *StartSwarmResponse) GetResults() []*AgentResult {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+func (x *StartSwarmResponse) GetPrUrl() string {
+	if x != nil {
+		return x.PrUrl
+	}
+	return ""
+}
+
+func (x *StartSwarmResponse) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+// AgentResult contains the output from a single agent
+type AgentResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentName     string                 `protobuf:"bytes,1,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	Success       bool                   `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	Output        string                 `protobuf:"bytes,3,opt,name=output,proto3" json:"output,omitempty"`
+	Confidence    float32                `protobuf:"fixed32,4,opt,name=confidence,proto3" json:"confidence,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,5,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"` // If success is false
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AgentResult) Reset() {
+	*x = AgentResult{}
+	mi := &file_ai_v1_agent_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentResult) ProtoMessage() {}
+
+func (x *AgentResult) ProtoReflect() protoreflect.Message {
+	mi := &file_ai_v1_agent_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentResult.ProtoReflect.Descriptor instead.
+func (*AgentResult) Descriptor() ([]byte, []int) {
+	return file_ai_v1_agent_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *AgentResult) GetAgentName() string {
+	if x != nil {
+		return x.AgentName
+	}
+	return ""
+}
+
+func (x *AgentResult) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *AgentResult) GetOutput() string {
+	if x != nil {
+		return x.Output
+	}
+	return ""
+}
+
+func (x *AgentResult) GetConfidence() float32 {
+	if x != nil {
+		return x.Confidence
+	}
+	return 0
+}
+
+func (x *AgentResult) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
 type IssueSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Title         string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
@@ -261,7 +620,7 @@ type IssueSpec struct {
 
 func (x *IssueSpec) Reset() {
 	*x = IssueSpec{}
-	mi := &file_ai_v1_agent_proto_msgTypes[2]
+	mi := &file_ai_v1_agent_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -273,7 +632,7 @@ func (x *IssueSpec) String() string {
 func (*IssueSpec) ProtoMessage() {}
 
 func (x *IssueSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_v1_agent_proto_msgTypes[2]
+	mi := &file_ai_v1_agent_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -286,7 +645,7 @@ func (x *IssueSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IssueSpec.ProtoReflect.Descriptor instead.
 func (*IssueSpec) Descriptor() ([]byte, []int) {
-	return file_ai_v1_agent_proto_rawDescGZIP(), []int{2}
+	return file_ai_v1_agent_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *IssueSpec) GetTitle() string {
@@ -337,12 +696,47 @@ const file_ai_v1_agent_proto_rawDesc = "" +
 	"\x04spec\x18\x01 \x01(\v2\x10.ai.v1.IssueSpecR\x04spec\x12!\n" +
 	"\fis_duplicate\x18\x02 \x01(\bR\visDuplicate\x12\x1c\n" +
 	"\treasoning\x18\x03 \x01(\tR\treasoning\"\xae\x01\n" +
+	"\x11StartSwarmRequest\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12#\n" +
+	"\rfeedback_text\x18\x02 \x01(\tR\ffeedbackText\x12\x16\n" +
+	"\x06source\x18\x03 \x01(\tR\x06source\x12\x17\n" +
+	"\auser_id\x18\x04 \x01(\tR\x06userId\x12*\n" +
+	"\x06config\x18\x05 \x01(\v2\x12.ai.v1.SwarmConfigR\x06config\"\xa1\x01\n" +
+	"\vSwarmConfig\x12+\n" +
+	"\x11enable_researcher\x18\x01 \x01(\bR\x10enableResearcher\x12\x1d\n" +
+	"\n" +
+	"enable_sre\x18\x02 \x01(\bR\tenableSre\x12\x1d\n" +
+	"\n" +
+	"enable_swe\x18\x03 \x01(\bR\tenableSwe\x12'\n" +
+	"\x0fenable_reviewer\x18\x04 \x01(\bR\x0eenableReviewer\"\xc3\x01\n" +
+	"\x12StartSwarmResponse\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12*\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x12.ai.v1.SwarmStatusR\x06status\x12,\n" +
+	"\aresults\x18\x03 \x03(\v2\x12.ai.v1.AgentResultR\aresults\x12\x15\n" +
+	"\x06pr_url\x18\x04 \x01(\tR\x05prUrl\x12#\n" +
+	"\rerror_message\x18\x05 \x01(\tR\ferrorMessage\"\xa3\x01\n" +
+	"\vAgentResult\x12\x1d\n" +
+	"\n" +
+	"agent_name\x18\x01 \x01(\tR\tagentName\x12\x18\n" +
+	"\asuccess\x18\x02 \x01(\bR\asuccess\x12\x16\n" +
+	"\x06output\x18\x03 \x01(\tR\x06output\x12\x1e\n" +
+	"\n" +
+	"confidence\x18\x04 \x01(\x02R\n" +
+	"confidence\x12#\n" +
+	"\rerror_message\x18\x05 \x01(\tR\ferrorMessage\"\xae\x01\n" +
 	"\tIssueSpec\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12+\n" +
 	"\bseverity\x18\x02 \x01(\x0e2\x0f.ai.v1.SeverityR\bseverity\x12$\n" +
 	"\x04type\x18\x03 \x01(\x0e2\x10.ai.v1.IssueTypeR\x04type\x12 \n" +
 	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x16\n" +
-	"\x06labels\x18\x05 \x03(\tR\x06labels*u\n" +
+	"\x06labels\x18\x05 \x03(\tR\x06labels*\xb2\x01\n" +
+	"\vSwarmStatus\x12\x1c\n" +
+	"\x18SWARM_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14SWARM_STATUS_PENDING\x10\x01\x12\x18\n" +
+	"\x14SWARM_STATUS_RUNNING\x10\x02\x12\x1a\n" +
+	"\x16SWARM_STATUS_COMPLETED\x10\x03\x12\x17\n" +
+	"\x13SWARM_STATUS_FAILED\x10\x04\x12\x1c\n" +
+	"\x18SWARM_STATUS_INTERRUPTED\x10\x05*u\n" +
 	"\bSeverity\x12\x18\n" +
 	"\x14SEVERITY_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fSEVERITY_LOW\x10\x01\x12\x13\n" +
@@ -353,9 +747,11 @@ const file_ai_v1_agent_proto_rawDesc = "" +
 	"\x16ISSUE_TYPE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eISSUE_TYPE_BUG\x10\x01\x12\x16\n" +
 	"\x12ISSUE_TYPE_FEATURE\x10\x02\x12\x17\n" +
-	"\x13ISSUE_TYPE_QUESTION\x10\x032`\n" +
+	"\x13ISSUE_TYPE_QUESTION\x10\x032\xa3\x01\n" +
 	"\fAgentService\x12P\n" +
-	"\x0fAnalyzeFeedback\x12\x1d.ai.v1.AnalyzeFeedbackRequest\x1a\x1e.ai.v1.AnalyzeFeedbackResponseB\x81\x01\n" +
+	"\x0fAnalyzeFeedback\x12\x1d.ai.v1.AnalyzeFeedbackRequest\x1a\x1e.ai.v1.AnalyzeFeedbackResponse\x12A\n" +
+	"\n" +
+	"StartSwarm\x12\x18.ai.v1.StartSwarmRequest\x1a\x19.ai.v1.StartSwarmResponseB\x81\x01\n" +
 	"\tcom.ai.v1B\n" +
 	"AgentProtoP\x01Z3github.com/Aparnap2/iterate_swarm/gen/go/ai/v1;aiv1\xa2\x02\x03AXX\xaa\x02\x05Ai.V1\xca\x02\x05Ai\\V1\xe2\x02\x11Ai\\V1\\GPBMetadata\xea\x02\x06Ai::V1b\x06proto3"
 
@@ -371,26 +767,36 @@ func file_ai_v1_agent_proto_rawDescGZIP() []byte {
 	return file_ai_v1_agent_proto_rawDescData
 }
 
-var file_ai_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_ai_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_ai_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_ai_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_ai_v1_agent_proto_goTypes = []any{
-	(Severity)(0),                   // 0: ai.v1.Severity
-	(IssueType)(0),                  // 1: ai.v1.IssueType
-	(*AnalyzeFeedbackRequest)(nil),  // 2: ai.v1.AnalyzeFeedbackRequest
-	(*AnalyzeFeedbackResponse)(nil), // 3: ai.v1.AnalyzeFeedbackResponse
-	(*IssueSpec)(nil),               // 4: ai.v1.IssueSpec
+	(SwarmStatus)(0),                // 0: ai.v1.SwarmStatus
+	(Severity)(0),                   // 1: ai.v1.Severity
+	(IssueType)(0),                  // 2: ai.v1.IssueType
+	(*AnalyzeFeedbackRequest)(nil),  // 3: ai.v1.AnalyzeFeedbackRequest
+	(*AnalyzeFeedbackResponse)(nil), // 4: ai.v1.AnalyzeFeedbackResponse
+	(*StartSwarmRequest)(nil),       // 5: ai.v1.StartSwarmRequest
+	(*SwarmConfig)(nil),             // 6: ai.v1.SwarmConfig
+	(*StartSwarmResponse)(nil),      // 7: ai.v1.StartSwarmResponse
+	(*AgentResult)(nil),             // 8: ai.v1.AgentResult
+	(*IssueSpec)(nil),               // 9: ai.v1.IssueSpec
 }
 var file_ai_v1_agent_proto_depIdxs = []int32{
-	4, // 0: ai.v1.AnalyzeFeedbackResponse.spec:type_name -> ai.v1.IssueSpec
-	0, // 1: ai.v1.IssueSpec.severity:type_name -> ai.v1.Severity
-	1, // 2: ai.v1.IssueSpec.type:type_name -> ai.v1.IssueType
-	2, // 3: ai.v1.AgentService.AnalyzeFeedback:input_type -> ai.v1.AnalyzeFeedbackRequest
-	3, // 4: ai.v1.AgentService.AnalyzeFeedback:output_type -> ai.v1.AnalyzeFeedbackResponse
-	4, // [4:5] is the sub-list for method output_type
-	3, // [3:4] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	9, // 0: ai.v1.AnalyzeFeedbackResponse.spec:type_name -> ai.v1.IssueSpec
+	6, // 1: ai.v1.StartSwarmRequest.config:type_name -> ai.v1.SwarmConfig
+	0, // 2: ai.v1.StartSwarmResponse.status:type_name -> ai.v1.SwarmStatus
+	8, // 3: ai.v1.StartSwarmResponse.results:type_name -> ai.v1.AgentResult
+	1, // 4: ai.v1.IssueSpec.severity:type_name -> ai.v1.Severity
+	2, // 5: ai.v1.IssueSpec.type:type_name -> ai.v1.IssueType
+	3, // 6: ai.v1.AgentService.AnalyzeFeedback:input_type -> ai.v1.AnalyzeFeedbackRequest
+	5, // 7: ai.v1.AgentService.StartSwarm:input_type -> ai.v1.StartSwarmRequest
+	4, // 8: ai.v1.AgentService.AnalyzeFeedback:output_type -> ai.v1.AnalyzeFeedbackResponse
+	7, // 9: ai.v1.AgentService.StartSwarm:output_type -> ai.v1.StartSwarmResponse
+	8, // [8:10] is the sub-list for method output_type
+	6, // [6:8] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_ai_v1_agent_proto_init() }
@@ -403,8 +809,8 @@ func file_ai_v1_agent_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_ai_v1_agent_proto_rawDesc), len(file_ai_v1_agent_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   3,
+			NumEnums:      3,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

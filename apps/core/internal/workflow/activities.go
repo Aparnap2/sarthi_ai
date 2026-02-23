@@ -7,26 +7,30 @@ import (
 	"strings"
 	"time"
 
-	"iterateswarm-core/internal/grpc"
+	"iterateswarm-core/internal/agents"
 	"iterateswarm-core/internal/logging"
+	"iterateswarm-core/internal/memory"
 	"iterateswarm-core/internal/retry"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/go-github/v50/github"
 	"golang.org/x/oauth2"
+	
+	// gRPC imports for Python agent communication
+	aiv1 "github.com/Aparnap2/iterate_swarm/gen/go/ai/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Activities contains the workflow activities.
 type Activities struct {
-	aiClient *grpc.Client
-	logger   *logging.Logger
+	logger *logging.Logger
 }
 
 // NewActivities creates a new Activities instance.
-func NewActivities(aiClient *grpc.Client) *Activities {
+func NewActivities() *Activities {
 	return &Activities{
-		aiClient: aiClient,
-		logger:   logging.NewLogger("workflow"),
+		logger: logging.NewLogger("workflow"),
 	}
 }
 
@@ -38,19 +42,7 @@ type AnalyzeFeedbackInput struct {
 	ChannelID string
 }
 
-// AnalyzeFeedbackOutput is the output from the AnalyzeFeedback activity.
-type AnalyzeFeedbackOutput struct {
-	IsDuplicate   bool
-	Reasoning    string
-	Title        string
-	Severity     string
-	IssueType    string
-	Description  string
-	Labels       []string
-	Confidence   float64
-}
-
-// AnalyzeFeedback calls the Python AI service to analyze feedback.
+// AnalyzeFeedback analyzes feedback using Go-based AI agents (replaces Python gRPC).
 func (a *Activities) AnalyzeFeedback(ctx context.Context, input AnalyzeFeedbackInput) (*AnalyzeFeedbackOutput, error) {
 	startTime := time.Now()
 	a.logger.Info("analyzing feedback",
@@ -59,24 +51,92 @@ func (a *Activities) AnalyzeFeedback(ctx context.Context, input AnalyzeFeedbackI
 		"text_length", len(input.Text),
 	)
 
-	resp, err := a.aiClient.AnalyzeFeedback(ctx, input.Text, input.Source, input.UserID)
+	// Step 1: Check for duplicates using Qdrant
+	qdrantClient, err := memory.NewQdrantClientFromEnv()
 	if err != nil {
-		a.logger.Error("analyze feedback failed", err,
-			"source", input.Source,
-			"user_id", input.UserID,
-		)
-		return nil, err
+		a.logger.Error("failed to create qdrant client", err)
+		return nil, fmt.Errorf("failed to create qdrant client: %w", err)
 	}
 
+	if err := qdrantClient.EnsureCollection(ctx); err != nil {
+		a.logger.Error("failed to ensure qdrant collection", err)
+		return nil, fmt.Errorf("failed to ensure collection: %w", err)
+	}
+
+	isDuplicate, _, err := qdrantClient.CheckDuplicate(ctx, input.Text)
+	if err != nil {
+		a.logger.Error("duplicate check failed", err)
+		return nil, fmt.Errorf("duplicate check failed: %w", err)
+	}
+
+	if isDuplicate {
+		a.logger.Info("feedback is duplicate, skipping analysis")
+		return &AnalyzeFeedbackOutput{
+			IsDuplicate: true,
+		}, nil
+	}
+
+	// Step 2: Triage (classify and determine severity)
+	// P1-2 FIX: Add nil check and validation before using agent
+	triageAgent := agents.NewTriageAgentFromEnv()
+	if triageAgent == nil {
+		a.logger.Error("triage agent is nil", fmt.Errorf("failed to create triage agent - check AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, and AZURE_OPENAI_DEPLOYMENT environment variables"))
+		return nil, fmt.Errorf("triage agent unavailable: AI service not configured")
+	}
+
+	triageResult, err := triageAgent.Classify(ctx, input.UserID, input.Text, input.Source)
+	if err != nil {
+		a.logger.Error("triage failed", err)
+		return nil, fmt.Errorf("triage failed: %w", err)
+	}
+
+	// Step 3: Generate spec
+	// P1-2 FIX: Add nil check before using agent
+	specAgent := agents.NewSpecAgentFromEnv()
+	if specAgent == nil {
+		a.logger.Error("spec agent is nil", fmt.Errorf("failed to create spec agent - check AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, and AZURE_OPENAI_DEPLOYMENT environment variables"))
+		return nil, fmt.Errorf("spec agent unavailable: AI service not configured")
+	}
+
+	specResult, err := specAgent.GenerateSpec(
+		ctx,
+		input.UserID,
+		input.Text,
+		input.Source,
+		triageResult.Classification,
+		triageResult.Severity,
+		triageResult.Reasoning,
+		triageResult.Confidence,
+	)
+	if err != nil {
+		a.logger.Error("spec generation failed", err)
+		return nil, fmt.Errorf("spec generation failed: %w", err)
+	}
+
+	// Step 4: Index for future duplicate detection
+	metadata := map[string]interface{}{
+		"user_id":        input.UserID,
+		"classification": triageResult.Classification,
+		"severity":       triageResult.Severity,
+		"confidence":     triageResult.Confidence,
+	}
+	if err := qdrantClient.IndexFeedback(ctx, input.UserID, input.Text, metadata); err != nil {
+		a.logger.Error("failed to index feedback", err)
+		// Don't fail if indexing fails
+	}
+
+	// Build description from spec
+	description := buildDescription(specResult)
+
+	// P3-1 FIX: Include confidence from AI response (not hardcoded)
 	output := &AnalyzeFeedbackOutput{
-		IsDuplicate:  resp.IsDuplicate,
-		Reasoning:    resp.Reasoning,
-		Title:        resp.Spec.Title,
-		Severity:     grpc.GetSeverity(resp),
-		IssueType:    grpc.GetIssueType(resp),
-		Description:  resp.Spec.Description,
-		Labels:       resp.Spec.Labels,
-		Confidence:   0.85,
+		IsDuplicate: false,
+		Title:       specResult.Title,
+		Description: description,
+		Labels:      specResult.SuggestedLabels,
+		Severity:    triageResult.Severity,
+		IssueType:   triageResult.Classification,
+		Confidence:  triageResult.Confidence, // Real confidence from Azure AI
 	}
 
 	duration := time.Since(startTime)
@@ -89,15 +149,35 @@ func (a *Activities) AnalyzeFeedback(ctx context.Context, input AnalyzeFeedbackI
 	return output, nil
 }
 
-// SendDiscordApprovalInput is the input for the SendDiscordApproval activity.
-type SendDiscordApprovalInput struct {
-	ChannelID     string
-	IssueTitle    string
-	IssueBody     string
-	IssueLabels   []string
-	Severity      string
-	IssueType     string
-	WorkflowRunID string
+// buildDescription creates a GitHub issue description from the spec result.
+func buildDescription(spec *agents.SpecResult) string {
+	var parts []string
+
+	if len(spec.ReproductionSteps) > 0 {
+		parts = append(parts, "## Reproduction Steps")
+		for i, step := range spec.ReproductionSteps {
+			parts = append(parts, fmt.Sprintf("%d. %s", i+1, step))
+		}
+		parts = append(parts, "")
+	}
+
+	if len(spec.AffectedComponents) > 0 {
+		parts = append(parts, "## Affected Components")
+		for _, comp := range spec.AffectedComponents {
+			parts = append(parts, fmt.Sprintf("- %s", comp))
+		}
+		parts = append(parts, "")
+	}
+
+	if len(spec.AcceptanceCriteria) > 0 {
+		parts = append(parts, "## Acceptance Criteria")
+		for _, criteria := range spec.AcceptanceCriteria {
+			parts = append(parts, fmt.Sprintf("- [ ] %s", criteria))
+		}
+		parts = append(parts, "")
+	}
+
+	return strings.Join(parts, "\n")
 }
 
 // severityColor maps severity levels to Discord embed colors.
@@ -111,9 +191,9 @@ var severityColor = map[string]int{
 
 // issueTypeEmoji maps issue types to emojis.
 var issueTypeEmoji = map[string]string{
-	"bug":        "🐛",
-	"feature":    "✨",
-	"question":   "❓",
+	"bug":         "🐛",
+	"feature":     "✨",
+	"question":    "❓",
 	"unspecified": "📝",
 }
 
@@ -123,7 +203,7 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 	a.logger.Info("sending discord approval request",
 		"channel_id", input.ChannelID,
 		"issue_title", input.IssueTitle,
-		"workflow_run_id", input.WorkflowRunID,
+		"workflow_id", input.WorkflowID,
 	)
 
 	// Get Discord bot token from environment
@@ -180,7 +260,12 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 			},
 			{
 				Name:   "Workflow ID",
-				Value:  input.WorkflowRunID,
+				Value:  input.WorkflowID,
+				Inline: false,
+			},
+			{
+				Name:   "Run ID",
+				Value:  input.RunID,
 				Inline: false,
 			},
 		},
@@ -190,18 +275,20 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
-	// Create approve button
+	// P1-1 FIX: Use WorkflowID:RunID in custom_id format: "action:workflow_id:run_id"
+	// This ensures precise signal routing back to the specific workflow run
+	customIDFormat := fmt.Sprintf("%s:%s", input.WorkflowID, input.RunID)
+
 	approveBtn := discordgo.Button{
 		Label:    "Approve",
 		Style:    discordgo.SuccessButton,
-		CustomID: fmt.Sprintf("approve_%s", input.WorkflowRunID),
+		CustomID: fmt.Sprintf("approve:%s", customIDFormat),
 	}
 
-	// Create reject button
 	rejectBtn := discordgo.Button{
 		Label:    "Reject",
 		Style:    discordgo.DangerButton,
-		CustomID: fmt.Sprintf("reject_%s", input.WorkflowRunID),
+		CustomID: fmt.Sprintf("reject:%s", customIDFormat),
 	}
 
 	// Get channel info and send message with retry
@@ -241,17 +328,8 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 	return nil
 }
 
-// CreateGitHubIssueInput is the input for the CreateGitHubIssue activity.
-type CreateGitHubIssueInput struct {
-	Title     string
-	Body      string
-	Labels    []string
-	RepoOwner string
-	RepoName  string
-	Assignee  string
-}
-
 // CreateGitHubIssue creates a GitHub issue when approved.
+// Supports test mode via TEST_GITHUB_REPO environment variable for E2E testing.
 func (a *Activities) CreateGitHubIssue(ctx context.Context, input CreateGitHubIssueInput) (string, error) {
 	startTime := time.Now()
 	a.logger.Info("creating github issue",
@@ -284,9 +362,17 @@ func (a *Activities) CreateGitHubIssue(ctx context.Context, input CreateGitHubIs
 	}
 
 	// Get repository name from environment if not provided
+	// P4 FIX: Support TEST_GITHUB_REPO for E2E testing isolation
 	repo := input.RepoName
 	if repo == "" {
-		repo = os.Getenv("GITHUB_REPO")
+		// Check if we're in test mode
+		testRepo := os.Getenv("TEST_GITHUB_REPO")
+		if testRepo != "" && os.Getenv("TEST_MODE") == "true" {
+			repo = testRepo
+			a.logger.Info("using test repository for E2E testing", "repo", repo)
+		} else {
+			repo = os.Getenv("GITHUB_REPO")
+		}
 	}
 	if repo == "" {
 		return "", fmt.Errorf("GITHUB_REPO not set and RepoName not provided")
@@ -341,4 +427,140 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// StartSwarmInput is the input for the StartSwarm activity.
+type StartSwarmInput struct {
+	TaskID       string
+	FeedbackText string
+	Source       string
+	UserID       string
+	Config       SwarmConfig
+}
+
+// SwarmConfig controls which agents are enabled.
+type SwarmConfig struct {
+	EnableResearcher bool
+	EnableSRE        bool
+	EnableSWE        bool
+	EnableReviewer   bool
+}
+
+// StartSwarmOutput contains the results from the multi-agent swarm.
+type StartSwarmOutput struct {
+	TaskID       string
+	Status       string
+	Results      []AgentResult
+	PRURL        string
+	ErrorMessage string
+}
+
+// AgentResult contains output from a single agent.
+type AgentResult struct {
+	AgentName    string
+	Success      bool
+	Output       string
+	Confidence   float64
+	ErrorMessage string
+}
+
+// StartSwarm calls the Python gRPC server to execute the multi-agent swarm.
+func (a *Activities) StartSwarm(ctx context.Context, input StartSwarmInput) (*StartSwarmOutput, error) {
+	startTime := time.Now()
+	a.logger.Info("starting multi-agent swarm",
+		"task_id", input.TaskID,
+		"user_id", input.UserID,
+		"source", input.Source,
+	)
+
+	// Get gRPC server address from environment
+	grpcAddr := os.Getenv("AI_GRPC_ADDRESS")
+	if grpcAddr == "" {
+		grpcAddr = "localhost:50051" // Default address
+	}
+
+	// Create gRPC connection with timeout
+	connCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	conn, err := grpc.DialContext(connCtx, grpcAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		a.logger.Error("failed to connect to AI gRPC server", err, "address", grpcAddr)
+		return nil, fmt.Errorf("failed to connect to AI service: %w", err)
+	}
+	defer conn.Close()
+
+	// Create gRPC client
+	client := aiv1.NewAgentServiceClient(conn)
+
+	// Build gRPC request
+	req := &aiv1.StartSwarmRequest{
+		TaskId:       input.TaskID,
+		FeedbackText: input.FeedbackText,
+		Source:       input.Source,
+		UserId:       input.UserID,
+		Config: &aiv1.SwarmConfig{
+			EnableResearcher: input.Config.EnableResearcher,
+			EnableSre:        input.Config.EnableSRE,
+			EnableSwe:        input.Config.EnableSWE,
+			EnableReviewer:   input.Config.EnableReviewer,
+		},
+	}
+
+	// Call gRPC with timeout
+	callCtx, callCancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer callCancel()
+
+	resp, err := client.StartSwarm(callCtx, req)
+	if err != nil {
+		a.logger.Error("StartSwarm gRPC call failed", err, "task_id", input.TaskID)
+		return nil, fmt.Errorf("swarm execution failed: %w", err)
+	}
+
+	// Map gRPC response to Go struct
+	results := make([]AgentResult, len(resp.Results))
+	for i, r := range resp.Results {
+		results[i] = AgentResult{
+			AgentName:    r.AgentName,
+			Success:      r.Success,
+			Output:       r.Output,
+			Confidence:   float64(r.Confidence),
+			ErrorMessage: r.ErrorMessage,
+		}
+	}
+
+	// Map status
+	status := "unknown"
+	switch resp.Status {
+	case aiv1.SwarmStatus_SWARM_STATUS_COMPLETED:
+		status = "completed"
+	case aiv1.SwarmStatus_SWARM_STATUS_FAILED:
+		status = "failed"
+	case aiv1.SwarmStatus_SWARM_STATUS_INTERRUPTED:
+		status = "interrupted"
+	case aiv1.SwarmStatus_SWARM_STATUS_PENDING:
+		status = "pending"
+	case aiv1.SwarmStatus_SWARM_STATUS_RUNNING:
+		status = "running"
+	}
+
+	output := &StartSwarmOutput{
+		TaskID:       resp.TaskId,
+		Status:       status,
+		Results:      results,
+		PRURL:        resp.PrUrl,
+		ErrorMessage: resp.ErrorMessage,
+	}
+
+	duration := time.Since(startTime)
+	a.logger.LogActivity(ctx, "StartSwarm", duration, output.Status == "completed",
+		"task_id", output.TaskID,
+		"status", output.Status,
+		"pr_url", output.PRURL,
+	)
+
+	return output, nil
 }
