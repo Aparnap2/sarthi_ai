@@ -1,0 +1,272 @@
+<!-- Config Panel - System Configuration -->
+<div class="card bg-white rounded-xl shadow-md overflow-hidden">
+    <div class="card-header bg-gradient-to-r from-slate-600 to-gray-600 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-white">
+                <i class="fas fa-cog mr-2"></i>⚙️ Configuration
+            </h3>
+            <button hx-get="/api/config"
+                    hx-target="#config-form-container"
+                    class="text-white/80 hover:text-white text-sm flex items-center">
+                <i class="fas fa-sync-alt mr-1"></i>Reload
+            </button>
+        </div>
+    </div>
+    <div class="card-content p-6">
+        <div id="config-form-container">
+            <form hx-post="/api/config/save"
+                  hx-target="#config-status"
+                  hx-swap="innerHTML"
+                  hx-indicator="#config-loading"
+                  id="config-form">
+                
+                <!-- Loading Indicator -->
+                <div id="config-loading" class="htmx-indicator flex justify-center py-4">
+                    <div class="flex items-center text-gray-500">
+                        <i class="fas fa-circle-notch fa-spin mr-2"></i>
+                        <span>Saving configuration...</span>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- Agent Settings -->
+                    <div class="space-y-4">
+                        <h4 class="font-semibold text-gray-700 border-b pb-2">
+                            <i class="fas fa-robot mr-2 text-gray-500"></i>Agent Settings
+                        </h4>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Max Tokens Per Task
+                            </label>
+                            <input type="number" name="max_tokens_per_task"
+                                   value="{{.Config.MaxTokensPerTask}}"
+                                   min="1000" max="128000"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                   placeholder="4000"/>
+                            <p class="text-xs text-gray-500 mt-1">Range: 1,000 - 128,000</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Max Concurrent Tasks
+                            </label>
+                            <input type="number" name="max_concurrent_tasks"
+                                   value="{{.Config.MaxConcurrentTasks}}"
+                                   min="1" max="100"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                   placeholder="10"/>
+                            <p class="text-xs text-gray-500 mt-1">Range: 1 - 100</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                HITL Confidence Threshold (%)
+                            </label>
+                            <input type="number" name="hitl_confidence_threshold"
+                                   value="{{.Config.HITLConfidenceThreshold}}"
+                                   min="0" max="100"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                   placeholder="80"/>
+                            <p class="text-xs text-gray-500 mt-1">Tasks below this confidence require human review</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Rate Limiting -->
+                    <div class="space-y-4">
+                        <h4 class="font-semibold text-gray-700 border-b pb-2">
+                            <i class="fas fa-tachometer-alt mr-2 text-gray-500"></i>Rate Limiting
+                        </h4>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Requests Per Minute
+                            </label>
+                            <input type="number" name="rate_limit_rpm"
+                                   value="{{.Config.RateLimitRPM}}"
+                                   min="10" max="1000"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                   placeholder="60"/>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Circuit Breaker Threshold
+                            </label>
+                            <input type="number" name="circuit_breaker_threshold"
+                                   value="{{.Config.CircuitBreakerThreshold}}"
+                                   min="1" max="100"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                   placeholder="5"/>
+                            <p class="text-xs text-gray-500 mt-1">Consecutive failures before opening circuit</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Circuit Reset Timeout (seconds)
+                            </label>
+                            <input type="number" name="circuit_reset_timeout"
+                                   value="{{.Config.CircuitResetTimeout}}"
+                                   min="10" max="3600"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                   placeholder="60"/>
+                        </div>
+                    </div>
+                    
+                    <!-- Azure AI Settings -->
+                    <div class="space-y-4">
+                        <h4 class="font-semibold text-gray-700 border-b pb-2">
+                            <i class="fas fa-brain mr-2 text-gray-500"></i>Azure AI Settings
+                        </h4>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Deployment Name
+                            </label>
+                            <input type="text" name="azure_deployment"
+                                   value="{{.Config.AzureDeployment}}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                                   placeholder="gpt-4"/>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Temperature
+                            </label>
+                            <input type="number" name="temperature"
+                                   value="{{.Config.Temperature}}"
+                                   min="0" max="2" step="0.1"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                   placeholder="0.7"/>
+                            <p class="text-xs text-gray-500 mt-1">0 = deterministic, 2 = creative</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Timeout (seconds)
+                            </label>
+                            <input type="number" name="request_timeout"
+                                   value="{{.Config.RequestTimeout}}"
+                                   min="5" max="300"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                   placeholder="30"/>
+                        </div>
+                    </div>
+                    
+                    <!-- Logging & Debug -->
+                    <div class="space-y-4">
+                        <h4 class="font-semibold text-gray-700 border-b pb-2">
+                            <i class="fas fa-bug mr-2 text-gray-500"></i>Logging & Debug
+                        </h4>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Log Level
+                            </label>
+                            <select name="log_level"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                                <option value="debug" {{if eq .Config.LogLevel "debug"}}selected{{end}}>Debug</option>
+                                <option value="info" {{if eq .Config.LogLevel "info"}}selected{{end}}>Info</option>
+                                <option value="warn" {{if eq .Config.LogLevel "warn"}}selected{{end}}>Warn</option>
+                                <option value="error" {{if eq .Config.LogLevel "error"}}selected{{end}}>Error</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="enable_tracing"
+                                       {{if .Config.EnableTracing}}checked{{end}}
+                                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
+                                <span class="text-sm text-gray-700">Enable Distributed Tracing</span>
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="enable_metrics"
+                                       {{if .Config.EnableMetrics}}checked{{end}}
+                                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
+                                <span class="text-sm text-gray-700">Enable Prometheus Metrics</span>
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="debug_mode"
+                                       {{if .Config.DebugMode}}checked{{end}}
+                                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
+                                <span class="text-sm text-gray-700">Debug Mode</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="mt-6 pt-6 border-t flex items-center justify-between">
+                    <button type="button"
+                            hx-get="/api/config/reset"
+                            hx-target="#config-form-container"
+                            hx-confirm="Reset all settings to defaults?"
+                            class="px-4 py-2 text-gray-600 hover:text-gray-800 transition flex items-center">
+                        <i class="fas fa-undo mr-2"></i>Reset to Defaults
+                    </button>
+                    
+                    <div class="flex items-center space-x-3">
+                        <span id="last-saved" class="text-sm text-gray-500">
+                            {{if .Config.LastSaved}}Last saved: {{.Config.LastSaved}}{{end}}
+                        </span>
+                        <button type="submit"
+                                class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center font-medium">
+                            <i class="fas fa-save mr-2"></i>Save Changes
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Status Message Area -->
+        <div id="config-status" class="mt-4"></div>
+    </div>
+</div>
+
+<script>
+// Handle form submission success
+document.addEventListener('htmx:afterRequest', function(event) {
+    if (event.detail.requestConfig.path === '/api/config/save') {
+        const statusDiv = document.getElementById('config-status');
+        if (event.detail.successful) {
+            // Update last saved time
+            const lastSaved = document.getElementById('last-saved');
+            if (lastSaved) {
+                lastSaved.textContent = 'Last saved: Just now';
+            }
+        }
+    }
+});
+
+// Show success message
+function showSuccess(message) {
+    const statusDiv = document.getElementById('config-status');
+    statusDiv.innerHTML = `
+        <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center">
+            <i class="fas fa-check-circle mr-2"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    setTimeout(() => statusDiv.innerHTML = '', 5000);
+}
+
+// Show error message
+function showError(message) {
+    const statusDiv = document.getElementById('config-status');
+    statusDiv.innerHTML = `
+        <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center">
+            <i class="fas fa-exclamation-circle mr-2"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    setTimeout(() => statusDiv.innerHTML = '', 5000);
+}
+</script>

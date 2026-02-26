@@ -1,0 +1,263 @@
+<!-- Task Board Panel - Kanban Style -->
+<div class="card bg-white rounded-xl shadow-md overflow-hidden">
+    <div class="card-header bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-white">
+                <i class="fas fa-columns mr-2"></i>📋 Task Board
+            </h3>
+            <div class="flex items-center space-x-2">
+                <span class="text-white/80 text-sm" id="total-tasks">0 tasks</span>
+                <button hx-get="/api/tasks/board"
+                        hx-trigger="every 10s"
+                        hx-target="#kanban-board"
+                        class="text-white/80 hover:text-white text-sm flex items-center">
+                    <i class="fas fa-sync-alt mr-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-content p-6">
+        <div class="kanban-board" id="kanban-board">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <!-- Queued Column -->
+                <div class="kanban-column bg-gray-50 rounded-xl p-4" 
+                     hx-get="/api/tasks/queued"
+                     hx-trigger="every 10s">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-semibold text-gray-700 flex items-center">
+                            <span class="w-3 h-3 bg-gray-400 rounded-full mr-2"></span>
+                            Queued
+                        </h4>
+                        <span class="px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full text-xs font-medium" id="queued-count">0</span>
+                    </div>
+                    <div class="space-y-2 min-h-32" id="queued-tasks">
+                        {{if .Queued}}
+                            {{range .Queued}}
+                            <div class="kanban-item bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition cursor-pointer"
+                                 data-task-id="{{.TaskID}}">
+                                <div class="flex items-start justify-between">
+                                    <span class="font-mono text-xs text-gray-500">{{.TaskID}}</span>
+                                    <span class="text-xs text-gray-400">{{.Priority}}</span>
+                                </div>
+                                <p class="text-sm text-gray-700 mt-1 truncate">{{.Description}}</p>
+                                <div class="flex items-center justify-between mt-2">
+                                    <span class="text-xs text-gray-400">{{.CreatedAt}}</span>
+                                    <span class="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">{{.Source}}</span>
+                                </div>
+                            </div>
+                            {{end}}
+                        {{else}}
+                            <div class="text-center py-8 text-gray-400">
+                                <i class="fas fa-inbox text-2xl mb-2"></i>
+                                <p class="text-sm">No queued tasks</p>
+                            </div>
+                        {{end}}
+                    </div>
+                </div>
+                
+                <!-- Analyzing Column -->
+                <div class="kanban-column bg-blue-50 rounded-xl p-4"
+                     hx-get="/api/tasks/analyzing"
+                     hx-trigger="every 10s">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-semibold text-blue-700 flex items-center">
+                            <span class="w-3 h-3 bg-blue-400 rounded-full mr-2 animate-pulse"></span>
+                            Analyzing
+                        </h4>
+                        <span class="px-2 py-0.5 bg-blue-200 text-blue-700 rounded-full text-xs font-medium" id="analyzing-count">0</span>
+                    </div>
+                    <div class="space-y-2 min-h-32" id="analyzing-tasks">
+                        {{if .Analyzing}}
+                            {{range .Analyzing}}
+                            <div class="kanban-item bg-white border border-blue-200 rounded-lg p-3 hover:shadow-md transition cursor-pointer"
+                                 data-task-id="{{.TaskID}}">
+                                <div class="flex items-center space-x-2 mb-2">
+                                    <i class="fas fa-brain text-blue-500 text-sm"></i>
+                                    <span class="font-mono text-xs text-blue-600">{{.TaskID}}</span>
+                                </div>
+                                <p class="text-sm text-gray-700 truncate">{{.Description}}</p>
+                                <div class="mt-2">
+                                    <div class="w-full bg-blue-100 rounded-full h-1.5">
+                                        <div class="bg-blue-500 h-1.5 rounded-full animate-pulse" style="width: {{.Progress}}%"></div>
+                                    </div>
+                                    <span class="text-xs text-blue-500 mt-1">{{.Progress}}% complete</span>
+                                </div>
+                            </div>
+                            {{end}}
+                        {{else}}
+                            <div class="text-center py-8 text-blue-300">
+                                <i class="fas fa-brain text-2xl mb-2"></i>
+                                <p class="text-sm">No tasks analyzing</p>
+                            </div>
+                        {{end}}
+                    </div>
+                </div>
+                
+                <!-- Awaiting HITL Column -->
+                <div class="kanban-column bg-amber-50 rounded-xl p-4"
+                     hx-get="/api/tasks/awaiting-hitl"
+                     hx-trigger="every 10s">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-semibold text-amber-700 flex items-center">
+                            <span class="w-3 h-3 bg-amber-400 rounded-full mr-2"></span>
+                            Awaiting HITL
+                        </h4>
+                        <span class="px-2 py-0.5 bg-amber-200 text-amber-700 rounded-full text-xs font-medium" id="hitl-count">0</span>
+                    </div>
+                    <div class="space-y-2 min-h-32" id="hitl-tasks">
+                        {{if .AwaitingHITL}}
+                            {{range .AwaitingHITL}}
+                            <div class="kanban-item bg-white border border-amber-200 rounded-lg p-3 hover:shadow-md transition cursor-pointer"
+                                 data-task-id="{{.TaskID}}">
+                                <div class="flex items-center space-x-2 mb-2">
+                                    <i class="fas fa-user-clock text-amber-500 text-sm"></i>
+                                    <span class="font-mono text-xs text-amber-600">{{.TaskID}}</span>
+                                </div>
+                                <p class="text-sm text-gray-700 truncate">{{.Description}}</p>
+                                <div class="flex items-center justify-between mt-2">
+                                    <span class="text-xs text-amber-600">Confidence: {{.Confidence}}%</span>
+                                    <span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">Review</span>
+                                </div>
+                            </div>
+                            {{end}}
+                        {{else}}
+                            <div class="text-center py-8 text-amber-300">
+                                <i class="fas fa-user-check text-2xl mb-2"></i>
+                                <p class="text-sm">No pending reviews</p>
+                            </div>
+                        {{end}}
+                    </div>
+                </div>
+                
+                <!-- Completed Column -->
+                <div class="kanban-column bg-green-50 rounded-xl p-4"
+                     hx-get="/api/tasks/completed"
+                     hx-trigger="every 10s">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-semibold text-green-700 flex items-center">
+                            <span class="w-3 h-3 bg-green-400 rounded-full mr-2"></span>
+                            Completed
+                        </h4>
+                        <span class="px-2 py-0.5 bg-green-200 text-green-700 rounded-full text-xs font-medium" id="completed-count">0</span>
+                    </div>
+                    <div class="space-y-2 min-h-32 max-h-96 overflow-y-auto" id="completed-tasks">
+                        {{if .Completed}}
+                            {{range .Completed}}
+                            <div class="kanban-item bg-white border border-green-200 rounded-lg p-3 hover:shadow-md transition cursor-pointer opacity-75"
+                                 data-task-id="{{.TaskID}}">
+                                <div class="flex items-center space-x-2 mb-2">
+                                    <i class="fas fa-check-circle text-green-500 text-sm"></i>
+                                    <span class="font-mono text-xs text-green-600">{{.TaskID}}</span>
+                                </div>
+                                <p class="text-sm text-gray-700 truncate">{{.Description}}</p>
+                                <div class="flex items-center justify-between mt-2">
+                                    <span class="text-xs text-green-600">{{.Result}}</span>
+                                    <span class="text-xs text-gray-400">{{.CompletedAt}}</span>
+                                </div>
+                            </div>
+                            {{end}}
+                        {{else}}
+                            <div class="text-center py-8 text-green-300">
+                                <i class="fas fa-flag-checkered text-2xl mb-2"></i>
+                                <p class="text-sm">No completed tasks</p>
+                            </div>
+                        {{end}}
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Update column counts
+function updateCounts() {
+    const columns = ['queued', 'analyzing', 'hitl', 'completed'];
+    let total = 0;
+    
+    columns.forEach(col => {
+        const items = document.getElementById(`${col}-tasks`).querySelectorAll('.kanban-item');
+        const countEl = document.getElementById(`${col}-count`);
+        if (countEl) {
+            countEl.textContent = items.length;
+        }
+        total += items.length;
+    });
+    
+    const totalEl = document.getElementById('total-tasks');
+    if (totalEl) {
+        totalEl.textContent = `${total} tasks`;
+    }
+}
+
+// Handle task click - show details
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.kanban-item').forEach(item => {
+        item.addEventListener('click', function() {
+            const taskId = this.dataset.taskId;
+            showTaskDetails(taskId);
+        });
+    });
+    
+    updateCounts();
+});
+
+function showTaskDetails(taskId) {
+    // Create or show modal with task details
+    htmx.ajax('GET', `/api/tasks/${taskId}/details`, {
+        target: '#task-details-modal',
+        swap: 'innerHTML'
+    });
+    
+    let modal = document.getElementById('task-details-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'task-details-modal';
+        modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+        document.body.appendChild(modal);
+    }
+    modal.classList.remove('hidden');
+}
+
+// Refresh counts after HTMX swap
+document.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'kanban-board') {
+        updateCounts();
+    }
+});
+</script>
+
+<style>
+.kanban-column {
+    transition: all 0.2s ease;
+}
+
+.kanban-item {
+    transition: all 0.2s ease;
+}
+
+.kanban-item:hover {
+    transform: translateY(-2px);
+}
+
+/* Custom scrollbar for completed column */
+#completed-tasks::-webkit-scrollbar {
+    width: 6px;
+}
+
+#completed-tasks::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+#completed-tasks::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+#completed-tasks::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+</style>

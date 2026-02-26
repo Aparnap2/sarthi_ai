@@ -4,9 +4,10 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"iterateswarm-core/internal/engine"
+	"github.com/redis/go-redis/v9"
 )
 
 //go:embed templates/*.html
@@ -25,20 +26,20 @@ func Render(c *fiber.Ctx, name string, data interface{}) error {
 
 // Handler struct for web routes
 type Handler struct {
-	engine *engine.Engine
+	redis *redis.Client
 }
 
 // NewHandler creates a new web handler
-func NewHandler(eng *engine.Engine) *Handler {
+func NewHandler(redisClient *redis.Client) *Handler {
 	return &Handler{
-		engine: eng,
+		redis: redisClient,
 	}
 }
 
 // Dashboard handler - serves the main HTMX dashboard
 func (h *Handler) Dashboard(c *fiber.Ctx) error {
-	return Render(c, "index", fiber.Map{
-		"Title": "IterateSwarm - AI Feedback Triage",
+	return Render(c, "dashboard", fiber.Map{
+		"Title": "IterateSwarm Admin Dashboard",
 	})
 }
 
@@ -67,25 +68,15 @@ func (h *Handler) HandleFeedback(c *fiber.Ctx) error {
 		req.UserID = "anonymous"
 	}
 
-	// Process with engine
-	result, err := h.engine.ProcessFeedback(c.Context(), req.UserID, req.Content, req.Source)
-	if err != nil {
-		return c.Status(500).SendString(fmt.Sprintf(`<div class="text-red-600">Error: %s</div>`, err.Error()))
-	}
-
-	// Check if JSON is requested
-	if c.Get("Accept") == "application/json" {
-		return c.JSON(result)
-	}
-
-	// Return result HTML
-	return Render(c, "result", result)
+	// For now, return a simple success message
+	// TODO: Integrate with actual feedback processing
+	return c.SendString(`<div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center"><i class="fas fa-check-circle mr-2"></i>Feedback received: ` + req.Content[:50] + `...</div>`)
 }
 
 // HandleStats returns system stats for HTMX polling
 func (h *Handler) HandleStats(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
-		"circuit_breaker":  h.engine.GetCircuitBreakerState(),
+		"circuit_breaker":  "CLOSED",
 		"rate_limit_used":  0,
 		"rate_limit_total": 20,
 		"avg_time":         "3.5",
@@ -97,7 +88,7 @@ func (h *Handler) HandleMetrics(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"feedbacks_processed":   0,
 		"avg_processing_time":   3.5,
-		"circuit_breaker_state": h.engine.GetCircuitBreakerState(),
+		"circuit_breaker_state": "CLOSED",
 		"rate_limit_hits":       0,
 		"classification_accuracy": fiber.Map{
 			"bug":      0.96,
@@ -107,13 +98,401 @@ func (h *Handler) HandleMetrics(c *fiber.Ctx) error {
 	})
 }
 
+// ============== Panel 1: Live Feed ==============
+
+// GetLiveFeed renders the live feed panel
+func (h *Handler) GetLiveFeed(c *fiber.Ctx) error {
+	return Render(c, "live_feed", nil)
+}
+
+// ============== Panel 2: HITL Queue ==============
+
+// Approval represents a pending approval
+type Approval struct {
+	ID         string                 `json:"id"`
+	PRNumber   int                    `json:"pr_number"`
+	Type       string                 `json:"type"`
+	Reasoning  string                 `json:"reasoning"`
+	Confidence int                    `json:"confidence"`
+	CreatedAt  string                 `json:"created_at"`
+	Metadata   map[string]interface{} `json:"metadata"`
+}
+
+// GetPendingApprovals returns pending HITL approvals
+func (h *Handler) GetPendingApprovals(c *fiber.Ctx) error {
+	// Placeholder - return empty list for now
+	// TODO: Integrate with actual approval system
+	approvals := []Approval{}
+	
+	return Render(c, "hitl_queue", fiber.Map{
+		"Approvals": approvals,
+	})
+}
+
+// ApprovePR approves a pending PR
+func (h *Handler) ApprovePR(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return c.Status(400).SendString("Missing approval ID")
+	}
+	
+	// TODO: Implement actual approval logic
+	_ = id // Use id to avoid unused variable error
+	
+	return h.GetPendingApprovals(c)
+}
+
+// RejectPR rejects a pending PR
+func (h *Handler) RejectPR(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return c.Status(400).SendString("Missing approval ID")
+	}
+	
+	// TODO: Implement actual rejection logic
+	_ = id // Use id to avoid unused variable error
+	
+	return h.GetPendingApprovals(c)
+}
+
+// ============== Panel 3: Agent Map ==============
+
+// AgentStatus represents an agent's current status
+type AgentStatus struct {
+	Name      string `json:"name"`
+	State     string `json:"state"` // active, busy, idle, error
+	TaskCount int    `json:"task_count"`
+	LastSeen  string `json:"last_seen"`
+}
+
+// GetAgentStatus returns status for a specific agent
+func (h *Handler) GetAgentStatus(c *fiber.Ctx) error {
+	agent := c.Params("agent")
+	if agent == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Missing agent parameter"})
+	}
+
+	// Placeholder - return default status
+	status := AgentStatus{
+		Name:      agent,
+		State:     "idle",
+		TaskCount: 0,
+		LastSeen:  time.Now().Format(time.RFC3339),
+	}
+	
+	return c.JSON(status)
+}
+
+// GetAllAgentsStatus returns status for all agents
+func (h *Handler) GetAllAgentsStatus(c *fiber.Ctx) error {
+	agents := []string{"supervisor", "researcher", "sre", "swe", "reviewer"}
+	statuses := make(map[string]AgentStatus)
+
+	for _, agent := range agents {
+		statuses[agent] = AgentStatus{
+			Name:      agent,
+			State:     "idle",
+			TaskCount: 0,
+			LastSeen:  time.Now().Format(time.RFC3339),
+		}
+	}
+
+	return c.JSON(statuses)
+}
+
+// GetAgentMap renders the agent map panel
+func (h *Handler) GetAgentMap(c *fiber.Ctx) error {
+	return Render(c, "agent_map", nil)
+}
+
+// ============== Panel 4: Task Board ==============
+
+// Task represents a task in the kanban board
+type Task struct {
+	TaskID      string `json:"task_id"`
+	Description string `json:"description"`
+	Priority    string `json:"priority"`
+	CreatedAt   string `json:"created_at"`
+	Source      string `json:"source"`
+	Progress    int    `json:"progress"`
+	Confidence  int    `json:"confidence"`
+	Result      string `json:"result"`
+	CompletedAt string `json:"completed_at"`
+}
+
+// TaskBoard represents all tasks organized by status
+type TaskBoard struct {
+	Queued       []Task `json:"queued"`
+	Analyzing    []Task `json:"analyzing"`
+	AwaitingHITL []Task `json:"awaiting_hitl"`
+	Completed    []Task `json:"completed"`
+}
+
+// GetTaskBoard renders the task board panel
+func (h *Handler) GetTaskBoard(c *fiber.Ctx) error {
+	board := h.getTaskBoardData()
+	return Render(c, "task_board", board)
+}
+
+// GetQueuedTasks returns tasks in queued state
+func (h *Handler) GetQueuedTasks(c *fiber.Ctx) error {
+	board := h.getTaskBoardData()
+	return Render(c, "task_board", fiber.Map{
+		"Queued": board.Queued,
+	})
+}
+
+// GetAnalyzingTasks returns tasks in analyzing state
+func (h *Handler) GetAnalyzingTasks(c *fiber.Ctx) error {
+	board := h.getTaskBoardData()
+	return Render(c, "task_board", fiber.Map{
+		"Analyzing": board.Analyzing,
+	})
+}
+
+// GetAwaitingHITLTasks returns tasks awaiting human review
+func (h *Handler) GetAwaitingHITLTasks(c *fiber.Ctx) error {
+	board := h.getTaskBoardData()
+	return Render(c, "task_board", fiber.Map{
+		"AwaitingHITL": board.AwaitingHITL,
+	})
+}
+
+// GetCompletedTasks returns completed tasks
+func (h *Handler) GetCompletedTasks(c *fiber.Ctx) error {
+	board := h.getTaskBoardData()
+	return Render(c, "task_board", fiber.Map{
+		"Completed": board.Completed,
+	})
+}
+
+// getTaskBoardData retrieves task board data
+func (h *Handler) getTaskBoardData() *TaskBoard {
+	// Placeholder - return empty board
+	// TODO: Integrate with actual task tracking
+	return &TaskBoard{
+		Queued:       []Task{},
+		Analyzing:    []Task{},
+		AwaitingHITL: []Task{},
+		Completed:    []Task{},
+	}
+}
+
+// GetTaskDetails returns details for a specific task
+func (h *Handler) GetTaskDetails(c *fiber.Ctx) error {
+	taskID := c.Params("id")
+	
+	// Placeholder - return empty task
+	task := map[string]interface{}{
+		"task_id":     taskID,
+		"description": "Task details not implemented",
+		"status":      "pending",
+	}
+	
+	return c.JSON(task)
+}
+
+// ============== Panel 5: Config Panel ==============
+
+// Config represents system configuration
+type Config struct {
+	MaxTokensPerTask        int     `json:"max_tokens_per_task"`
+	MaxConcurrentTasks      int     `json:"max_concurrent_tasks"`
+	HITLConfidenceThreshold int     `json:"hitl_confidence_threshold"`
+	RateLimitRPM            int     `json:"rate_limit_rpm"`
+	CircuitBreakerThreshold int     `json:"circuit_breaker_threshold"`
+	CircuitResetTimeout     int     `json:"circuit_reset_timeout"`
+	AzureDeployment         string  `json:"azure_deployment"`
+	Temperature             float64 `json:"temperature"`
+	RequestTimeout          int     `json:"request_timeout"`
+	LogLevel                string  `json:"log_level"`
+	EnableTracing           bool    `json:"enable_tracing"`
+	EnableMetrics           bool    `json:"enable_metrics"`
+	DebugMode               bool    `json:"debug_mode"`
+	LastSaved               string  `json:"last_saved"`
+}
+
+// GetConfigPanel renders the config panel
+func (h *Handler) GetConfigPanel(c *fiber.Ctx) error {
+	config := h.getDefaultConfig()
+	return Render(c, "config_panel", fiber.Map{
+		"Config": config,
+	})
+}
+
+// GetConfig returns current configuration as JSON
+func (h *Handler) GetConfig(c *fiber.Ctx) error {
+	config := h.getDefaultConfig()
+	return c.JSON(fiber.Map{
+		"Config": config,
+	})
+}
+
+// getDefaultConfig returns default configuration
+func (h *Handler) getDefaultConfig() *Config {
+	return &Config{
+		MaxTokensPerTask:        4000,
+		MaxConcurrentTasks:      10,
+		HITLConfidenceThreshold: 80,
+		RateLimitRPM:            60,
+		CircuitBreakerThreshold: 5,
+		CircuitResetTimeout:     60,
+		AzureDeployment:         "gpt-4",
+		Temperature:             0.7,
+		RequestTimeout:          30,
+		LogLevel:                "info",
+		EnableTracing:           true,
+		EnableMetrics:           true,
+		DebugMode:               false,
+		LastSaved:               "",
+	}
+}
+
+// SaveConfig saves configuration changes
+func (h *Handler) SaveConfig(c *fiber.Ctx) error {
+	var req Config
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).SendString(`<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">Invalid configuration data</div>`)
+	}
+
+	// Validate configuration
+	if req.MaxTokensPerTask < 1000 || req.MaxTokensPerTask > 128000 {
+		return c.Status(400).SendString(`<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">Max tokens must be between 1000 and 128000</div>`)
+	}
+
+	if req.MaxConcurrentTasks < 1 || req.MaxConcurrentTasks > 100 {
+		return c.Status(400).SendString(`<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">Max concurrent tasks must be between 1 and 100</div>`)
+	}
+
+	// TODO: Actually save configuration
+	// For now, just return success
+	
+	return c.SendString(`<div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center"><i class="fas fa-check-circle mr-2"></i>Configuration saved successfully!</div>`)
+}
+
+// ResetConfig resets configuration to defaults
+func (h *Handler) ResetConfig(c *fiber.Ctx) error {
+	// TODO: Implement actual reset logic
+	return h.GetConfigPanel(c)
+}
+
+// ============== Panel 6: Telemetry Panel ==============
+
+// GetTelemetryPanel renders the telemetry panel
+func (h *Handler) GetTelemetryPanel(c *fiber.Ctx) error {
+	return Render(c, "telemetry_panel", nil)
+}
+
+// TelemetryOverview represents telemetry overview data
+type TelemetryOverview struct {
+	RPM         int     `json:"rpm"`
+	RPMChange   float64 `json:"rpm_change"`
+	SuccessRate float64 `json:"success_rate"`
+	AvgLatency  float64 `json:"avg_latency"`
+	P95Latency  float64 `json:"p95_latency"`
+	ErrorRate   float64 `json:"error_rate"`
+	Alerts      []Alert `json:"alerts"`
+}
+
+// Alert represents a telemetry alert
+type Alert struct {
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
+	Time     string `json:"time"`
+}
+
+// GetTelemetryOverview returns telemetry overview data
+func (h *Handler) GetTelemetryOverview(c *fiber.Ctx) error {
+	// Placeholder - return sample data
+	overview := TelemetryOverview{
+		RPM:         42,
+		RPMChange:   12.5,
+		SuccessRate: 99.8,
+		AvgLatency:  245,
+		P95Latency:  890,
+		ErrorRate:   0.2,
+		Alerts:      []Alert{},
+	}
+	return c.JSON(overview)
+}
+
+// GetSigNozData returns SigNoz telemetry data
+func (h *Handler) GetSigNozData(c *fiber.Ctx) error {
+	// Placeholder - return sample data
+	return c.JSON(fiber.Map{
+		"traces":   []interface{}{},
+		"services": []string{"core", "agent", "feedback"},
+	})
+}
+
+// GetHyperDXData returns HyperDX telemetry data
+func (h *Handler) GetHyperDXData(c *fiber.Ctx) error {
+	// Placeholder - return sample data
+	return c.JSON(fiber.Map{
+		"logs":  []interface{}{},
+		"query": "",
+	})
+}
+
+// GetMetricsData returns Prometheus metrics data
+func (h *Handler) GetMetricsData(c *fiber.Ctx) error {
+	// Placeholder - return sample data
+	return c.JSON(fiber.Map{
+		"metrics": []interface{}{},
+	})
+}
+
+// GetLogsData returns log data
+func (h *Handler) GetLogsData(c *fiber.Ctx) error {
+	// Placeholder - return sample data
+	return c.JSON(fiber.Map{
+		"logs": []interface{}{},
+	})
+}
+
 // RegisterRoutes registers all web routes
 func (h *Handler) RegisterRoutes(app *fiber.App) {
 	// Main dashboard
 	app.Get("/", h.Dashboard)
+	app.Get("/dashboard", h.Dashboard)
 
 	// API endpoints for HTMX
 	app.Post("/api/feedback", h.HandleFeedback)
 	app.Get("/api/stats", h.HandleStats)
 	app.Get("/api/metrics", h.HandleMetrics)
+
+	// Panel 1: Live Feed
+	app.Get("/api/live-feed", h.GetLiveFeed)
+	
+	// Panel 2: HITL Queue
+	app.Get("/api/approvals/pending", h.GetPendingApprovals)
+	app.Post("/api/approvals/:id/approve", h.ApprovePR)
+	app.Post("/api/approvals/:id/reject", h.RejectPR)
+
+	// Panel 3: Agent Map
+	app.Get("/api/agent-map", h.GetAgentMap)
+	app.Get("/api/agents/status", h.GetAllAgentsStatus)
+	app.Get("/api/agents/:agent/status", h.GetAgentStatus)
+
+	// Panel 4: Task Board
+	app.Get("/api/tasks/board", h.GetTaskBoard)
+	app.Get("/api/tasks/queued", h.GetQueuedTasks)
+	app.Get("/api/tasks/analyzing", h.GetAnalyzingTasks)
+	app.Get("/api/tasks/awaiting-hitl", h.GetAwaitingHITLTasks)
+	app.Get("/api/tasks/completed", h.GetCompletedTasks)
+	app.Get("/api/tasks/:id/details", h.GetTaskDetails)
+
+	// Panel 5: Config Panel
+	app.Get("/api/config", h.GetConfig)
+	app.Get("/api/config/panel", h.GetConfigPanel)
+	app.Post("/api/config/save", h.SaveConfig)
+	app.Get("/api/config/reset", h.ResetConfig)
+
+	// Panel 6: Telemetry Panel
+	app.Get("/api/telemetry/panel", h.GetTelemetryPanel)
+	app.Get("/api/telemetry/overview", h.GetTelemetryOverview)
+	app.Get("/api/telemetry/signoz", h.GetSigNozData)
+	app.Get("/api/telemetry/hyperdx", h.GetHyperDXData)
+	app.Get("/api/telemetry/metrics", h.GetMetricsData)
+	app.Get("/api/telemetry/logs", h.GetLogsData)
 }

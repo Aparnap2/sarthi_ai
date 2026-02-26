@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -11,12 +12,14 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/redis/go-redis/v9"
 
 	"iterateswarm-core/internal/api"
 	"iterateswarm-core/internal/auth"
 	"iterateswarm-core/internal/debug"
 	"iterateswarm-core/internal/redpanda"
 	"iterateswarm-core/internal/temporal"
+	"iterateswarm-core/internal/web"
 )
 
 func main() {
@@ -47,8 +50,19 @@ func main() {
 	defer temporalClient.Close()
 	log.Println("Connected to Temporal")
 
+	// Initialize Redis client
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	if _, err := redisClient.Ping(context.Background()).Result(); err != nil {
+		log.Printf("Warning: Redis not available: %v", err)
+	} else {
+		log.Println("Connected to Redis")
+	}
+	defer redisClient.Close()
+
 	// Create handler
-	handler := api.NewHandler(redpandaClient, temporalClient)
+	handler := api.NewHandler(redpandaClient, temporalClient, nil, redisClient)
 
 	// Initialize Clerk auth
 	clerkConfig := auth.LoadClerkConfig()
@@ -101,6 +115,14 @@ func main() {
 	// Debug routes (LiteDebug Console)
 	debugHandler := debug.NewHandler(redpandaClient, temporalClient, "http://localhost:16686")
 	debugHandler.RegisterRoutes(app)
+
+	// Web routes (HTMX Admin Dashboard)
+	webHandler := web.NewHandler(redisClient)
+	webHandler.RegisterRoutes(app)
+
+	// SSE routes (Server-Sent Events for Live Feed)
+	sseHandler := web.NewSSEHandler(redisClient)
+	app.Get("/api/stream/events", sseHandler.HandleSSE)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
