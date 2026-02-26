@@ -1,7 +1,51 @@
 """Pytest configuration and fixtures."""
 
+import os
 import pytest
+import pytest_asyncio
+import httpx
+import redis.asyncio as aioredis
 from unittest.mock import AsyncMock, MagicMock
+
+# Read from environment, fall back to localhost for local dev
+BASE_URL = os.getenv("API_BASE_URL", "http://localhost:3000")
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+
+
+# ── Redis fixture ─────────────────────────────────────────────────────────────
+
+@pytest_asyncio.fixture(scope="session")
+async def redis_client():
+    """Real Redis client. Session-scoped — one connection for all tests."""
+    client = aioredis.from_url(REDIS_URL, decode_responses=True)
+    yield client
+    await client.aclose()  # explicit close prevents event loop warnings
+
+
+# ── HTTP client fixture ───────────────────────────────────────────────────────
+
+@pytest_asyncio.fixture(scope="session")
+async def http_client():
+    """
+    Single httpx.AsyncClient for all E2E tests.
+    Session-scoped with explicit aclose() — prevents 'Event loop closed' errors.
+    """
+    async with httpx.AsyncClient(
+        base_url=BASE_URL,
+        timeout=httpx.Timeout(30.0),
+        follow_redirects=True,
+    ) as client:
+        yield client
+    # 'async with' handles aclose() automatically — no manual close needed
+
+
+# ── Per-test isolation: unique task_id ───────────────────────────────────────
+
+@pytest.fixture
+def unique_task_id():
+    """Every test gets its own task ID — prevents Redis key collisions."""
+    import uuid
+    return f"e2e-{uuid.uuid4().hex[:8]}"
 
 
 @pytest.fixture

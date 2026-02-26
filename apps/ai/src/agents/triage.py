@@ -55,6 +55,24 @@ class TriageResult(BaseModel):
         ge=0.0,
         le=1.0,
     )
+    # Urgency detection (Week 3 upgrade)
+    urgency: str = Field(
+        default="normal",
+        description="Urgency level: 'backlog', 'normal', 'soon', or 'immediate'",
+        pattern="^(backlog|normal|soon|immediate)$",
+    )
+    # SRE metrics
+    affected_users: int = Field(
+        default=0,
+        description="Number of affected users from SRE data",
+        ge=0,
+    )
+    error_rate: float = Field(
+        default=0.0,
+        description="Error rate from SRE data",
+        ge=0.0,
+        le=1.0,
+    )
 
 
 # ========================
@@ -201,4 +219,77 @@ async def classify_feedback(
         severity=result["severity"],
         reasoning=result["reasoning"],
         confidence=result["confidence"],
+    )
+
+
+# ========================
+# Week 3 Upgrade: Urgency Detection
+# ========================
+
+
+def detect_urgency_from_feedback(feedback_text: str) -> str:
+    """Detect urgency level from feedback text keywords.
+
+    Args:
+        feedback_text: The feedback text to analyze
+
+    Returns:
+        Urgency level: 'immediate', 'soon', 'normal', or 'backlog'
+    """
+    text_lower = feedback_text.lower()
+
+    # Immediate: outage, down, critical, emergency
+    if any(kw in text_lower for kw in ["outage", "down", "critical", "emergency", "production is down"]):
+        return "immediate"
+
+    # Soon: slow, degraded, performance, affecting users
+    if any(kw in text_lower for kw in ["slow", "degraded", "performance", "affecting users", "latency"]):
+        return "soon"
+
+    # Backlog: nice to have, enhancement, when possible
+    if any(kw in text_lower for kw in ["nice to have", "enhancement", "when possible", "someday"]):
+        return "backlog"
+
+    # Default to normal
+    return "normal"
+
+
+def incorporate_sre_data(result: TriageResult, sre_interrupt: dict[str, Any]) -> TriageResult:
+    """Incorporate SRE interrupt data into triage result.
+
+    Args:
+        result: Original TriageResult
+        sre_interrupt: SRE interrupt data with priority, affected_users, error_rate
+
+    Returns:
+        Updated TriageResult with urgency and metrics
+    """
+    priority = sre_interrupt.get("priority", "").upper()
+    affected_users = sre_interrupt.get("affected_users", 0)
+    error_rate = sre_interrupt.get("error_rate", 0.0)
+
+    # Determine urgency based on SRE priority
+    urgency = result.urgency
+    severity = result.severity
+
+    if priority == "CRITICAL":
+        urgency = "immediate"
+        severity = "critical"
+    elif priority == "HIGH":
+        urgency = "soon"  # SRE HIGH takes precedence
+        if severity not in ["critical"]:
+            severity = "high"
+    elif priority == "MEDIUM":
+        if urgency == "backlog":
+            urgency = "normal"
+    # LOW priority doesn't change urgency
+
+    return TriageResult(
+        classification=result.classification,
+        severity=severity,
+        reasoning=result.reasoning,
+        confidence=result.confidence,
+        urgency=urgency,
+        affected_users=affected_users,
+        error_rate=error_rate,
     )

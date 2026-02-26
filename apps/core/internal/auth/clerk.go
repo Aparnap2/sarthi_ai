@@ -1,4 +1,8 @@
-// Package auth provides Clerk JWT authentication middleware for Fiber
+// Package auth provides authentication middleware for Fiber
+//
+// DEPRECATED: Clerk authentication has been replaced with native JWT + GitHub OAuth.
+// Use iterateswarm-core/internal/api.RequireAuth() instead.
+// This file is kept for backward compatibility only.
 package auth
 
 import (

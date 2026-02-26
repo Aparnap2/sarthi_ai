@@ -1,33 +1,223 @@
-{{template "base.html" .}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} - IterateSwarm Admin</title>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: inline; }
+        .htmx-request.htmx-indicator { display: inline; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-fast {
+            animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Top Navigation -->
+    <nav class="gradient-bg shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-robot text-2xl text-white"></i>
+                        <span class="text-xl font-bold text-white">IterateSwarm</span>
+                        <span class="text-white/70 text-sm">|</span>
+                        <span class="text-white/80 text-sm">Admin Dashboard</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- System Status -->
+                    <div class="flex items-center space-x-2 text-white/80 text-sm">
+                        <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                        <span>System Online</span>
+                    </div>
+                    <!-- Refresh All -->
+                    <button onclick="window.location.reload()" 
+                            class="text-white/80 hover:text-white transition"
+                            title="Refresh Dashboard">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-{{define "content"}}
-<div class="p-6">
-    <h1 class="text-3xl font-bold mb-6">{{.Title}}</h1>
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        
+        <!-- Page Header -->
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">{{.Title}}</h1>
+            <p class="text-gray-500 text-sm mt-1">Real-time monitoring and management for IterateSwarm agents</p>
+        </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <!-- Stats Cards -->
-        <div class="bg-white p-6 rounded-lg shadow">
-            <h3 class="text-gray-500 text-sm font-medium">Total Feedback</h3>
-            <p class="text-3xl font-bold mt-2" hx-get="/api/stats/feedback" hx-trigger="load">...</p>
+        <!-- Panel Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            
+            <!-- Panel 1: Live Feed (Full width on mobile, half on desktop) -->
+            <div class="lg:col-span-2" hx-get="/api/live-feed" hx-trigger="load" hx-swap="innerHTML">
+                <div class="flex justify-center py-12">
+                    <div class="text-center">
+                        <i class="fas fa-circle-notch fa-spin text-4xl text-indigo-600 mb-4"></i>
+                        <p class="text-gray-500">Loading Live Feed...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Panel 2: HITL Queue -->
+            <div hx-get="/api/approvals/pending" hx-trigger="load" hx-swap="outerHTML">
+                <div class="flex justify-center py-12">
+                    <div class="text-center">
+                        <i class="fas fa-circle-notch fa-spin text-4xl text-amber-600 mb-4"></i>
+                        <p class="text-gray-500">Loading HITL Queue...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Panel 3: Agent Map -->
+            <div hx-get="/api/agent-map" hx-trigger="load" hx-swap="outerHTML">
+                <div class="flex justify-center py-12">
+                    <div class="text-center">
+                        <i class="fas fa-circle-notch fa-spin text-4xl text-cyan-600 mb-4"></i>
+                        <p class="text-gray-500">Loading Agent Map...</p>
+                    </div>
+                </div>
+            </div>
+            
         </div>
-        <div class="bg-white p-6 rounded-lg shadow">
-            <h3 class="text-gray-500 text-sm font-medium">Open Issues</h3>
-            <p class="text-3xl font-bold mt-2" hx-get="/api/stats/issues" hx-trigger="load">...</p>
-        </div>
-        <div class="bg-white p-6 rounded-lg shadow">
-            <h3 class="text-gray-500 text-sm font-medium">Pending Review</h3>
-            <p class="text-3xl font-bold mt-2" hx-get="/api/stats/pending" hx-trigger="load">...</p>
-        </div>
-    </div>
 
-    <!-- Feedback Table -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold">Latest Feedback</h2>
+        <!-- Second Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            
+            <!-- Panel 4: Task Board (Full width) -->
+            <div class="lg:col-span-2" hx-get="/api/tasks/board" hx-trigger="load" hx-swap="outerHTML">
+                <div class="flex justify-center py-12">
+                    <div class="text-center">
+                        <i class="fas fa-circle-notch fa-spin text-4xl text-emerald-600 mb-4"></i>
+                        <p class="text-gray-500">Loading Task Board...</p>
+                    </div>
+                </div>
+            </div>
+            
         </div>
-        <div id="feedback-table" hx-get="/api/feedback" hx-trigger="load">
-            <div class="p-4 text-center text-gray-500">Loading...</div>
+
+        <!-- Third Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            
+            <!-- Panel 5: Config Panel -->
+            <div hx-get="/api/config/panel" hx-trigger="load" hx-swap="outerHTML">
+                <div class="flex justify-center py-12">
+                    <div class="text-center">
+                        <i class="fas fa-circle-notch fa-spin text-4xl text-slate-600 mb-4"></i>
+                        <p class="text-gray-500">Loading Configuration...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Panel 6: Telemetry Panel -->
+            <div hx-get="/api/telemetry/panel" hx-trigger="load" hx-swap="outerHTML">
+                <div class="flex justify-center py-12">
+                    <div class="text-center">
+                        <i class="fas fa-circle-notch fa-spin text-4xl text-rose-600 mb-4"></i>
+                        <p class="text-gray-500">Loading Telemetry...</p>
+                    </div>
+                </div>
+            </div>
+            
         </div>
-    </div>
-</div>
-{{end}}
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-12">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center">
+                <p class="text-gray-500 text-sm">
+                    &copy; 2024 IterateSwarm. Built with HTMX + Go + Fiber
+                </p>
+                <div class="flex items-center space-x-4">
+                    <a href="#" class="text-gray-400 hover:text-gray-600">
+                        <i class="fab fa-github"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-book"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-question-circle"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Global Event Handler for HTMX -->
+    <script>
+        // Handle HTMX errors gracefully
+        document.addEventListener('htmx:responseError', function(event) {
+            console.error('HTMX Error:', event.detail);
+            // Could show a toast notification here
+        });
+
+        // Handle HTMX timeout
+        document.addEventListener('htmx:timeout', function(event) {
+            console.warn('HTMX Timeout:', event.detail);
+            // Could show a retry option here
+        });
+
+        // Auto-refresh dashboard every 60 seconds
+        setInterval(function() {
+            // Refresh specific panels that need periodic updates
+            htmx.ajax('GET', '/api/live-feed', {target: '[hx-get="/api/live-feed"]'});
+            htmx.ajax('GET', '/api/approvals/pending', {target: '[hx-get="/api/approvals/pending"]'});
+            htmx.ajax('GET', '/api/tasks/board', {target: '[hx-get="/api/tasks/board"]'});
+        }, 60000);
+
+        // Show loading indicator on page transitions
+        document.addEventListener('htmx:beforeRequest', function(event) {
+            // Could add a global loading spinner here
+        });
+
+        document.addEventListener('htmx:afterRequest', function(event) {
+            // Remove loading indicator
+        });
+    </script>
+</body>
+</html>

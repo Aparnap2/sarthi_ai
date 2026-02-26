@@ -1,0 +1,302 @@
+<!-- Telemetry Panel - Observability Dashboard -->
+<div class="card bg-white rounded-xl shadow-md overflow-hidden">
+    <div class="card-header bg-gradient-to-r from-rose-600 to-pink-600 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-white">
+                <i class="fas fa-chart-line mr-2"></i>📊 Telemetry
+            </h3>
+            <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse" id="telemetry-status-indicator"></span>
+                <span class="text-white/80 text-sm" id="telemetry-status">Connected</span>
+            </div>
+        </div>
+    </div>
+    <div class="card-content p-6">
+        <!-- Tab Navigation -->
+        <div class="tabs border-b border-gray-200 mb-6">
+            <button class="tab-button active px-4 py-2 text-sm font-medium border-b-2 border-rose-500 text-rose-600 hover:text-rose-700 transition"
+                    data-tab="overview"
+                    hx-get="/api/telemetry/overview"
+                    hx-target="#telemetry-content"
+                    hx-trigger="click"
+                    onclick="switchTab(this)">
+                <i class="fas fa-tachometer-alt mr-2"></i>Overview
+            </button>
+            <button class="tab-button px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition"
+                    data-tab="signoz"
+                    hx-get="/api/telemetry/signoz"
+                    hx-target="#telemetry-content"
+                    hx-trigger="click"
+                    onclick="switchTab(this)">
+                <i class="fas fa-search mr-2"></i>SigNoz
+            </button>
+            <button class="tab-button px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition"
+                    data-tab="hyperdx"
+                    hx-get="/api/telemetry/hyperdx"
+                    hx-target="#telemetry-content"
+                    hx-trigger="click"
+                    onclick="switchTab(this)">
+                <i class="fas fa-box mr-2"></i>HyperDX
+            </button>
+            <button class="tab-button px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition"
+                    data-tab="metrics"
+                    hx-get="/api/telemetry/metrics"
+                    hx-target="#telemetry-content"
+                    hx-trigger="click"
+                    onclick="switchTab(this)">
+                <i class="fas fa-chart-bar mr-2"></i>Metrics
+            </button>
+            <button class="tab-button px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition"
+                    data-tab="logs"
+                    hx-get="/api/telemetry/logs"
+                    hx-target="#telemetry-content"
+                    hx-trigger="click"
+                    onclick="switchTab(this)">
+                <i class="fas fa-file-alt mr-2"></i>Logs
+            </button>
+        </div>
+        
+        <!-- Tab Content -->
+        <div id="telemetry-content" class="min-h-64">
+            <!-- Default: Overview -->
+            <div class="telemetry-tab-content" id="overview-content">
+                <!-- Quick Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-blue-600 font-medium">Requests/min</p>
+                                <p class="text-2xl font-bold text-blue-800" id="rpm-value">--</p>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-bolt text-white text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-xs text-blue-500">
+                            <span id="rpm-change" class="text-green-600">
+                                <i class="fas fa-arrow-up mr-1"></i>0%
+                            </span>
+                            vs last minute
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-green-600 font-medium">Success Rate</p>
+                                <p class="text-2xl font-bold text-green-800" id="success-rate">--</p>
+                            </div>
+                            <div class="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-check text-white text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-xs text-green-500">
+                            Last 5 minutes average
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-purple-600 font-medium">Avg Latency</p>
+                                <p class="text-2xl font-bold text-purple-800" id="avg-latency">--</p>
+                            </div>
+                            <div class="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-clock text-white text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-xs text-purple-500">
+                            P95: <span id="p95-latency">--</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 border border-amber-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-amber-600 font-medium">Error Rate</p>
+                                <p class="text-2xl font-bold text-amber-800" id="error-rate">--</p>
+                            </div>
+                            <div class="w-12 h-12 bg-amber-500 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-exclamation-triangle text-white text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-xs text-amber-500">
+                            Last 15 minutes
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Charts Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Request Volume Chart -->
+                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
+                            <i class="fas fa-chart-area mr-2 text-gray-500"></i>
+                            Request Volume (24h)
+                        </h4>
+                        <div class="h-48 flex items-center justify-center" id="request-chart">
+                            <div class="text-center text-gray-400">
+                                <i class="fas fa-chart-area text-4xl mb-2"></i>
+                                <p class="text-sm">Loading chart...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Latency Distribution -->
+                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
+                            <i class="fas fa-chart-histogram mr-2 text-gray-500"></i>
+                            Latency Distribution
+                        </h4>
+                        <div class="h-48 flex items-center justify-center" id="latency-chart">
+                            <div class="text-center text-gray-400">
+                                <i class="fas fa-chart-histogram text-4xl mb-2"></i>
+                                <p class="text-sm">Loading chart...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Alerts -->
+                <div class="mt-6 bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
+                        <i class="fas fa-bell mr-2 text-gray-500"></i>
+                        Recent Alerts
+                        <span class="ml-auto px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium" id="alert-count">0</span>
+                    </h4>
+                    <div class="space-y-2" id="alerts-list">
+                        <div class="text-center text-gray-400 py-4">
+                            <i class="fas fa-check-circle text-2xl mb-2"></i>
+                            <p class="text-sm">No recent alerts</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- External Links -->
+        <div class="mt-6 pt-4 border-t flex flex-wrap gap-2">
+            <a href="/api/telemetry/signoz/dashboard" target="_blank"
+               class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition flex items-center">
+                <i class="fas fa-external-link-alt mr-1"></i>
+                Open SigNoz Dashboard
+            </a>
+            <a href="/api/telemetry/hyperdx/dashboard" target="_blank"
+               class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition flex items-center">
+                <i class="fas fa-external-link-alt mr-1"></i>
+                Open HyperDX
+            </a>
+            <a href="/api/telemetry/prometheus" target="_blank"
+               class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition flex items-center">
+                <i class="fas fa-external-link-alt mr-1"></i>
+                Prometheus
+            </a>
+            <a href="/api/telemetry/grafana" target="_blank"
+               class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition flex items-center">
+                <i class="fas fa-external-link-alt mr-1"></i>
+                Grafana
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+// Tab switching
+function switchTab(button) {
+    // Remove active class from all tabs
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active', 'border-rose-500', 'text-rose-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
+    
+    // Add active class to clicked tab
+    button.classList.remove('border-transparent', 'text-gray-500');
+    button.classList.add('active', 'border-rose-500', 'text-rose-600');
+}
+
+// Fetch telemetry overview data
+async function fetchTelemetryOverview() {
+    try {
+        const response = await fetch('/api/telemetry/overview');
+        const data = await response.json();
+        
+        // Update stats
+        if (data.rpm) document.getElementById('rpm-value').textContent = data.rpm;
+        if (data.successRate) document.getElementById('success-rate').textContent = data.successRate + '%';
+        if (data.avgLatency) document.getElementById('avg-latency').textContent = data.avgLatency + 'ms';
+        if (data.p95Latency) document.getElementById('p95-latency').textContent = data.p95Latency + 'ms';
+        if (data.errorRate) document.getElementById('error-rate').textContent = data.errorRate + '%';
+        if (data.rpmChange) {
+            const rpmChange = document.getElementById('rpm-change');
+            const isPositive = data.rpmChange >= 0;
+            rpmChange.innerHTML = `
+                <i class="fas fa-arrow-${isPositive ? 'up' : 'down'} mr-1"></i>
+                ${Math.abs(data.rpmChange)}%
+            `;
+            rpmChange.className = isPositive ? 'text-green-600' : 'text-red-600';
+        }
+        
+        // Update alerts
+        if (data.alerts && data.alerts.length > 0) {
+            document.getElementById('alert-count').textContent = data.alerts.length;
+            const alertsList = document.getElementById('alerts-list');
+            alertsList.innerHTML = data.alerts.map(alert => `
+                <div class="flex items-center justify-between p-3 bg-white rounded-lg border ${alert.severity === 'critical' ? 'border-red-300' : 'border-yellow-300'}">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-${alert.severity === 'critical' ? 'exclamation-circle' : 'exclamation-triangle'} text-${alert.severity === 'critical' ? 'red' : 'yellow'}-500"></i>
+                        <span class="text-sm text-gray-700">${alert.message}</span>
+                    </div>
+                    <span class="text-xs text-gray-400">${alert.time}</span>
+                </div>
+            `).join('');
+        }
+        
+        // Update status
+        document.getElementById('telemetry-status').textContent = 'Connected';
+        document.getElementById('telemetry-status-indicator').classList.remove('bg-red-400');
+        document.getElementById('telemetry-status-indicator').classList.add('bg-green-400');
+        
+    } catch (error) {
+        console.error('Error fetching telemetry:', error);
+        document.getElementById('telemetry-status').textContent = 'Disconnected';
+        document.getElementById('telemetry-status-indicator').classList.remove('bg-green-400');
+        document.getElementById('telemetry-status-indicator').classList.add('bg-red-400');
+    }
+}
+
+// Auto-refresh telemetry data every 30 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    fetchTelemetryOverview();
+    setInterval(fetchTelemetryOverview, 30000);
+});
+
+// Handle HTMX tab content load
+document.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'telemetry-content') {
+        // Re-initialize any charts or interactive elements
+        if (typeof initializeCharts === 'function') {
+            initializeCharts();
+        }
+    }
+});
+</script>
+
+<style>
+.tab-button {
+    transition: all 0.2s ease;
+}
+
+.tab-button.active {
+    border-bottom-color: #e11d48 !important;
+    color: #e11d48 !important;
+}
+
+.telemetry-tab-content {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>

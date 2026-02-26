@@ -263,11 +263,6 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 				Value:  input.WorkflowID,
 				Inline: false,
 			},
-			{
-				Name:   "Run ID",
-				Value:  input.RunID,
-				Inline: false,
-			},
 		},
 		Footer: &discordgo.MessageEmbedFooter{
 			Text: "IterateSwarm AI ChatOps",
@@ -275,9 +270,9 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
-	// P1-1 FIX: Use WorkflowID:RunID in custom_id format: "action:workflow_id:run_id"
-	// This ensures precise signal routing back to the specific workflow run
-	customIDFormat := fmt.Sprintf("%s:%s", input.WorkflowID, input.RunID)
+	// P1-1 FIX: Use WorkflowID in custom_id format: "action:workflow_id"
+	// This ensures precise signal routing back to the specific workflow
+	customIDFormat := input.WorkflowID
 
 	approveBtn := discordgo.Button{
 		Label:    "Approve",

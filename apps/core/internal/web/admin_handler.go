@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"iterateswarm-core/internal/api"
 )
 
 // AdminDashboard serves the main admin dashboard
@@ -214,28 +215,29 @@ func (h *Handler) APITelemetryStats(c *fiber.Ctx) error {
 
 // RegisterAdminRoutes registers all admin routes
 func (h *Handler) RegisterAdminRoutes(app *fiber.App) {
-	// Admin pages
-	app.Get("/admin", h.AdminDashboard)
-	app.Get("/admin/live-feed", h.AdminLiveFeed)
-	app.Get("/admin/task-board", h.AdminTaskBoard)
-	app.Get("/admin/agent-map", h.AdminAgentMap)
-	app.Get("/admin/hitl-queue", h.AdminHITLQueue)
-	app.Get("/admin/config", h.AdminConfig)
-	app.Get("/admin/telemetry", h.AdminTelemetry)
+	// Admin pages - require auth
+	admin := app.Group("/admin", api.RequireAuth())
+	admin.Get("/", h.AdminDashboard)
+	admin.Get("/live-feed", h.AdminLiveFeed)
+	admin.Get("/task-board", h.AdminTaskBoard)
+	admin.Get("/agent-map", h.AdminAgentMap)
+	admin.Get("/hitl-queue", h.AdminHITLQueue)
+	admin.Get("/config", h.AdminConfig)
+	admin.Get("/telemetry", h.AdminTelemetry)
 
-	// API endpoints
-	api := app.Group("/api/admin")
+	// API endpoints - require auth
+	apiGroup := app.Group("/api/admin", api.RequireAuth())
 
 	// Dashboard stats
-	api.Get("/stats/active-tasks", h.APIActiveTasks)
-	api.Get("/stats/pending-hitl", h.APIPendingHITL)
-	api.Get("/stats/completed", h.APICompletedTasks)
-	api.Get("/stats/tokens", h.APITokenUsage)
-	api.Get("/recent-activity", h.APIRecentActivity)
+	apiGroup.Get("/stats/active-tasks", h.APIActiveTasks)
+	apiGroup.Get("/stats/pending-hitl", h.APIPendingHITL)
+	apiGroup.Get("/stats/completed", h.APICompletedTasks)
+	apiGroup.Get("/stats/tokens", h.APITokenUsage)
+	apiGroup.Get("/recent-activity", h.APIRecentActivity)
 
 	// Live feed
-	api.Get("/events", h.APIEvents)
-	api.Get("/event-stats", func(c *fiber.Ctx) error {
+	apiGroup.Get("/events", h.APIEvents)
+	apiGroup.Get("/event-stats", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"supervisor": 0,
 			"researcher": 0,
@@ -246,42 +248,42 @@ func (h *Handler) RegisterAdminRoutes(app *fiber.App) {
 	})
 
 	// Task board
-	api.Get("/tasks", h.APITasks)
-	api.Get("/tasks/:id", func(c *fiber.Ctx) error {
+	apiGroup.Get("/tasks", h.APITasks)
+	apiGroup.Get("/tasks/:id", func(c *fiber.Ctx) error {
 		return c.SendString(`<div class="p-4">Task details for ` + c.Params("id") + `</div>`)
 	})
 
 	// Agent map
-	api.Get("/agent-status", h.APIAgentStatus)
-	api.Get("/agent-topology", func(c *fiber.Ctx) error {
+	apiGroup.Get("/agent-status", h.APIAgentStatus)
+	apiGroup.Get("/agent-topology", func(c *fiber.Ctx) error {
 		return c.SendString("") // SVG updated via HTMX
 	})
-	api.Get("/agents/:agent/details", func(c *fiber.Ctx) error {
+	apiGroup.Get("/agents/:agent/details", func(c *fiber.Ctx) error {
 		return c.SendString(`<div class="p-4">Details for ` + c.Params("agent") + `</div>`)
 	})
 
 	// HITL queue
-	api.Get("/hitl/count", h.APIPendingHITL)
-	api.Get("/hitl/queue", h.APIHITLQueue)
-	api.Get("/hitl/history", func(c *fiber.Ctx) error {
+	apiGroup.Get("/hitl/count", h.APIPendingHITL)
+	apiGroup.Get("/hitl/queue", h.APIHITLQueue)
+	apiGroup.Get("/hitl/history", func(c *fiber.Ctx) error {
 		return c.SendString(`<div class="p-4 text-center text-gray-500">No history</div>`)
 	})
-	api.Get("/hitl/:id/details", func(c *fiber.Ctx) error {
+	apiGroup.Get("/hitl/:id/details", func(c *fiber.Ctx) error {
 		return c.SendString(`<div class="p-4">Details for ` + c.Params("id") + `</div>`)
 	})
-	api.Post("/hitl/:id/approve", h.APIHITLApprove)
-	api.Post("/hitl/:id/reject", h.APIHITLReject)
-	api.Post("/hitl/approve-all", func(c *fiber.Ctx) error {
+	apiGroup.Post("/hitl/:id/approve", h.APIHITLApprove)
+	apiGroup.Post("/hitl/:id/reject", h.APIHITLReject)
+	apiGroup.Post("/hitl/approve-all", func(c *fiber.Ctx) error {
 		return c.SendString(`<div class="p-4 bg-green-50 text-green-800">All items approved</div>`)
 	})
 
 	// Config
-	api.Post("/config/agents", h.APIConfigAgents)
-	api.Post("/config/budget", h.APIConfigBudget)
-	api.Post("/config/reload", func(c *fiber.Ctx) error {
+	apiGroup.Post("/config/agents", h.APIConfigAgents)
+	apiGroup.Post("/config/budget", h.APIConfigBudget)
+	apiGroup.Post("/config/reload", func(c *fiber.Ctx) error {
 		return c.SendString(`<div class="p-3 bg-green-50 text-green-800 rounded">Configuration reloaded</div>`)
 	})
-	api.Get("/config/llm-status", func(c *fiber.Ctx) error {
+	apiGroup.Get("/config/llm-status", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"calls":   42,
 			"tokens":  "15.2K",
@@ -290,24 +292,24 @@ func (h *Handler) RegisterAdminRoutes(app *fiber.App) {
 	})
 
 	// Telemetry
-	api.Get("/telemetry/stats", h.APITelemetryStats)
-	api.Get("/telemetry/signoz-summary", func(c *fiber.Ctx) error {
+	apiGroup.Get("/telemetry/stats", h.APITelemetryStats)
+	apiGroup.Get("/telemetry/signoz-summary", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"services": 5,
 			"errors":   2,
 			"p99":      "320ms",
 		})
 	})
-	api.Get("/telemetry/hyperdx-summary", func(c *fiber.Ctx) error {
+	apiGroup.Get("/telemetry/hyperdx-summary", func(c *fiber.Ctx) error {
 		return c.SendString(`<div class="p-3 bg-gray-50 rounded text-sm font-mono">No recent logs</div>`)
 	})
-	api.Get("/telemetry/agent-chart", func(c *fiber.Ctx) error {
+	apiGroup.Get("/telemetry/agent-chart", func(c *fiber.Ctx) error {
 		return c.SendString(`<div class="text-gray-400">Chart data loading...</div>`)
 	})
-	api.Get("/telemetry/token-usage", func(c *fiber.Ctx) error {
+	apiGroup.Get("/telemetry/token-usage", func(c *fiber.Ctx) error {
 		return c.SendString(`<div class="text-gray-400">Loading token usage...</div>`)
 	})
-	api.Get("/telemetry/task-distribution", func(c *fiber.Ctx) error {
+	apiGroup.Get("/telemetry/task-distribution", func(c *fiber.Ctx) error {
 		return c.SendString(`<div class="text-gray-400">Loading distribution...</div>`)
 	})
 }
