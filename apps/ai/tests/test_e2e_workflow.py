@@ -20,7 +20,7 @@ import uuid
 import pytest
 import httpx
 import redis.asyncio as redis
-from src.context.shared_context import ContextStore
+from src.context.store import ContextStore
 
 BASE_URL = "http://localhost:3000"
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
