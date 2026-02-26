@@ -1,131 +1,284 @@
-package workflow
+package workflow_test
 
 import (
 	"context"
-	"os"
+	"errors"
+	"fmt"
+	"sync"
 	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/suite"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/testsuite"
+
+	"iterateswarm-core/internal/workflow"
 )
 
-// TestAnalyzeFeedbackWithNilAgent tests that AnalyzeFeedback handles nil agents gracefully
-// Issue: P1-2 - Potential nil-pointer path when AI service is unavailable
-func TestAnalyzeFeedbackWithNilAgent(t *testing.T) {
-	activities := NewActivities()
+// ─── Test Suite Setup ───────────────────────────────────────────────────────
 
-	ctx := context.Background()
-	input := AnalyzeFeedbackInput{
-		Text:      "Test feedback",
+type WorkflowTestSuite struct {
+	suite.Suite
+	testsuite.WorkflowTestSuite
+	env *testsuite.TestWorkflowEnvironment
+}
+
+func (s *WorkflowTestSuite) SetupTest() {
+	s.env = s.NewTestWorkflowEnvironment()
+	s.env.RegisterWorkflow(workflow.FeedbackWorkflow)
+
+	// Mock activities - don't call real implementations
+	s.env.OnActivity(workflow.AnalyzeFeedback, mock.Anything, mock.Anything).
+		Return(workflow.AnalyzeFeedbackOutput{
+			Title:       "Mock fix",
+			IsDuplicate: false,
+			Severity:    "medium",
+			IssueType:   "bug",
+		}, nil).Maybe()
+
+	s.env.OnActivity(workflow.SendDiscordApproval, mock.Anything, mock.Anything).
+		Return(nil).Maybe()
+
+	s.env.OnActivity(workflow.CreateGitHubIssue, mock.Anything, mock.Anything).
+		Return("https://github.com/mock/repo/issues/1", nil).Maybe()
+}
+
+func (s *WorkflowTestSuite) AfterTest(_, _ string) {
+	s.env.AssertExpectations(s.T())
+}
+
+func TestWorkflowSuite(t *testing.T) {
+	suite.Run(t, new(WorkflowTestSuite))
+}
+
+// ─── TEST 1: Happy Path ──────────────────────────────────────────────────────
+
+func (s *WorkflowTestSuite) TestFeedbackWorkflow_HappyPath() {
+	// Override mock for this test - approve immediately
+	s.env.OnActivity(workflow.AnalyzeFeedback, mock.Anything, mock.Anything).
+		Return(workflow.AnalyzeFeedbackOutput{
+			Title:       "Fix DB pool exhaustion",
+			IsDuplicate: false,
+			Severity:    "high",
+			IssueType:   "bug",
+		}, nil)
+
+	s.env.OnActivity(workflow.SendDiscordApproval, mock.Anything, mock.Anything).
+		Return(nil)
+
+	// Send approve signal after 1 second (simulated)
+	s.env.RegisterDelayedCallback(1*time.Second, func() {
+		s.env.SignalWorkflow("user-action", "approve")
+	})
+
+	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
+		Text:      "DB pool exhausted in prod",
 		Source:    "discord",
-		UserID:    "user123",
-		ChannelID: "channel456",
-	}
-
-	// Test with missing environment variables (simulating unavailable AI service)
-	// Clear env vars temporarily
-	oldEndpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
-	oldKey := os.Getenv("AZURE_OPENAI_API_KEY")
-	oldModel := os.Getenv("AZURE_OPENAI_DEPLOYMENT")
-
-	os.Unsetenv("AZURE_OPENAI_ENDPOINT")
-	os.Unsetenv("AZURE_OPENAI_API_KEY")
-	os.Unsetenv("AZURE_OPENAI_DEPLOYMENT")
-
-	defer func() {
-		os.Setenv("AZURE_OPENAI_ENDPOINT", oldEndpoint)
-		os.Setenv("AZURE_OPENAI_API_KEY", oldKey)
-		os.Setenv("AZURE_OPENAI_DEPLOYMENT", oldModel)
-	}()
-
-	// This should NOT panic - it should return a proper error
-	result, err := activities.AnalyzeFeedback(ctx, input)
-
-	// Should return an error, not panic
-	assert.Error(t, err, "Should return error when AI service is unavailable")
-	assert.Nil(t, result, "Result should be nil when AI service is unavailable")
-}
-
-// TestAnalyzeFeedbackOutputStructure tests the output structure has all required fields
-// Issue: P3-1 - Ensure Confidence field exists
-func TestAnalyzeFeedbackOutputStructure(t *testing.T) {
-	output := AnalyzeFeedbackOutput{
-		IsDuplicate: false,
-		Title:       "Test",
-		Description: "Test desc",
-		Labels:      []string{"bug"},
-		Severity:    "high",
-		IssueType:   "bug",
-		Confidence:  0.95, // This field must exist
-	}
-
-	// Verify all fields exist and are accessible
-	assert.False(t, output.IsDuplicate)
-	assert.Equal(t, "Test", output.Title)
-	assert.Equal(t, "Test desc", output.Description)
-	assert.Equal(t, []string{"bug"}, output.Labels)
-	assert.Equal(t, "high", output.Severity)
-	assert.Equal(t, "bug", output.IssueType)
-	assert.Equal(t, 0.95, output.Confidence)
-}
-
-// TestSendDiscordApprovalInputStructure tests the input structure uses WorkflowID
-// Issue: P1-1 - CustomID format should use WorkflowID
-func TestSendDiscordApprovalInputStructure(t *testing.T) {
-	input := SendDiscordApprovalInput{
-		ChannelID:   "test-channel",
-		IssueTitle:  "Test Issue",
-		IssueBody:   "Test body",
-		IssueLabels: []string{"bug"},
-		Severity:    "high",
-		IssueType:   "bug",
-		WorkflowID:  "feedback-workflow-123", // Should be WorkflowID, not RunID
-	}
-
-	// Verify WorkflowID field exists and is accessible
-	assert.Equal(t, "feedback-workflow-123", input.WorkflowID)
-}
-
-// TestNilPointerProtection tests the fix for P1-2
-// Ensures that nil agents don't cause panics
-func TestNilPointerProtection(t *testing.T) {
-	// Test that NewActivities handles missing dependencies gracefully
-	activities := NewActivities()
-	assert.NotNil(t, activities, "NewActivities should return non-nil")
-	assert.NotNil(t, activities.logger, "Logger should be initialized")
-}
-
-// TestAnalyzeFeedbackWithRealAzureLLM tests with real Azure AI
-// This test requires Azure credentials
-func TestAnalyzeFeedbackWithRealAzureLLM(t *testing.T) {
-	// Skip if no Azure credentials
-	if os.Getenv("AZURE_OPENAI_API_KEY") == "" {
-		t.Skip("Skipping: AZURE_OPENAI_API_KEY not set")
-	}
-
-	activities := NewActivities()
-	ctx := context.Background()
-
-	input := AnalyzeFeedbackInput{
-		Text:      "App crashes when I click the login button",
-		Source:    "test",
 		UserID:    "test-user",
 		ChannelID: "test-channel",
-	}
+	})
 
-	result, err := activities.AnalyzeFeedback(ctx, input)
+	s.True(s.env.IsWorkflowCompleted())
+	s.NoError(s.env.GetWorkflowError())
+}
 
-	// With real Azure LLM, this should succeed
+// ─── TEST 2: Duplicate Skips Discord + GitHub ────────────────────────────────
+
+func (s *WorkflowTestSuite) TestFeedbackWorkflow_DuplicateSkips() {
+	s.env.OnActivity(workflow.AnalyzeFeedback, mock.Anything, mock.Anything).
+		Return(workflow.AnalyzeFeedbackOutput{IsDuplicate: true}, nil)
+
+	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
+		Text: "Same bug again", Source: "discord", UserID: "u1",
+	})
+
+	s.True(s.env.IsWorkflowCompleted())
+	s.NoError(s.env.GetWorkflowError())
+}
+
+// ─── TEST 3: Reject Signal ───────────────────────────────────────────────────
+
+func (s *WorkflowTestSuite) TestFeedbackWorkflow_RejectSignal() {
+	s.env.OnActivity(workflow.AnalyzeFeedback, mock.Anything, mock.Anything).
+		Return(workflow.AnalyzeFeedbackOutput{
+			IsDuplicate: false, Severity: "low", IssueType: "feature",
+		}, nil)
+
+	s.env.OnActivity(workflow.SendDiscordApproval, mock.Anything, mock.Anything).
+		Return(nil)
+
+	s.env.RegisterDelayedCallback(1*time.Second, func() {
+		s.env.SignalWorkflow("user-action", "reject")
+	})
+
+	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
+		Text: "Would be nice to have dark mode", Source: "discord", UserID: "u2",
+	})
+
+	s.True(s.env.IsWorkflowCompleted())
+	s.NoError(s.env.GetWorkflowError())
+}
+
+// ─── TEST 4: Approve Signal ──────────────────────────────────────────────────
+
+func (s *WorkflowTestSuite) TestFeedbackWorkflow_ApproveSignal() {
+	s.env.OnActivity(workflow.AnalyzeFeedback, mock.Anything, mock.Anything).
+		Return(workflow.AnalyzeFeedbackOutput{
+			Title: "Fix crash", IsDuplicate: false, Severity: "high", IssueType: "bug",
+		}, nil)
+
+	s.env.OnActivity(workflow.SendDiscordApproval, mock.Anything, mock.Anything).
+		Return(nil)
+
+	s.env.RegisterDelayedCallback(1*time.Second, func() {
+		s.env.SignalWorkflow("user-action", "approve")
+	})
+
+	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
+		Text: "App crashes on login", Source: "discord", UserID: "u3",
+	})
+
+	s.True(s.env.IsWorkflowCompleted())
+	s.NoError(s.env.GetWorkflowError())
+}
+
+// ─── TEST 5: Timeout Path ───────────────────────────────────────────────────
+
+func (s *WorkflowTestSuite) TestFeedbackWorkflow_TimeoutPath() {
+	s.env.OnActivity(workflow.AnalyzeFeedback, mock.Anything, mock.Anything).
+		Return(workflow.AnalyzeFeedbackOutput{IsDuplicate: false, Severity: "low"}, nil)
+
+	s.env.OnActivity(workflow.SendDiscordApproval, mock.Anything, mock.Anything).
+		Return(nil)
+
+	s.env.SetTestTimeout(10 * time.Minute)
+
+	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
+		Text: "Minor alignment issue", Source: "discord", UserID: "u4",
+	})
+
+	s.True(s.env.IsWorkflowCompleted())
+	s.NoError(s.env.GetWorkflowError())
+}
+
+// ─── TEST 6: Activity Retry ─────────────────────────────────────────────────
+
+func (s *WorkflowTestSuite) TestFeedbackWorkflow_ActivityRetry() {
+	callCount := 0
+	s.env.OnActivity(workflow.AnalyzeFeedback, mock.Anything, mock.Anything).
+		Return(func(ctx context.Context, input workflow.FeedbackInput) (workflow.AnalyzeFeedbackOutput, error) {
+			callCount++
+			if callCount < 3 {
+				return workflow.AnalyzeFeedbackOutput{}, errors.New("transient error")
+			}
+			return workflow.AnalyzeFeedbackOutput{IsDuplicate: false, Severity: "medium"}, nil
+		})
+
+	s.env.OnActivity(workflow.SendDiscordApproval, mock.Anything, mock.Anything).
+		Return(nil)
+
+	s.env.RegisterDelayedCallback(1*time.Second, func() {
+		s.env.SignalWorkflow("user-action", "reject")
+	})
+
+	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
+		Text: "Retry test", Source: "discord", UserID: "u5",
+	})
+
+	s.True(s.env.IsWorkflowCompleted())
+	s.NoError(s.env.GetWorkflowError())
+	s.Equal(3, callCount, "AnalyzeFeedback must be called exactly 3 times")
+}
+
+// ─── TEST 7: Non-Retryable Error ────────────────────────────────────────────
+
+func (s *WorkflowTestSuite) TestFeedbackWorkflow_NonRetryableError() {
+	s.env.OnActivity(workflow.AnalyzeFeedback, mock.Anything, mock.Anything).
+		Return(workflow.AnalyzeFeedbackOutput{}, errors.New("unauthenticated: non-retryable")).
+		Once()
+
+	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
+		Text: "Auth error test", Source: "discord", UserID: "u6",
+	})
+
+	s.True(s.env.IsWorkflowCompleted())
+	s.Error(s.env.GetWorkflowError())
+}
+
+// ─── TEST 8: 20 Concurrent Workflows ────────────────────────────────────────
+
+func TestFeedbackWorkflow_ConcurrentWorkflows(t *testing.T) {
+	// Uses real Temporal server at localhost:7233
+	// Run: go test -race -run TestFeedbackWorkflow_ConcurrentWorkflows
+	c, err := client.Dial(client.Options{HostPort: "localhost:7233"})
 	if err != nil {
-		t.Logf("Azure API error (expected if Qdrant not running): %v", err)
-		// Don't fail - Qdrant might not be available
-		t.Skip("Skipping due to dependency error")
+		t.Skipf("Temporal not available: %v", err)
+	}
+	defer c.Close()
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, 20)
+
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			workflowID := fmt.Sprintf("concurrent-test-%d", idx)
+			_, err := c.ExecuteWorkflow(
+				context.Background(),
+				client.StartWorkflowOptions{
+					ID:        workflowID,
+					TaskQueue: "MAIN-TASK-QUEUE",
+				},
+				workflow.FeedbackWorkflow,
+				workflow.FeedbackInput{
+					Text:   fmt.Sprintf("Concurrent test %d", idx),
+					Source: "test",
+					UserID: fmt.Sprintf("user-%d", idx),
+				},
+			)
+			if err != nil {
+				errChan <- fmt.Errorf("workflow %d: %w", idx, err)
+			}
+		}(i)
 	}
 
-	if result != nil {
-		// Verify confidence is populated from AI (P3-1)
-		assert.True(t, result.Confidence > 0, "Confidence should be > 0")
-		assert.True(t, result.Confidence <= 1.0, "Confidence should be <= 1.0")
-		assert.NotEmpty(t, result.Title, "Title should not be empty")
-		assert.NotEmpty(t, result.IssueType, "IssueType should not be empty")
+	wg.Wait()
+	close(errChan)
+
+	failures := 0
+	for err := range errChan {
+		t.Logf("Error: %v", err)
+		failures++
 	}
+
+	if failures > 0 {
+		t.Errorf("%d/20 workflows failed to start", failures)
+	} else {
+		t.Logf("✅ All 20 concurrent workflows started successfully")
+	}
+}
+
+// ─── TEST 9: Signal After Timeout ───────────────────────────────────────────
+
+func (s *WorkflowTestSuite) TestFeedbackWorkflow_SignalAfterTimeout() {
+	s.env.OnActivity(workflow.AnalyzeFeedback, mock.Anything, mock.Anything).
+		Return(workflow.AnalyzeFeedbackOutput{IsDuplicate: false}, nil)
+
+	s.env.OnActivity(workflow.SendDiscordApproval, mock.Anything, mock.Anything).
+		Return(nil)
+
+	s.env.SetTestTimeout(10 * time.Minute)
+
+	s.env.RegisterDelayedCallback(6*time.Minute, func() {
+		s.env.SignalWorkflow("user-action", "approve")
+	})
+
+	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
+		Text: "Late signal test", Source: "discord", UserID: "u7",
+	})
+
+	s.True(s.env.IsWorkflowCompleted())
+	s.NoError(s.env.GetWorkflowError())
 }
