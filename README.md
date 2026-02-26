@@ -108,6 +108,32 @@ $ bash scripts/demo_test.sh
 
 ## Architecture
 
+### High-Level System Architecture
+
+```mermaid
+graph TD
+    Discord[Discord Webhook] --> GoAPI[Go API Gateway]
+    Slack[Slack Webhook] --> GoAPI
+    GoAPI --> Redpanda[(Redpanda)]
+    Redpanda --> Temporal[Temporal Worker]
+    Temporal --> Supervisor[Supervisor Agent]
+    Supervisor --> Researcher[Researcher Agent]
+    Supervisor --> SRE[SRE Agent]
+    Supervisor --> SWE[SWE Agent]
+    SWE --> Reviewer[Reviewer Agent]
+    SWE --> GitHub[GitHub PR]
+    Researcher --> Redis[(Redis)]
+    SRE --> Redis
+    SRE -->|interrupt| Supervisor
+    Redis --> SigNoz[SigNoz]
+    Redis --> HyperDX[HyperDX]
+    AdminPanel[React Admin Panel] --> Redis
+    AdminPanel -->|SSE| LiveFeed[Live Feed]
+    AdminPanel -->|HITL| Approval[Human Approval]
+```
+
+### Detailed Component Architecture
+
 ```mermaid
 graph TD
     subgraph "External"

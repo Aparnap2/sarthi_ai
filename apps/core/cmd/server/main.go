@@ -100,8 +100,9 @@ func main() {
 	app.Get("/health", handler.HandleHealth)
 	app.Get("/health/details", handler.HandleDetailedHealth)
 
-	// Webhook routes (no auth required - they use Discord verification)
+	// Webhook routes (no auth required - platform-specific verification)
 	app.Post("/webhooks/discord", handler.HandleDiscordWebhook)
+	app.Post("/webhooks/slack", handler.HandleSlackWebhook)
 	app.Post("/webhooks/interaction", handler.HandleInteraction)
 
 	// Test route (no auth)
