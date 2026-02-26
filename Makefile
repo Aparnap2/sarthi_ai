@@ -110,3 +110,67 @@ security-full: security-race security-test security-lint
 	@echo "╔══════════════════════════════╗"
 	@echo "║  SECURITY SWEEP COMPLETE ✅  ║"
 	@echo "╚══════════════════════════════╝"
+
+# ===========================================
+# Demo Preparation Commands
+# ===========================================
+
+.PHONY: demo demo-seed demo-reset demo-feedback demo-health test-all test-e2e
+
+demo:
+	@echo "🚀 Starting IterateSwarm OS..."
+	docker start iterateswarm-redis iterateswarm-postgres iterateswarm-temporal iterateswarm-qdrant 2>/dev/null || docker compose up -d
+	@echo "⏳ Waiting 15s for services..."
+	@sleep 15
+	$(MAKE) demo-seed
+	@echo ""
+	@echo "✅ Demo ready!"
+	@echo "┌──────────────────────────────────────────┐"
+	@echo "│  Admin Panel:  http://localhost:3000/admin│"
+	@echo "│  SigNoz:       http://localhost:3301      │"
+	@echo "│  Temporal UI:  http://localhost:8088      │"
+	@echo "│  Qdrant UI:    http://localhost:6333      │"
+	@echo "└──────────────────────────────────────────┘"
+
+demo-seed:
+	@echo "🌱 Seeding Qdrant with example issues..."
+	cd apps/ai && uv run python scripts/seed_qdrant.py || echo "⚠️  Seed script failed (may need sentence-transformers)"
+	@echo "✅ Seeded example issues"
+
+demo-reset:
+	@echo "🗑  Resetting all data..."
+	docker stop iterateswarm-redis iterateswarm-postgres iterateswarm-temporal iterateswarm-qdrant 2>/dev/null || true
+	docker compose down -v
+	@echo "✅ Reset complete. Run 'make demo' to restart."
+
+demo-feedback:
+	@if [ -z "$(TEXT)" ]; then echo "Usage: make demo-feedback TEXT='your feedback'"; exit 1; fi
+	@curl -s -X POST http://localhost:3000/webhooks/discord \
+		-H "Content-Type: application/json" \
+		-d '{"text":"$(TEXT)","source":"discord","user_id":"demo-user","channel_id":"demo"}' \
+		| python3 -m json.tool
+
+demo-health:
+	@echo "=== Infrastructure Health Check ==="
+	@docker exec iterateswarm-redis redis-cli PING | grep -q PONG && echo "✅ Redis" || echo "❌ Redis"
+	@docker exec iterateswarm-postgres pg_isready -U iterateswarm -d iterateswarm > /dev/null && echo "✅ PostgreSQL" || echo "❌ PostgreSQL"
+	@curl -sf http://localhost:8088/api/health > /dev/null && echo "✅ Temporal" || echo "❌ Temporal"
+	@curl -sf http://localhost:6333/health > /dev/null && echo "✅ Qdrant" || echo "❌ Qdrant"
+	@curl -sf http://localhost:3000/api/health > /dev/null && echo "✅ Go API" || echo "❌ Go API"
+
+test-all:
+	@echo "=== Running All Tests ==="
+	@echo ""
+	@echo "🐍 Python tests..."
+	cd apps/ai && uv run pytest tests/ -v --tb=short -q || true
+	@echo ""
+	@echo "🔹 Go tests (with race detection)..."
+	cd apps/core && go test -race -count=1 ./... -v || true
+
+test-e2e:
+	@echo "=== Running E2E Tests ==="
+	@echo ""
+	$(MAKE) demo-health
+	@echo ""
+	@echo "🧪 Running E2E workflow tests (requires all services)..."
+	cd apps/ai && uv run pytest tests/test_e2e_workflow.py -v -s -m e2e --timeout=300 || true
