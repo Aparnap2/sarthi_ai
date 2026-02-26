@@ -500,11 +500,13 @@ func (h *Handler) queryDatabaseStats(ctx context.Context) (map[string]interface{
 	pendingCount := 0
 	processedCount := 0
 	for _, fb := range pendingFeedback {
-		switch fb.Status {
-		case "pending":
-			pendingCount++
-		case "processed":
-			processedCount++
+		if status, ok := fb["status"].(string); ok {
+			switch status {
+			case "pending":
+				pendingCount++
+			case "processed":
+				processedCount++
+			}
 		}
 	}
 
@@ -520,11 +522,13 @@ func (h *Handler) queryDatabaseStats(ctx context.Context) (map[string]interface{
 	draftCount := 0
 	publishedCount := 0
 	for _, issue := range issues {
-		switch issue.Status {
-		case "draft":
-			draftCount++
-		case "published":
-			publishedCount++
+		if status, ok := issue["status"].(string); ok {
+			switch status {
+			case "draft":
+				draftCount++
+			case "published":
+				publishedCount++
+			}
 		}
 	}
 
@@ -549,8 +553,8 @@ func (h *Handler) HandleFeedbackList(c *fiber.Ctx) error {
 
 	// Query feedback from database
 	feedback, err := h.repo.ListFeedback(c.Context(), db.ListFeedbackParams{
-		Limit:  int32(pageSize),
-		Offset: int32(offset),
+		Limit:  pageSize,
+		Offset: offset,
 	})
 	if err != nil {
 		h.logger.Error("failed to query feedback from database", err)
@@ -562,14 +566,27 @@ func (h *Handler) HandleFeedbackList(c *fiber.Ctx) error {
 	// Convert to response format
 	responseItems := make([]map[string]interface{}, len(feedback))
 	for i, item := range feedback {
-		createdAt := item.CreatedAt.Time.Format(time.RFC3339) // Access the Time field of Timestamptz
+		var createdAt string
+		if createdAtRaw, ok := item["created_at"]; ok {
+			if t, ok := createdAtRaw.(time.Time); ok {
+				createdAt = t.Format(time.RFC3339)
+			}
+		}
+		
+		var id, content, source, userID, status string
+		if v, ok := item["id"].(string); ok { id = v }
+		if v, ok := item["content"].(string); ok { content = v }
+		if v, ok := item["source"].(string); ok { source = v }
+		if v, ok := item["user_id"].(string); ok { userID = v }
+		if v, ok := item["status"].(string); ok { status = v }
+		
 		responseItems[i] = map[string]interface{}{
-			"id":         item.ID,
-			"title":      extractTitle(item.Content), // Extract title from content
-			"body":       item.Content,
-			"source":     item.Source,
-			"user_id":    item.UserID.String(),
-			"status":     item.Status,
+			"id":         id,
+			"title":      extractTitle(content),
+			"body":       content,
+			"source":     source,
+			"user_id":    userID,
+			"status":     status,
 			"created_at": createdAt,
 		}
 	}
