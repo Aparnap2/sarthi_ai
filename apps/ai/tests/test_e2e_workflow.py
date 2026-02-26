@@ -22,36 +22,25 @@ import httpx
 import redis.asyncio as redis
 from src.context.store import ContextStore
 
-BASE_URL = "http://localhost:3000"
+BASE_URL = os.getenv("API_BASE_URL", "http://localhost:3000")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 
-@pytest.fixture(scope="module")
-async def http_client():
-    """Create HTTP client for API calls."""
-    async with httpx.AsyncClient(base_url=BASE_URL, timeout=120.0) as client:
-        yield client
-
-
-@pytest.fixture(scope="module")
-async def redis_store():
-    """Create Redis context store."""
-    r = redis.Redis.from_url(REDIS_URL)
-    store = ContextStore(r)
+@pytest.fixture(scope="session")
+async def redis_store(redis_client):
+    """Create Redis context store using session-scoped redis_client."""
+    store = ContextStore()
+    # Inject the redis client for test use
+    store._client = redis_client
     yield store
-    await r.aclose()
 
 
 @pytest.mark.asyncio
 @pytest.mark.e2e
-async def test_infra_redis_is_real(http_client):
+async def test_infra_redis_is_real(redis_client):
     """Infra guard: Verify Redis is accessible."""
-    r = redis.Redis.from_url(REDIS_URL)
-    try:
-        pong = await r.ping()
-        assert pong is True, "Redis did not respond to PING"
-    finally:
-        await r.aclose()
+    pong = await redis_client.ping()
+    assert pong is True, "Redis did not respond to PING"
 
 
 @pytest.mark.asyncio
