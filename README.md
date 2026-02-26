@@ -127,7 +127,7 @@ graph TD
     SRE -->|interrupt| Supervisor
     Redis --> SigNoz[SigNoz]
     Redis --> HyperDX[HyperDX]
-    AdminPanel[React Admin Panel] --> Redis
+    AdminPanel[HTMX Admin Dashboard<br/>Go Templates + SSE] --> Redis
     AdminPanel -->|SSE| LiveFeed[Live Feed]
     AdminPanel -->|HITL| Approval[Human Approval]
 ```
