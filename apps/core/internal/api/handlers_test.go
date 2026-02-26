@@ -20,6 +20,9 @@ import (
 	"iterateswarm-core/internal/db"
 	"iterateswarm-core/internal/redpanda"
 	"iterateswarm-core/internal/temporal"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/redis/go-redis/v9"
 )
 
 func TestNewHandler(t *testing.T) {
@@ -162,16 +165,17 @@ func TestParseCustomIDAllowedActions(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════
 
 // setupTestApp creates a test HTTP app with minimal dependencies
-func setupTestApp(t *testing.T) (*http.ServeMux, *testDeps) {
+func setupTestApp(t *testing.T) (*fiber.App, *testDeps) {
 	t.Helper()
 	repo := db.NewRepository(nil)
 	var rp *redpanda.Client
 	var tm *temporal.Client
-	handler := api.NewHandler(rp, tm, repo)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/webhooks/discord", handler.HandleDiscordWebhook)
-	mux.HandleFunc("/webhooks/slack", handler.HandleSlackWebhook)
-	return mux, &testDeps{repo: repo}
+	var rdb *redis.Client
+	handler := api.NewHandler(rp, tm, repo, rdb)
+	app := fiber.New()
+	app.Post("/webhooks/discord", handler.HandleDiscordWebhook)
+	app.Post("/webhooks/slack", handler.HandleSlackWebhook)
+	return app, &testDeps{repo: repo}
 }
 
 type testDeps struct {
@@ -186,7 +190,7 @@ func getLastStoredContent(t *testing.T, repo *db.Repository) string {
 	// Query last feedback content
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	feedbacks, err := repo.GetFeedback(ctx, 1)
+	feedbacks, err := repo.GetFeedback(ctx)
 	if err != nil || len(feedbacks) == 0 {
 		return ""
 	}
@@ -238,7 +242,7 @@ func TestDiscordWebhook_SQLInjection(t *testing.T) {
 	if deps.repo != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_, err := deps.repo.GetFeedback(ctx, 1)
+		_, err := deps.repo.GetFeedback(ctx)
 		assert.NoError(t, err, "feedback table must still exist after SQL injection attempt")
 	}
 }
