@@ -69,19 +69,20 @@ $ bash scripts/demo_test.sh
 🎉 All tests passed! System is production-ready.
 ```
 
-Production Patterns Implemented
+### Production Patterns Implemented
 
-Pattern Implementation Status
-Circuit Breaker Prevents cascade failures ✅ Active
-Retry Logic Exponential backoff (3 retries) ✅ Active
-Rate Limiting Token bucket (20 req/min) ✅ Active
-Structured Logging JSON with correlation IDs ✅ Active
-Health Checks /api/health endpoint ✅ Active
-Input Sanitization XSS protection ✅ Active
+| Pattern | Implementation | Status |
+|---------|---------------|--------|
+| **Circuit Breaker** | Prevents cascade failures | ✅ Active |
+| **Retry Logic** | Exponential backoff (3 retries) | ✅ Active |
+| **Rate Limiting** | Token bucket (20 req/min) | ✅ Active |
+| **Structured Logging** | JSON with correlation IDs | ✅ Active |
+| **Health Checks** | `/api/health` endpoint | ✅ Active |
+| **Input Sanitization** | XSS protection | ✅ Active |
 
 ---
 
-Architecture
+## Architecture
 
 ```mermaid
 graph TD
@@ -126,47 +127,51 @@ graph TD
     DiscordInteraction --> InteractionHandler
 ```
 
-Polyglot Pattern
+### Polyglot Pattern
 
-Component Language Task Queue Responsibility
-Workflow Definition Go - Orchestration logic
-AI Activity Python AI_TASK_QUEUE LangGraph agents
-API Activity Go MAIN_TASK_QUEUE Discord, GitHub
-Web Interface Go + htmx - Server-side rendered UI
-
----
-
-Tech Stack
-
-Go Modular Monolith
-
-Technology Purpose
-Fiber HTTP framework
-htmx Dynamic web interactions (server-side rendering)
-sqlc Type-safe SQL queries
-Temporal Go SDK Workflow orchestration
-franz-go Redpanda/Kafka client
-discord.go Discord API
-
-Python AI Worker
-
-Technology Purpose
-Temporal Python SDK Activity worker
-LangGraph Agent orchestration
-OpenAI SDK Ollama (OpenAI-compatible)
-Qdrant Client Vector similarity search
-
-Infrastructure
-
-Technology Purpose
-Temporal Server Workflow state machine
-Redpanda Kafka-compatible event bus
-PostgreSQL Primary database
-Qdrant Vector database
+| Component | Language | Task Queue | Responsibility |
+|-----------|----------|------------|----------------|
+| **Workflow Definition** | Go | - | Orchestration logic |
+| **AI Activity** | Python | AI_TASK_QUEUE | LangGraph agents |
+| **API Activity** | Go | MAIN_TASK_QUEUE | Discord, GitHub |
+| **Web Interface** | Go + htmx | - | Server-side rendered UI |
 
 ---
 
-Project Structure
+## Tech Stack
+
+### Go Modular Monolith
+
+| Technology | Purpose |
+|------------|---------|
+| Fiber | HTTP framework |
+| htmx | Dynamic web interactions (server-side rendering) |
+| sqlc | Type-safe SQL queries |
+| Temporal Go SDK | Workflow orchestration |
+| franz-go | Redpanda/Kafka client |
+| discord.go | Discord API |
+
+### Python AI Worker
+
+| Technology | Purpose |
+|------------|---------|
+| Temporal Python SDK | Activity worker |
+| LangGraph | Agent orchestration |
+| OpenAI SDK | Ollama (OpenAI-compatible) |
+| Qdrant Client | Vector similarity search |
+
+### Infrastructure
+
+| Technology | Purpose |
+|------------|---------|
+| Temporal Server | Workflow state machine |
+| Redpanda | Kafka-compatible event bus |
+| PostgreSQL | Primary database |
+| Qdrant | Vector database |
+
+---
+
+## Project Structure
 
 ```
 iterate_swarm/
@@ -208,16 +213,16 @@ iterate_swarm/
 
 ---
 
-🚀 Getting Started
+## 🚀 Getting Started
 
-Prerequisites
+### Prerequisites
 
-· Docker and Docker Compose
-· Go 1.21+
-· Python 3.11+
-· Git
+- Docker and Docker Compose
+- Go 1.21+
+- Python 3.11+
+- Git
 
-1. Start Docker Services
+### 1. Start Docker Services
 
 Launch the infrastructure services:
 
@@ -231,14 +236,13 @@ docker-compose up -d
 docker ps
 ```
 
-Ports:
+**Ports:**
+- Temporal: `7233` (gRPC), `8088` (UI)
+- Redpanda: `19092` (Kafka), `9644` (Admin), `8082` (REST Proxy)
+- PostgreSQL: `5432`
+- Qdrant: `6333` (REST), `6334` (gRPC)
 
-· Temporal: 7233 (gRPC), 8088 (UI)
-· Redpanda: 19092 (Kafka), 9644 (Admin), 8082 (REST Proxy)
-· PostgreSQL: 5432
-· Qdrant: 6333 (REST), 6334 (gRPC)
-
-2. Configure Environment Variables
+### 2. Configure Environment Variables
 
 ```bash
 # Copy example env file
@@ -247,7 +251,7 @@ cp .env.example .env
 # Edit with your API keys
 ```
 
-3. Set Up AI Worker
+### 3. Set Up AI Worker
 
 ```bash
 cd apps/ai
@@ -262,7 +266,7 @@ uv run pytest
 uv run python -m src.worker
 ```
 
-4. Set Up Go Core
+### 4. Set Up Go Core
 
 ```bash
 cd apps/core
@@ -277,32 +281,29 @@ sqlc generate
 go run cmd/server/main.go
 ```
 
-Running the Application
+## Running the Application
 
-Development Mode
+### Development Mode
 
-Terminal 1 - Docker Services:
-
+**Terminal 1 - Docker Services:**
 ```bash
 cd iterate_swarm
 docker-compose up -d
 ```
 
-Terminal 2 - AI Worker:
-
+**Terminal 2 - AI Worker:**
 ```bash
 cd apps/ai
 uv run python -m src.worker
 ```
 
-Terminal 3 - Go Core:
-
+**Terminal 3 - Go Core:**
 ```bash
 cd apps/core
 go run cmd/server/main.go
 ```
 
-Testing
+### Testing
 
 ```bash
 # AI Worker tests
@@ -316,18 +317,16 @@ go test ./...
 
 ---
 
-📡 API Endpoints
+## 📡 API Endpoints
 
-Local Development
+### Local Development
 
-Base URL: http://localhost:3000
+**Base URL:** `http://localhost:3000`
 
-POST /api/feedback
-
+#### POST /api/feedback
 Classify feedback and generate GitHub issue spec
 
-Try it:
-
+**Try it:**
 ```bash
 curl -X POST http://localhost:3000/api/feedback \
   -H "Content-Type: application/json" \
@@ -339,8 +338,7 @@ curl -X POST http://localhost:3000/api/feedback \
   }'
 ```
 
-Response:
-
+**Response:**
 ```json
 {
   "FeedbackID": "demo-user",
@@ -364,16 +362,14 @@ Response:
 }
 ```
 
-GET /api/stats
-
+#### GET /api/stats
 System health and circuit breaker status
 
 ```bash
 curl http://localhost:3000/api/stats
 ```
 
-Response:
-
+**Response:**
 ```json
 {
   "circuit_breaker": "closed",
@@ -383,57 +379,56 @@ Response:
 }
 ```
 
-GET /api/health
-
+#### GET /api/health
 Health check endpoint
 
 ```bash
 curl http://localhost:3000/api/health
 ```
 
-GET /
-
+#### GET /
 HTMX Dashboard (interactive UI)
 
-Open in browser: http://localhost:3000
+Open in browser: `http://localhost:3000`
 
 ---
 
-Full Endpoint List
+### Full Endpoint List
 
-Method Endpoint Description Status
-POST /api/feedback Classify & generate spec ✅ Complete
-GET /api/stats System metrics ✅ Complete
-GET /api/health Health check ✅ Complete
-GET / HTMX Dashboard ✅ Complete
-POST /webhooks/discord Discord webhook 🔄 Planned
-POST /webhooks/interaction Discord interactions 🔄 Planned
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | `/api/feedback` | Classify & generate spec | ✅ Complete |
+| GET | `/api/stats` | System metrics | ✅ Complete |
+| GET | `/api/health` | Health check | ✅ Complete |
+| GET | `/` | HTMX Dashboard | ✅ Complete |
+| POST | `/webhooks/discord` | Discord webhook | 🔄 Planned |
+| POST | `/webhooks/interaction` | Discord interactions | 🔄 Planned |
 
 ---
 
-🏗️ Architecture Decisions
+## 🏗️ Architecture Decisions
 
-Why Polyglot? (Go + Python)
+### Why Polyglot? (Go + Python)
 
 We chose a polyglot architecture because different languages excel at different tasks:
 
-Task Language Why
-API Gateway Go High concurrency, low latency, great for I/O-bound web servers
-AI/ML Processing Python Rich ecosystem (LangChain, OpenAI SDK), rapid prototyping
-Workflow Orchestration Both Temporal handles cross-language workflows seamlessly
+| Task | Language | Why |
+|------|----------|-----|
+| **API Gateway** | Go | High concurrency, low latency, great for I/O-bound web servers |
+| **AI/ML Processing** | Python | Rich ecosystem (LangChain, OpenAI SDK), rapid prototyping |
+| **Workflow Orchestration** | Both | Temporal handles cross-language workflows seamlessly |
 
-Benefits:
-
-· Performance: Go handles 10k+ concurrent connections efficiently
-· AI Capabilities: Python's ML libraries are unmatched
-· Team Flexibility: Different expertise can contribute
-· Best-of-Breed: Use the right tool for each job
+**Benefits:**
+- **Performance**: Go handles 10k+ concurrent connections efficiently
+- **AI Capabilities**: Python's ML libraries are unmatched
+- **Team Flexibility**: Different expertise can contribute
+- **Best-of-Breed**: Use the right tool for each job
 
 ---
 
-Why gRPC?
+### Why gRPC?
 
-Type-Safe, High-Performance Communication
+**Type-Safe, High-Performance Communication**
 
 ```protobuf
 service FeedbackService {
@@ -442,24 +437,24 @@ service FeedbackService {
 }
 ```
 
-Advantages:
+**Advantages:**
+- **10x faster** than REST + JSON (Protocol Buffers + HTTP/2)
+- **Type safety**: Generated client/server code prevents runtime errors
+- **Streaming**: Bidirectional streaming for real-time updates
+- **Schema evolution**: Backward-compatible protocol changes
 
-· 10x faster than REST + JSON (Protocol Buffers + HTTP/2)
-· Type safety: Generated client/server code prevents runtime errors
-· Streaming: Bidirectional streaming for real-time updates
-· Schema evolution: Backward-compatible protocol changes
+**Comparison:**
 
-Comparison:
-
-Protocol Latency Payload Size Type Safety
-REST/JSON 45ms 2.3KB No
-gRPC 12ms 0.4KB Yes
+| Protocol | Latency | Payload Size | Type Safety |
+|----------|---------|--------------|-------------|
+| REST/JSON | 45ms | 2.3KB | No |
+| gRPC | 12ms | 0.4KB | Yes |
 
 ---
 
-Why Temporal?
+### Why Temporal?
 
-Reliable Workflow Orchestration
+**Reliable Workflow Orchestration**
 
 Temporal provides durable execution - workflows survive crashes, restarts, and failures:
 
@@ -477,28 +472,25 @@ func FeedbackWorkflow(ctx workflow.Context, feedback Feedback) error {
 }
 ```
 
-Key Features:
+**Key Features:**
+- **Durable Execution**: State persisted automatically
+- **Automatic Retries**: Configurable retry policies
+- **Timeouts**: Detect stuck workflows
+- **Observability**: Built-in UI for monitoring
 
-· Durable Execution: State persisted automatically
-· Automatic Retries: Configurable retry policies
-· Timeouts: Detect stuck workflows
-· Observability: Built-in UI for monitoring
-
-Without Temporal:
-
-· Manual state management
-· Complex error handling
-· Lost tasks on restart
-· No visibility into workflow state
+**Without Temporal:**
+- Manual state management
+- Complex error handling
+- Lost tasks on restart
+- No visibility into workflow state
 
 ---
 
-⚠️ Failure Modes & Resilience
+## ⚠️ Failure Modes & Resilience
 
-How We Handle Failures
+### How We Handle Failures
 
-1. Azure AI Service Down
-
+#### 1. Azure AI Service Down
 ```
 Circuit Breaker Pattern:
 - After 5 failures: Open circuit (fail fast)
@@ -506,10 +498,9 @@ Circuit Breaker Pattern:
 - Success: Close circuit (resume normal)
 ```
 
-Result: Graceful degradation, no cascading failures
+**Result:** Graceful degradation, no cascading failures
 
-2. Rate Limiting (429 errors)
-
+#### 2. Rate Limiting (429 errors)
 ```
 Token Bucket Algorithm:
 - Bucket capacity: 20 tokens
@@ -517,10 +508,9 @@ Token Bucket Algorithm:
 - Excess requests: Queued with 503 + Retry-After header
 ```
 
-Result: Fair resource allocation, no service overload
+**Result:** Fair resource allocation, no service overload
 
-3. Network Timeouts
-
+#### 3. Network Timeouts
 ```
 Retry with Exponential Backoff:
 - Attempt 1: Immediate
@@ -530,10 +520,9 @@ Retry with Exponential Backoff:
 - Total timeout: 30s
 ```
 
-Result: Transient failures auto-recover
+**Result:** Transient failures auto-recover
 
-4. Database Connection Pool Exhaustion
-
+#### 4. Database Connection Pool Exhaustion
 ```
 Connection Pool Settings:
 - Max connections: 25
@@ -542,127 +531,135 @@ Connection Pool Settings:
 - Queue timeout: 10s
 ```
 
-Result: Bounded resource usage
+**Result:** Bounded resource usage
 
-Failure Scenarios Tested
+### Failure Scenarios Tested
 
-Scenario Handling Status
-Azure 500 error Retry 3x, then circuit open ✅ Tested
-Azure timeout Context cancellation, error response ✅ Tested
-Rate limit exceeded 503 + Retry-After header ✅ Tested
-JSON parse error 400 Bad Request with details ✅ Tested
-XSS attempt Input sanitized, processing continues ✅ Tested
-Database timeout Connection retry, pool expansion ✅ Tested
+| Scenario | Handling | Status |
+|----------|----------|--------|
+| Azure 500 error | Retry 3x, then circuit open | ✅ Tested |
+| Azure timeout | Context cancellation, error response | ✅ Tested |
+| Rate limit exceeded | 503 + Retry-After header | ✅ Tested |
+| JSON parse error | 400 Bad Request with details | ✅ Tested |
+| XSS attempt | Input sanitized, processing continues | ✅ Tested |
+| Database timeout | Connection retry, pool expansion | ✅ Tested |
 
 ---
 
-📊 Performance Benchmarks
+## 📊 Performance Benchmarks
 
-Load Test Results
+### Load Test Results
 
-Tested with wrk on local machine (MacBook Pro M1):
+Tested with `wrk` on local machine (MacBook Pro M1):
 
 ```bash
 wrk -t4 -c100 -d30s http://localhost:3000/api/health
 ```
 
-Metric Result
-Requests/sec 12,450
-Latency (avg) 8ms
-Latency (p99) 24ms
-Error rate 0%
+| Metric | Result |
+|--------|--------|
+| **Requests/sec** | 12,450 |
+| **Latency (avg)** | 8ms |
+| **Latency (p99)** | 24ms |
+| **Error rate** | 0% |
 
-AI Classification Performance
+### AI Classification Performance
 
-Operation Average Time p99 Time
-Bug classification 3.2s 5.1s
-Feature request 2.8s 4.5s
-Question routing 2.1s 3.8s
-Spec generation 2.5s 4.2s
+| Operation | Average Time | p99 Time |
+|-----------|--------------|----------|
+| Bug classification | 3.2s | 5.1s |
+| Feature request | 2.8s | 4.5s |
+| Question routing | 2.1s | 3.8s |
+| Spec generation | 2.5s | 4.2s |
 
-Bottleneck: Azure AI API latency (not our code)
+**Bottleneck:** Azure AI API latency (not our code)
 
-Resource Usage
+### Resource Usage
 
-Component CPU Memory Notes
-Go API Server 5-15% 45MB Handles 1000+ concurrent
-Python Worker 20-40% 180MB AI model loading
-PostgreSQL 10-25% 120MB With connection pooling
-Redpanda 5-10% 200MB Message queue
+| Component | CPU | Memory | Notes |
+|-----------|-----|--------|-------|
+| Go API Server | 5-15% | 45MB | Handles 1000+ concurrent |
+| Python Worker | 20-40% | 180MB | AI model loading |
+| PostgreSQL | 10-25% | 120MB | With connection pooling |
+| Redpanda | 5-10% | 200MB | Message queue |
 
-Throughput Limits
+### Throughput Limits
 
-Resource Limit Current Usage
-Azure AI requests 20/min 12/min avg
-API rate limit 20/min Configurable
-Database connections 25 8 avg
-Concurrent workflows 100 15 avg
+| Resource | Limit | Current Usage |
+|----------|-------|---------------|
+| Azure AI requests | 20/min | 12/min avg |
+| API rate limit | 20/min | Configurable |
+| Database connections | 25 | 8 avg |
+| Concurrent workflows | 100 | 15 avg |
 
-Optimization Strategies
+### Optimization Strategies
 
-1. Connection Pooling: Reuse DB connections (25x faster than creating new)
-2. Circuit Breaker: Fail fast instead of waiting for timeouts
-3. Async Processing: Don't block API on AI calls (Temporal queues)
-4. Response Caching: Cache stats/metrics (30s TTL)
-5. Protocol Buffers: 10x smaller payload than JSON
-
----
-
-Progress Status
-
-Production-Ready Components
-
-Component Status Notes
-AI Classification ✅ Complete Azure AI Foundry integration with real LLM
-Web Dashboard ✅ Complete HTMX UI at / with real-time updates
-API Server ✅ Complete REST API with JSON & HTML responses
-E2E Tests ✅ 12/12 All passing with real Azure AI
-Resilience ✅ Complete Circuit breaker, retry, rate limiting
-
-Full Architecture
-
-Component Status Notes
-Docker Infrastructure ✅ Complete Temporal, Redpanda, PostgreSQL, Qdrant
-Python AI Worker ✅ Complete LangGraph agents, Qdrant integration
-Database Layer ✅ Complete PostgreSQL with sqlc
-Discord Integration 🔄 Planned Webhook & interaction handlers
-GitHub Integration 🔄 Planned Issue creation API
-
-Development Phases
-
-Phase Status Description
-Phase 1: Infrastructure ✅ Complete Docker Compose, health checks
-Phase 2: Protobuf Contract ✅ Complete gRPC definitions and code generation
-Phase 3: AI Worker ✅ Complete Temporal worker, LangGraph agents
-Phase 4: Go Core Service ✅ Complete Fiber webhooks, Temporal workflow
-Phase 5: Integrations & Polish ✅ Complete Discord/GitHub integration, documentation
-Phase 6: Modular Monolith Refactor ✅ Complete Database integration, web interface
-Phase 7: Production 🔄 In Progress Authentication, Dockerfiles, CI/CD
+1. **Connection Pooling**: Reuse DB connections (25x faster than creating new)
+2. **Circuit Breaker**: Fail fast instead of waiting for timeouts
+3. **Async Processing**: Don't block API on AI calls (Temporal queues)
+4. **Response Caching**: Cache stats/metrics (30s TTL)
+5. **Protocol Buffers**: 10x smaller payload than JSON
 
 ---
 
-Contributing
+## Progress Status
+
+### Production-Ready Components
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **AI Classification** | ✅ Complete | Azure AI Foundry integration with real LLM |
+| **Web Dashboard** | ✅ Complete | HTMX UI at / with real-time updates |
+| **API Server** | ✅ Complete | REST API with JSON & HTML responses |
+| **E2E Tests** | ✅ 12/12 | All passing with real Azure AI |
+| **Resilience** | ✅ Complete | Circuit breaker, retry, rate limiting |
+
+### Full Architecture
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **Docker Infrastructure** | ✅ Complete | Temporal, Redpanda, PostgreSQL, Qdrant |
+| **Python AI Worker** | ✅ Complete | LangGraph agents, Qdrant integration |
+| **Database Layer** | ✅ Complete | PostgreSQL with sqlc |
+| **Discord Integration** | 🔄 Planned | Webhook & interaction handlers |
+| **GitHub Integration** | 🔄 Planned | Issue creation API |
+
+### Development Phases
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 1: Infrastructure | ✅ Complete | Docker Compose, health checks |
+| Phase 2: Protobuf Contract | ✅ Complete | gRPC definitions and code generation |
+| Phase 3: AI Worker | ✅ Complete | Temporal worker, LangGraph agents |
+| Phase 4: Go Core Service | ✅ Complete | Fiber webhooks, Temporal workflow |
+| Phase 5: Integrations & Polish | ✅ Complete | Discord/GitHub integration, documentation |
+| Phase 6: Modular Monolith Refactor | ✅ Complete | Database integration, web interface |
+| Phase 7: Production | 🔄 In Progress | Authentication, Dockerfiles, CI/CD |
+
+---
+
+## Contributing
 
 1. Fork the repository
-2. Create a feature branch (git checkout -b feature/your-feature)
-3. Commit your changes (git commit -m 'feat: add your feature')
-4. Push to the branch (git push origin feature/your-feature)
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Commit your changes (`git commit -m 'feat: add your feature'`)
+4. Push to the branch (`git push origin feature/your-feature`)
 5. Open a Pull Request
 
 ---
 
-License
+## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-Acknowledgments
+## Acknowledgments
 
-· Temporal for workflow orchestration
-· LangGraph for agent orchestration
-· Redpanda for high-performance streaming
-· Qdrant for vector similarity search
+- [Temporal](https://temporal.io) for workflow orchestration
+- [LangGraph](https://langchain-ai.github.io/langgraph) for agent orchestration
+- [Redpanda](https://redpanda.com) for high-performance streaming
+- [Qdrant](https://qdrant.tech) for vector similarity search
 
 ---
 
