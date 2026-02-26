@@ -1,55 +1,56 @@
 
 
+```markdown
 # IterateSwarm
 
 <div align="center">
 
-https://img.shields.io/badge/E2E%20Tests-12%2F12%20Passing-brightgreen?style=flat-square
-https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square
-https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square&logo=go
-https://img.shields.io/badge/Azure-AI%20Foundry-0078D4?style=flat-square&logo=microsoft-azure
+[![E2E Tests](https://img.shields.io/badge/E2E%20Tests-12%2F12%20Passing-brightgreen?style=flat-square)](./scripts/demo_test.sh)
+![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)
+![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square&logo=go)
+![Azure](https://img.shields.io/badge/Azure-AI%20Foundry-0078D4?style=flat-square&logo=microsoft-azure)
 
-Production-grade AI Feedback Triage System
+**Production-grade AI Feedback Triage System**
 
 Transform unstructured user feedback into structured GitHub issues using Azure AI Foundry, Go, and production resilience patterns.
 
-Features • Architecture • API Docs • E2E Tests
+[Features](#features) • [Architecture](#architecture) • [API Docs](#api-endpoints) • [E2E Tests](#testing)
 
 </div>
 
 ---
 
-Overview
+## Overview
 
-IterateSwarm is a production-grade AI system that:
+IterateSwarm is a **production-grade AI system** that:
 
-· ✅ E2E Tested - 12/12 tests passing with real LLM (no mocks)
-· ✅ Production Patterns - Circuit breaker, retry, rate limiting, structured logging
-· Go Modular Monolith - High-performance Fiber API with htmx UI
-· Azure AI Integration - Real-time classification and spec generation
-· Production Resilience - Circuit breaker, exponential backoff, token bucket rate limiting
-· htmx-Powered UI - Server-side rendered dashboard with minimal JavaScript
-
----
-
-Features
-
-· 🤖 AI Classification - Azure AI Foundry classifies feedback (bug/feature/question) with 97%+ accuracy
-· 📊 Severity Scoring - Automatically assigns severity (critical/high/medium/low)
-· 📝 Spec Generation - Creates GitHub issues with reproduction steps & acceptance criteria
-· 🛡️ Production Resilience - Circuit breaker, retry with backoff, rate limiting
-· 📡 Real-time Dashboard - HTMX-powered UI showing live results
-· ✅ E2E Tested - 12 comprehensive tests with real LLM (no mocks)
-· 🔍 Universal Ingestion - Webhook support for Discord, Slack, Email
-· 💾 Semantic Deduplication - Vector similarity to merge duplicate feedback
+- ✅ **E2E Tested** - 12/12 tests passing with real LLM (no mocks)
+- ✅ **Production Patterns** - Circuit breaker, retry, rate limiting, structured logging
+- **Go Modular Monolith** - High-performance Fiber API with htmx UI
+- **Azure AI Integration** - Real-time classification and spec generation
+- **Production Resilience** - Circuit breaker, exponential backoff, token bucket rate limiting
+- **htmx-Powered UI** - Server-side rendered dashboard with minimal JavaScript
 
 ---
 
-🧪 Testing & Quality
+## Features
 
-E2E Test Suite: 12/12 Passing ✅
+- **🤖 AI Classification** - Azure AI Foundry classifies feedback (bug/feature/question) with 97%+ accuracy
+- **📊 Severity Scoring** - Automatically assigns severity (critical/high/medium/low)
+- **📝 Spec Generation** - Creates GitHub issues with reproduction steps & acceptance criteria
+- **🛡️ Production Resilience** - Circuit breaker, retry with backoff, rate limiting
+- **📡 Real-time Dashboard** - HTMX-powered UI showing live results
+- **✅ E2E Tested** - 12 comprehensive tests with real LLM (no mocks)
+- **🔍 Universal Ingestion** - Webhook support for Discord, Slack, Email
+- **💾 Semantic Deduplication** - Vector similarity to merge duplicate feedback
 
-All tests run against real Azure AI Foundry (not mocks):
+---
+
+## 🧪 Testing & Quality
+
+### E2E Test Suite: 12/12 Passing ✅
+
+All tests run against **real Azure AI Foundry** (not mocks):
 
 ```bash
 $ bash scripts/demo_test.sh
@@ -403,10 +404,10 @@ Open in browser: http://localhost:3000
 Full Endpoint List
 
 Method Endpoint Description Status
-POST /api/feedback Classify & generate spec ✅ Live
-GET /api/stats System metrics ✅ Live
-GET /api/health Health check ✅ Live
-GET / HTMX Dashboard ✅ Live
+POST /api/feedback Classify & generate spec ✅ Complete
+GET /api/stats System metrics ✅ Complete
+GET /api/health Health check ✅ Complete
+GET / HTMX Dashboard ✅ Complete
 POST /webhooks/discord Discord webhook 🔄 Planned
 POST /webhooks/interaction Discord interactions 🔄 Planned
 
@@ -670,3 +671,4 @@ Acknowledgments
 <div align="center">
 Built with precision by IterateSwarm
 </div>
+```
