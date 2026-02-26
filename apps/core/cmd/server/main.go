@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"log"
 	"os"
@@ -15,11 +16,12 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"iterateswarm-core/internal/api"
-	"iterateswarm-core/internal/auth"
 	"iterateswarm-core/internal/debug"
 	"iterateswarm-core/internal/redpanda"
 	"iterateswarm-core/internal/temporal"
 	"iterateswarm-core/internal/web"
+
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -64,14 +66,22 @@ func main() {
 	// Create handler
 	handler := api.NewHandler(redpandaClient, temporalClient, nil, redisClient)
 
-	// Initialize Clerk auth
-	clerkConfig := auth.LoadClerkConfig()
-	clerkAuth := auth.NewClerkAuth(clerkConfig)
-	if clerkConfig.ClerkInstanceID != "" {
-		log.Println("Clerk auth initialized (instance: " + clerkConfig.ClerkInstanceID + ")")
-	} else {
-		log.Println("Clerk auth not configured (set CLERK_INSTANCE_ID to enable)")
+	// Initialize database connection for auth
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "postgres://iterateswarm:iterateswarm@localhost:5433/iterateswarm?sslmode=disable"
 	}
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Printf("Warning: Database not available: %v", err)
+	} else {
+		if err := db.Ping(); err != nil {
+			log.Printf("Warning: Database ping failed: %v", err)
+		} else {
+			log.Println("Connected to PostgreSQL")
+		}
+	}
+	defer db.Close()
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -97,18 +107,27 @@ func main() {
 	// Test route (no auth)
 	app.Get("/test/kafka", handler.HandleKafkaTest)
 
-	// Protected routes - require Clerk auth
-	protected := app.Group("/api")
-	if clerkConfig.ClerkInstanceID != "" {
-		protected.Use(clerkAuth.Middleware())
+	// Auth routes (public - no auth required)
+	if db != nil {
+		authHandler := api.NewAuthHandler(db)
+		auth := app.Group("/auth")
+		auth.Get("/github/login", authHandler.Login)
+		auth.Get("/github/callback", authHandler.Callback)
+		auth.Get("/logout", authHandler.Logout)
+		log.Println("JWT auth initialized (DEV_MODE=" + os.Getenv("DEV_MODE") + ", TEST_MODE=" + os.Getenv("TEST_MODE") + ")")
+	} else {
+		log.Println("Auth not initialized - database unavailable")
 	}
 
-	// Protected API endpoints
+	// Protected API endpoints - require JWT auth
+	protected := app.Group("/api")
+	protected.Use(api.RequireAuth())
+
 	protected.Get("/me", func(ctx *fiber.Ctx) error {
 		return ctx.JSON(map[string]interface{}{
-			"user_id": auth.GetUserID(ctx),
-			"email":   auth.GetUserEmail(ctx),
-			"role":    auth.GetUserRole(ctx),
+			"user_id":   api.GetUserID(ctx),
+			"username":  api.GetUsername(ctx),
+			"authenticated": true,
 		})
 	})
 
@@ -116,13 +135,17 @@ func main() {
 	debugHandler := debug.NewHandler(redpandaClient, temporalClient, "http://localhost:16686")
 	debugHandler.RegisterRoutes(app)
 
-	// Web routes (HTMX Admin Dashboard)
+	// Web routes (HTMX Admin Dashboard) - require auth
 	webHandler := web.NewHandler(redisClient)
 	webHandler.RegisterRoutes(app)
 
-	// SSE routes (Server-Sent Events for Live Feed)
+	// Admin routes - require auth
+	adminHandler := web.NewHandler(redisClient)
+	adminHandler.RegisterAdminRoutes(app)
+
+	// SSE routes (Server-Sent Events for Live Feed) - require auth
 	sseHandler := web.NewSSEHandler(redisClient)
-	app.Get("/api/stream/events", sseHandler.HandleSSE)
+	app.Get("/api/stream/events", api.RequireAuth(), sseHandler.HandleSSE)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
