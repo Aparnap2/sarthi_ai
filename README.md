@@ -1,6 +1,4 @@
 
-
-```markdown
 # IterateSwarm
 
 <div align="center">
@@ -671,4 +669,3 @@ Acknowledgments
 <div align="center">
 Built with precision by IterateSwarm
 </div>
-```
