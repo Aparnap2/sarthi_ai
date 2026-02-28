@@ -10,8 +10,7 @@ services:
     environment:
       - CASSANDRA_SEEDS=temporal
       - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/development.yaml
-      - ENABLE_ES=true
-      - ES_SEEDS=elasticsearch
+      - ENABLE_ES=false
       - LOG_LEVEL=info
       - DB=postgres12
       - DB_PORT=5432
@@ -27,7 +26,6 @@ services:
       - ./config/temporal/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
     depends_on:
       - postgres
-      - elasticsearch
     networks:
       - iterateswarm-net
     healthcheck:
@@ -44,26 +42,6 @@ services:
     networks:
       - iterateswarm-net
     entrypoint: ["sleep", "infinity"]
-
-  # ===========================================
-  # Elasticsearch - Temporal backend storage
-  # ===========================================
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
-    container_name: iterateswarm-elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
-    networks:
-      - iterateswarm-net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
 
   # ===========================================
   # Redpanda - Kafka-compatible event streaming
@@ -100,33 +78,6 @@ services:
       interval: 10s
       timeout: 10s
       retries: 10
-
-  redpanda-console:
-    image: docker.redpanda.com/redpandadata/console:v2.3.1
-    container_name: iterateswarm-redpanda-console
-    entrypoint: /bin/sh
-    command: -c "echo '$$CONSOLE_CONFIG_FILE' > /tmp/config.yaml && /app/console"
-    environment:
-      CONFIG_FILEPATH: /tmp/config.yaml
-      CONSOLE_CONFIG_FILE: |
-        kafka:
-          brokers:
-            - redpanda:9092
-          schemaRegistry:
-            enabled: true
-            urls:
-              - http://redpanda:8081
-        redpanda:
-          adminApi:
-            enabled: true
-            urls:
-              - http://redpanda:9644
-    ports:
-      - "8080:8080"  # Redpanda Console
-    depends_on:
-      - redpanda
-    networks:
-      - iterateswarm-net
 
   # ===========================================
   # PostgreSQL - Database
@@ -165,49 +116,6 @@ services:
       - iterateswarm-net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6333/collections"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  # ===========================================
-  # pgAdmin - PostgreSQL Management UI
-  # ===========================================
-  pgadmin:
-    image: dpage/pgadmin4:8.0
-    container_name: iterateswarm-pgadmin
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@localhost
-      - PGADMIN_DEFAULT_PASSWORD=admin
-      - PGADMIN_CONFIG_SERVER_MODE=False
-      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
-    ports:
-      - "5050:80"
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    networks:
-      - iterateswarm-net
-    depends_on:
-      - postgres
-
-  # ===========================================
-  # Jaeger - Distributed Tracing
-  # ===========================================
-  jaeger:
-    image: jaegertracing/all-in-one:1.58
-    container_name: iterateswarm-jaeger
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-      - LOG_LEVEL=info
-    ports:
-      - "16686:16686"  # Jaeger UI
-      - "4317:4317"    # OTLP gRPC receiver
-      - "4318:4318"    # OTLP HTTP receiver
-      - "14269:14269"  # Admin HTTP
-      - "14268:14268"  # Collector HTTP
-    networks:
-      - iterateswarm-net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:16686/"]
       interval: 30s
       timeout: 10s
       retries: 5
