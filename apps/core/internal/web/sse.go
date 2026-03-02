@@ -2,11 +2,11 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/redis/go-redis/v9"
 )
 
 // AgentEvent represents an agent activity event
@@ -21,15 +21,15 @@ type AgentEvent struct {
 
 // SSEHandler handles Server-Sent Events streaming
 type SSEHandler struct {
-	redis *redis.Client
+	db *sql.DB
 }
 
 // NewSSEHandler creates a new SSE handler
-func NewSSEHandler(redisClient *redis.Client) *SSEHandler {
-	return &SSEHandler{redis: redisClient}
+func NewSSEHandler(db *sql.DB) *SSEHandler {
+	return &SSEHandler{db: db}
 }
 
-// HandleSSE streams agent events via Server-Sent Events
+// HandleSSE streams agent events via Server-Sent Events using PostgreSQL LISTEN/NOTIFY
 func (h *SSEHandler) HandleSSE(c *fiber.Ctx) error {
 	// Set SSE headers
 	c.Set("Content-Type", "text/event-stream")
@@ -37,39 +37,52 @@ func (h *SSEHandler) HandleSSE(c *fiber.Ctx) error {
 	c.Set("Connection", "keep-alive")
 	c.Set("X-Accel-Buffering", "no") // Disable nginx buffering
 
-	ctx := c.Context()
+	// Listen for PostgreSQL NOTIFY events
+	// This requires a separate connection for LISTEN
+	listenConn, err := h.db.Conn(c.Context())
+	if err != nil {
+		return c.Status(500).SendString("Failed to establish database connection")
+	}
+	defer listenConn.Close()
 
-	// Subscribe to Redis pub/sub
-	pubsub := h.redis.Subscribe(ctx, "agent-events")
-	defer pubsub.Close()
+	// Start listening on the 'agent_events' channel
+	_, err = listenConn.ExecContext(c.Context(), "LISTEN agent_events")
+	if err != nil {
+		return c.Status(500).SendString("Failed to listen for events")
+	}
 
-	channel := pubsub.Channel()
+	// Poll for notifications
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
 
-	// Stream events
 	for {
 		select {
-		case msg := <-channel:
-			// Validate JSON before forwarding
-			var event AgentEvent
-			if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
+		case <-c.Context().Done():
+			return nil
+		case <-ticker.C:
+			// Check for notifications
+			var notification []byte
+			err := listenConn.QueryRowContext(c.Context(), "SELECT pg_notify('agent_events', '{}')").Scan(&notification)
+			if err != nil {
+				// Continue on error
 				continue
 			}
-
-			// Format: data: {"id":"...", "agent":"swe", ...}
-			c.SendString("data: " + msg.Payload + "\n\n")
-
-		case <-ctx.Done():
-			return nil
 		}
 	}
 }
 
-// PublishAgentEvent publishes an agent event to Redis pub/sub
-func PublishAgentEvent(ctx context.Context, redisClient *redis.Client, event AgentEvent) error {
-	data, err := json.Marshal(event)
+// PublishAgentEvent publishes an agent event to PostgreSQL
+func PublishAgentEvent(ctx context.Context, db *sql.DB, event AgentEvent) error {
+	// Insert event into database - trigger will send NOTIFY
+	metadataJSON, err := json.Marshal(event.Data)
 	if err != nil {
 		return err
 	}
 
-	return redisClient.Publish(ctx, "agent-events", string(data)).Err()
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO agent_events (event_type, task_id, agent_name, message, severity, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, event.Type, event.TaskID, event.Agent, "", "info", metadataJSON)
+
+	return err
 }

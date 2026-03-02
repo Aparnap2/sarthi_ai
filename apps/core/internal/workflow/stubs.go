@@ -1,9 +1,5 @@
 package workflow
 
-import (
-	"context"
-)
-
 // Stub types for compilation - these are placeholders for missing packages
 
 // From memory package
@@ -35,13 +31,13 @@ func NewSpecAgentFromEnv() interface{} {
 }
 
 // From retry package
-type SimpleRetry struct{}
+type Retrier struct{}
 
-func NewSimpleRetry(maxAttempts int, delayMs int) *SimpleRetry {
-	return &SimpleRetry{}
+func NewRetrier(maxAttempts int, delayMs int) *Retrier {
+	return &Retrier{}
 }
 
-func (r *SimpleRetry) Execute(fn func() error) error {
+func (r *Retrier) Execute(fn func() error) error {
 	return fn()
 }
 

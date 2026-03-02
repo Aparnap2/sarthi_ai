@@ -1,13 +1,13 @@
 package web
 
 import (
+	"database/sql"
 	"embed"
 	"fmt"
 	"html/template"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/redis/go-redis/v9"
 )
 
 //go:embed templates/*.html
@@ -26,13 +26,13 @@ func Render(c *fiber.Ctx, name string, data interface{}) error {
 
 // Handler struct for web routes
 type Handler struct {
-	redis *redis.Client
+	db *sql.DB
 }
 
 // NewHandler creates a new web handler
-func NewHandler(redisClient *redis.Client) *Handler {
+func NewHandler(db *sql.DB) *Handler {
 	return &Handler{
-		redis: redisClient,
+		db: db,
 	}
 }
 
@@ -118,12 +118,39 @@ type Approval struct {
 	Metadata   map[string]interface{} `json:"metadata"`
 }
 
-// GetPendingApprovals returns pending HITL approvals
+// GetPendingApprovals returns pending HITL approvals from PostgreSQL
 func (h *Handler) GetPendingApprovals(c *fiber.Ctx) error {
-	// Placeholder - return empty list for now
-	// TODO: Integrate with actual approval system
-	approvals := []Approval{}
-	
+	// Query HITL queue from PostgreSQL
+	rows, err := h.db.Query(`
+		SELECT task_id, issue_title, issue_body, severity, created_at
+		FROM hitl_queue
+		WHERE status = 'pending' AND expires_at > NOW()
+		ORDER BY created_at DESC
+	`)
+	if err != nil {
+		// Return empty list on error
+		return Render(c, "hitl_queue", fiber.Map{
+			"Approvals": []Approval{},
+		})
+	}
+	defer rows.Close()
+
+	var approvals []Approval
+	for rows.Next() {
+		var taskID, title, body, severity string
+		var createdAt time.Time
+		if err := rows.Scan(&taskID, &title, &body, &severity, &createdAt); err != nil {
+			continue
+		}
+		approvals = append(approvals, Approval{
+			ID:        taskID,
+			PRNumber:  0, // TODO: Get actual PR number
+			Type:      severity,
+			Reasoning: body,
+			CreatedAt: createdAt.Format(time.RFC3339),
+		})
+	}
+
 	return Render(c, "hitl_queue", fiber.Map{
 		"Approvals": approvals,
 	})
@@ -135,10 +162,17 @@ func (h *Handler) ApprovePR(c *fiber.Ctx) error {
 	if id == "" {
 		return c.Status(400).SendString("Missing approval ID")
 	}
-	
-	// TODO: Implement actual approval logic
-	_ = id // Use id to avoid unused variable error
-	
+
+	// Update HITL status in PostgreSQL
+	_, err := h.db.Exec(`
+		UPDATE hitl_queue
+		SET status = 'approved'
+		WHERE task_id = $1
+	`, id)
+	if err != nil {
+		return c.Status(500).SendString("Failed to approve")
+	}
+
 	return h.GetPendingApprovals(c)
 }
 
@@ -148,10 +182,17 @@ func (h *Handler) RejectPR(c *fiber.Ctx) error {
 	if id == "" {
 		return c.Status(400).SendString("Missing approval ID")
 	}
-	
-	// TODO: Implement actual rejection logic
-	_ = id // Use id to avoid unused variable error
-	
+
+	// Update HITL status in PostgreSQL
+	_, err := h.db.Exec(`
+		UPDATE hitl_queue
+		SET status = 'rejected'
+		WHERE task_id = $1
+	`, id)
+	if err != nil {
+		return c.Status(500).SendString("Failed to reject")
+	}
+
 	return h.GetPendingApprovals(c)
 }
 
@@ -179,7 +220,7 @@ func (h *Handler) GetAgentStatus(c *fiber.Ctx) error {
 		TaskCount: 0,
 		LastSeen:  time.Now().Format(time.RFC3339),
 	}
-	
+
 	return c.JSON(status)
 }
 
@@ -281,14 +322,14 @@ func (h *Handler) getTaskBoardData() *TaskBoard {
 // GetTaskDetails returns details for a specific task
 func (h *Handler) GetTaskDetails(c *fiber.Ctx) error {
 	taskID := c.Params("id")
-	
+
 	// Placeholder - return empty task
 	task := map[string]interface{}{
 		"task_id":     taskID,
 		"description": "Task details not implemented",
 		"status":      "pending",
 	}
-	
+
 	return c.JSON(task)
 }
 
@@ -366,7 +407,7 @@ func (h *Handler) SaveConfig(c *fiber.Ctx) error {
 
 	// TODO: Actually save configuration
 	// For now, just return success
-	
+
 	return c.SendString(`<div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center"><i class="fas fa-check-circle mr-2"></i>Configuration saved successfully!</div>`)
 }
 
@@ -463,7 +504,7 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 
 	// Panel 1: Live Feed
 	app.Get("/api/live-feed", h.GetLiveFeed)
-	
+
 	// Panel 2: HITL Queue
 	app.Get("/api/approvals/pending", h.GetPendingApprovals)
 	app.Post("/api/approvals/:id/approve", h.ApprovePR)

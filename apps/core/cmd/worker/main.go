@@ -51,7 +51,9 @@ func main() {
 	// Register workflow and activities
 	w.RegisterWorkflow(workflow.FeedbackWorkflow)
 
-	activities := workflow.NewActivities(aiClient)
+	// Note: aiClient is nil because Go-based agents use Azure OpenAI directly
+	// The gRPC client is only needed for Python AI service integration
+	activities := workflow.NewActivities(nil)
 	w.RegisterActivity(activities.AnalyzeFeedback)
 	w.RegisterActivity(activities.SendDiscordApproval)
 	w.RegisterActivity(activities.CreateGitHubIssue)

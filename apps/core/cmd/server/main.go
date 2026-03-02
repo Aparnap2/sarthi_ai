@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"flag"
 	"log"
@@ -13,9 +12,9 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/redis/go-redis/v9"
 
 	"iterateswarm-core/internal/api"
+	"iterateswarm-core/internal/db"
 	"iterateswarm-core/internal/debug"
 	"iterateswarm-core/internal/redpanda"
 	"iterateswarm-core/internal/temporal"
@@ -52,36 +51,33 @@ func main() {
 	defer temporalClient.Close()
 	log.Println("Connected to Temporal")
 
-	// Initialize Redis client
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
-	if _, err := redisClient.Ping(context.Background()).Result(); err != nil {
-		log.Printf("Warning: Redis not available: %v", err)
-	} else {
-		log.Println("Connected to Redis")
-	}
-	defer redisClient.Close()
-
-	// Create handler
-	handler := api.NewHandler(redpandaClient, temporalClient, nil, redisClient)
-
-	// Initialize database connection for auth
+	// Initialize PostgreSQL database connection
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://iterateswarm:iterateswarm@localhost:5433/iterateswarm?sslmode=disable"
+		dbURL = "postgres://iterateswarm:iterateswarm@localhost:5432/iterateswarm?sslmode=disable"
 	}
-	db, err := sql.Open("postgres", dbURL)
+
+	pgDB, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Printf("Warning: Database not available: %v", err)
+		log.Printf("Warning: Failed to open PostgreSQL: %v", err)
 	} else {
-		if err := db.Ping(); err != nil {
-			log.Printf("Warning: Database ping failed: %v", err)
+		if err := pgDB.Ping(); err != nil {
+			log.Printf("Warning: PostgreSQL ping failed: %v", err)
 		} else {
 			log.Println("Connected to PostgreSQL")
 		}
 	}
-	defer db.Close()
+	defer pgDB.Close()
+
+	// Create repository
+	var repo *db.Repository
+	if pgDB != nil {
+		repo = db.NewRepository(pgDB)
+		log.Println("Repository initialized with PostgreSQL")
+	}
+
+	// Create handler with PostgreSQL
+	handler := api.NewHandler(redpandaClient, temporalClient, repo, pgDB)
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -109,8 +105,8 @@ func main() {
 	app.Get("/test/kafka", handler.HandleKafkaTest)
 
 	// Auth routes (public - no auth required)
-	if db != nil {
-		authHandler := api.NewAuthHandler(db)
+	if pgDB != nil {
+		authHandler := api.NewAuthHandler(pgDB)
 		auth := app.Group("/auth")
 		auth.Get("/github/login", authHandler.Login)
 		auth.Get("/github/callback", authHandler.Callback)
@@ -126,8 +122,8 @@ func main() {
 
 	protected.Get("/me", func(ctx *fiber.Ctx) error {
 		return ctx.JSON(map[string]interface{}{
-			"user_id":   api.GetUserID(ctx),
-			"username":  api.GetUsername(ctx),
+			"user_id":       api.GetUserID(ctx),
+			"username":      api.GetUsername(ctx),
 			"authenticated": true,
 		})
 	})
@@ -137,15 +133,12 @@ func main() {
 	debugHandler.RegisterRoutes(app)
 
 	// Web routes (HTMX Admin Dashboard) - require auth
-	webHandler := web.NewHandler(redisClient)
+	webHandler := web.NewHandler(pgDB)
 	webHandler.RegisterRoutes(app)
-
-	// Admin routes - require auth
-	adminHandler := web.NewHandler(redisClient)
-	adminHandler.RegisterAdminRoutes(app)
+	webHandler.RegisterAdminRoutes(app)
 
 	// SSE routes (Server-Sent Events for Live Feed) - require auth
-	sseHandler := web.NewSSEHandler(redisClient)
+	sseHandler := web.NewSSEHandler(pgDB)
 	app.Get("/api/stream/events", api.RequireAuth(), sseHandler.HandleSSE)
 
 	// Graceful shutdown

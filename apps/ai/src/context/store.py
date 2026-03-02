@@ -1,77 +1,62 @@
-"""Context store for state persistence."""
+"""Context store for state persistence using PostgreSQL JSONB."""
 
+import json
 from typing import Any, Dict, Optional
+import asyncpg
 
 
 class ContextStore:
-    """Stores and retrieves context for agent workflows."""
+    """Stores agent findings in PostgreSQL JSONB — replaces Redis."""
 
-    def __init__(self) -> None:
-        """Initialize the context store."""
-        self._data: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    def __init__(self, db_pool: asyncpg.Pool):
+        self.pool = db_pool
 
-    async def write(
-        self,
-        task_id: str,
-        agent: str,
-        key: str,
-        value: Any,
-    ) -> None:
-        """Write data to the context store.
-
-        Args:
-            task_id: Unique task identifier
-            agent: Agent name
-            key: Data key
-            value: Data value
-        """
-        if task_id not in self._data:
-            self._data[task_id] = {}
-        if agent not in self._data[task_id]:
-            self._data[task_id][agent] = {}
-        self._data[task_id][agent][key] = value
+    async def write(self, task_id: str, agent_role: str, key: str, value: Any) -> None:
+        """Write agent findings atomically."""
+        findings = {key: value}
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO agent_context (task_id, agent_role, findings, updated_at)
+                VALUES ($1, $2, $3, NOW())
+                ON CONFLICT (task_id, agent_role) DO UPDATE
+                    SET findings = agent_context.findings || EXCLUDED.findings,
+                        updated_at = NOW()
+                """,
+                task_id,
+                agent_role,
+                json.dumps(findings),
+            )
 
     async def read(
-        self,
-        task_id: str,
-        agent: Optional[str] = None,
-        key: Optional[str] = None,
+        self, task_id: str, agent_role: Optional[str] = None, key: Optional[str] = None
     ) -> Any:
-        """Read data from the context store.
-
-        Args:
-            task_id: Unique task identifier
-            agent: Optional agent name filter
-            key: Optional key filter
-
-        Returns:
-            Stored data or None if not found
-        """
-        if task_id not in self._data:
-            return None
-
-        task_data = self._data[task_id]
-
-        if agent is None:
-            return task_data
-
-        if agent not in task_data:
-            return None
-
-        agent_data = task_data[agent]
-
-        if key is None:
-            return agent_data
-
-        return agent_data.get(key)
+        """Read data from the context store."""
+        async with self.pool.acquire() as conn:
+            if agent_role:
+                row = await conn.fetchrow(
+                    """SELECT findings FROM agent_context
+                       WHERE task_id = $1 AND agent_role = $2""",
+                    task_id,
+                    agent_role,
+                )
+                if not row:
+                    return None
+                findings = row["findings"]
+                return findings.get(key) if key else findings
+            else:
+                rows = await conn.fetch(
+                    """SELECT agent_role, findings FROM agent_context
+                       WHERE task_id = $1""",
+                    task_id,
+                )
+                return {row["agent_role"]: row["findings"] for row in rows}
 
     async def clear(self, task_id: Optional[str] = None) -> None:
-        """Clear data from the context store.
-
-        Args:
-            task_id: Optional task ID to clear. If None, clears all data.
-        """
-        if task_id is None:
-            self._data.clear()
-        elif task_id in self._data:
-            del self._data[task_id]
+        async with self.pool.acquire() as conn:
+            if task_id:
+                await conn.execute(
+                    "DELETE FROM agent_context WHERE task_id = $1", task_id
+                )
+            else:
+                await conn.execute("DELETE FROM agent_context")

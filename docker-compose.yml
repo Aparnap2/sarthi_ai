@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ===========================================
   # Temporal - Workflow Orchestration
@@ -25,7 +23,8 @@ services:
     volumes:
       - ./config/temporal/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - iterateswarm-net
     healthcheck:
@@ -90,7 +89,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-iterateswarm}
       - POSTGRES_DB=${POSTGRES_DB:-iterateswarm}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
@@ -160,7 +159,7 @@ services:
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "3001:3000"
     networks:
       - iterateswarm-net
     depends_on:
@@ -170,6 +169,77 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+
+  # ===========================================
+  # Temporal UI - Workflow Dashboard
+  # ===========================================
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: iterateswarm-temporal-ui
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:8088
+    ports:
+      - "8089:8080"
+    networks:
+      - iterateswarm-net
+    depends_on:
+      - temporal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ===========================================
+  # Redpanda Consumer - Workflow Trigger
+  # ===========================================
+  consumer:
+    image: golang:1.24-alpine
+    container_name: iterateswarm-consumer
+    working_dir: /app
+    volumes:
+      - ./apps/core:/app
+      - ./gen/go:/gen/go:ro
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+      - TEMPORAL_ADDRESS=temporal:7233
+      - GITHUB_OWNER=${GITHUB_OWNER}
+      - GITHUB_REPO=${GITHUB_REPO}
+    depends_on:
+      - redpanda
+      - temporal
+    networks:
+      - iterateswarm-net
+    command: go run cmd/consumer/main.go
+
+  # ===========================================
+  # Go Worker - Activity Processor
+  # ===========================================
+  worker:
+    image: golang:1.24-alpine
+    container_name: iterateswarm-worker
+    working_dir: /app
+    volumes:
+      - ./apps/core:/app
+      - ./gen/go:/gen/go:ro
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_OWNER=${GITHUB_OWNER}
+      - GITHUB_REPO=${GITHUB_REPO}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - TEST_MODE=${TEST_MODE:-true}
+      - DEV_MODE=${DEV_MODE:-true}
+    depends_on:
+      - temporal
+    networks:
+      - iterateswarm-net
+    command: go run cmd/worker/main.go -temporal=temporal:7233 -queue=GO_TASK_QUEUE
 
 volumes:
   redpanda-data:

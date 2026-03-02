@@ -100,6 +100,9 @@ $ bash scripts/demo_test.sh
 | **Circuit Breaker** | Prevents cascade failures | ✅ Active |
 | **Retry Logic** | Exponential backoff (3 retries) | ✅ Active |
 | **Rate Limiting** | Token bucket (20 req/min) | ✅ Active |
+| **Idempotency Keys** | PostgreSQL ON CONFLICT | ✅ Active |
+| **Token Budget** | PostgreSQL atomic UPDATE | ✅ Active |
+| **Agent Context** | PostgreSQL JSONB | ✅ Active |
 | **Structured Logging** | JSON with correlation IDs | ✅ Active |
 | **Health Checks** | `/api/health` endpoint | ✅ Active |
 | **Input Sanitization** | XSS protection | ✅ Active |
@@ -114,6 +117,7 @@ $ bash scripts/demo_test.sh
 graph TD
     Discord[Discord Webhook] --> GoAPI[Go API Gateway]
     Slack[Slack Webhook] --> GoAPI
+    GoAPI -->|Idempotency| Postgres1[(PostgreSQL)]
     GoAPI --> Redpanda[(Redpanda)]
     Redpanda --> Temporal[Temporal Worker]
     Temporal --> Supervisor[Supervisor Agent]
@@ -122,12 +126,12 @@ graph TD
     Supervisor --> SWE[SWE Agent]
     SWE --> Reviewer[Reviewer Agent]
     SWE --> GitHub[GitHub PR]
-    Researcher --> Redis[(Redis)]
-    SRE --> Redis
+    Researcher --> Postgres2[(PostgreSQL)]
+    SRE --> Postgres3[(PostgreSQL)]
     SRE -->|interrupt| Supervisor
-    Redis --> SigNoz[SigNoz]
-    Redis --> HyperDX[HyperDX]
-    AdminPanel[HTMX Admin Dashboard<br/>Go Templates + SSE] --> Redis
+    Postgres4[(PostgreSQL)] --> SigNoz[SigNoz]
+    Postgres5[(PostgreSQL)] --> HyperDX[HyperDX]
+    AdminPanel[HTMX Admin Dashboard<br/>Go Templates + SSE] --> Postgres6[(PostgreSQL)]
     AdminPanel -->|SSE| LiveFeed[Live Feed]
     AdminPanel -->|HITL| Approval[Human Approval]
 ```
@@ -143,18 +147,19 @@ graph TD
 
     subgraph "Go Modular Monolith (apps/core)"
         FiberAPI -->|Produce| Redpanda
+        FiberAPI -->|Idempotency| PG1[(PostgreSQL)]
         InteractionHandler -->|Signal| Temporal
         GoWorker -->|Activity| DiscordAPI
         GoWorker -->|Activity| GitHubAPI
-        WebInterface[Web Interface<br/>Go + htmx] -->|Queries| PostgreSQL
-        FiberAPI -->|Queries| PostgreSQL
-        WebDashboard[Web Dashboard<br/>htmx-powered] -->|Queries| PostgreSQL
+        WebInterface[Web Interface<br/>Go + htmx] -->|Queries| PG2[(PostgreSQL)]
+        FiberAPI -->|Queries| PG3[(PostgreSQL)]
+        WebDashboard[Web Dashboard<br/>htmx-powered] -->|Queries| PG4[(PostgreSQL)]
     end
 
     subgraph "Infrastructure"
         Redpanda[Redpanda]
         Temporal[Temporal Server]
-        PostgreSQL[(PostgreSQL)]
+        PostgreSQL[(PostgreSQL<br/>- Auth<br/>- Idempotency<br/>- Context<br/>- HITL Queue<br/>- DLQ)]
         Qdrant[(Qdrant)]
     end
 
@@ -162,18 +167,17 @@ graph TD
         PyWorker[Temporal Worker]
         PyWorker -->|Activity| LangGraph
         LangGraph -->|Dedupe| Qdrant
+        LangGraph -->|Context| PG5[(PostgreSQL)]
+        LangGraph -->|Budget| PG6[(PostgreSQL)]
     end
 
     DiscordWebhook --> FiberAPI
-    FiberAPI --> Redpanda
     Redpanda --> GoWorker
     GoWorker --> Temporal
     Temporal --> PyWorker
     PyWorker -->|Result| Temporal
     Temporal -->|Signal| GoWorker
     GoWorker --> DiscordAPI
-    WebInterface -->|Queries| PostgreSQL
-    WebDashboard -->|Queries| PostgreSQL
     DiscordInteraction --> InteractionHandler
 ```
 

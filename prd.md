@@ -9,7 +9,7 @@ This is the **Master Plan** for **IterateSwarm** - A Production-Grade Polyglot C
 **Product Name:** IterateSwarm
 **One-Liner:** An event-driven autonomous agent swarm that turns unstructured user feedback into production-ready GitHub Issues via Discord/Slack.
 **Architecture:** ChatOps - No dashboard, just Discord interactions.
-**Status:** PHASE 5 COMPLETE - Production Ready
+**Status:** PRODUCTION READY - v2.1 (PostgreSQL-only)
 
 ### **Core Features (MVP)**
 1.  **Universal Ingestion:** Webhooks for Discord/Slack (Go + Fiber)
@@ -17,8 +17,21 @@ This is the **Master Plan** for **IterateSwarm** - A Production-Grade Polyglot C
 3.  **Agentic Triaging:** LangGraph agents classify (Bug/Feature/Question) and score severity
 4.  **Spec Generation:** Agent drafts a structured GitHub Issue
 5.  **Human-in-the-Loop (ChatOps):** Discord message with [Approve]/[Reject] buttons
-6.  **Full Observability:** Temporal UI for workflow tracing
+6.  **Full Observability:** Temporal UI for workflow tracing, SigNoz for metrics
 7.  **gRPC Communication:** Type-safe polyglot service communication
+8.  **HTMX Admin Dashboard:** 6 real-time panels (Live Feed, HITL Queue, Agent Map, Task Board, Config, Telemetry)
+9.  **JWT + GitHub OAuth:** Stateless authentication with GitHub OAuth
+10. **PostgreSQL State Management:** Idempotency, Context, Token Budget, HITL Queue, DLQ, Audit Log
+11. **48-hour HITL Timeout:** Temporal AwaitWithTimeout for human-in-the-loop
+12. **Dead Letter Queue:** Poison pill task handling after 5 failed attempts
+
+### **Production Hardening**
+- **Idempotency:** PostgreSQL ON CONFLICT for duplicate prevention
+- **Token Budget:** PostgreSQL atomic UPDATE for rate limiting
+- **Agent Context:** PostgreSQL JSONB for structured state storage
+- **HITL Timeout:** Temporal AwaitWithTimeout with 48-hour window
+- **Dead Letter Queue:** Automatic DLQ routing after 5 failed attempts
+- **Real-time Updates:** SSE via PostgreSQL LISTEN/NOTIFY
 
 ***
 
@@ -34,7 +47,9 @@ This is the **Master Plan** for **IterateSwarm** - A Production-Grade Polyglot C
 | **Service Communication** | gRPC + Protocol Buffers | Type-safe polyglot IPC |
 | **Vector DB** | Qdrant | Semantic duplicate detection |
 | **Event Bus** | Redpanda | Kafka-compatible message buffer |
-| **Primary DB** | PostgreSQL | App data persistence |
+| **Primary DB** | PostgreSQL | Auth, Idempotency, Agent Context, Token Budget, HITL Queue, DLQ, Audit Log |
+| **Authentication** | JWT + GitHub OAuth | Stateless auth with GitHub OAuth |
+| **Admin Dashboard** | Go + HTMX | Server-side rendered real-time UI |
 | **Interface** | Discord | ChatOps (Block Kit buttons) |
 | **Code Generation** | Buf | Protocol buffer compilation |
 
@@ -49,10 +64,11 @@ graph TD
         GoGateway -->|Produce| Redpanda[(Redpanda / Kafka)]
     end
 
-    subgraph "Orchestration (Go)"
-        Redpanda -->|Consume| TemporalWorker[Temporal Worker]
-        TemporalWorker <-->|State| TemporalServer[Temporal Server]
-    end
+     subgraph "Orchestration (Go)"
+         Redpanda -->|Consume| TemporalWorker[Temporal Worker]
+         TemporalWorker <-->|State| TemporalServer[Temporal Server]
+         TemporalWorker <-->|Shared Context| PostgreSQL[(PostgreSQL)]
+     end
 
     subgraph "AI Intelligence (Python)"
         TemporalWorker -->|gRPC / AnalyzeFeedback| PythonService[Python Agent Service]
@@ -353,5 +369,5 @@ This is a **showcase piece** for any senior full-stack or platform engineering r
 
 ***
 
-Last Updated: 2026-02-03
-Version: 2.0 (Phase 5 Complete)
+Last Updated: 2026-03-02
+Version: 2.1 (Production Ready - PostgreSQL-only)

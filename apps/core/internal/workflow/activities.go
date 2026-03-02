@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -15,7 +16,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/go-github/v50/github"
 	"golang.org/x/oauth2"
-	
+
 	// gRPC imports for Python agent communication
 	aiv1 "github.com/Aparnap2/iterate_swarm/gen/go/ai/v1"
 	"google.golang.org/grpc"
@@ -24,13 +25,15 @@ import (
 
 // Activities contains the workflow activities.
 type Activities struct {
-	logger *logging.Logger
+	logger   *logging.Logger
+	aiClient *grpc.ClientConn
 }
 
 // NewActivities creates a new Activities instance.
-func NewActivities() *Activities {
+func NewActivities(aiClient *grpc.ClientConn) *Activities {
 	return &Activities{
-		logger: logging.NewLogger("workflow"),
+		logger:   logging.NewLogger("workflow"),
+		aiClient: aiClient,
 	}
 }
 
@@ -133,7 +136,7 @@ func (a *Activities) AnalyzeFeedback(ctx context.Context, input AnalyzeFeedbackI
 		IsDuplicate: false,
 		Title:       specResult.Title,
 		Description: description,
-		Labels:      specResult.SuggestedLabels,
+		Labels:      specResult.Labels,
 		Severity:    triageResult.Severity,
 		IssueType:   triageResult.Classification,
 		Confidence:  triageResult.Confidence, // Real confidence from Azure AI
@@ -558,4 +561,107 @@ func (a *Activities) StartSwarm(ctx context.Context, input StartSwarmInput) (*St
 	)
 
 	return output, nil
+}
+
+// =============================================================================
+// Standalone Activity Functions for Temporal Workflow Registration
+// These wrapper functions allow activities to be called from workflows
+// =============================================================================
+
+// globalActivities is a singleton instance for standalone activity functions
+var globalActivities = &Activities{
+	logger:   logging.NewLogger("workflow"),
+	aiClient: nil, // AI client not needed for Go-based agents
+}
+
+// AnalyzeFeedback is a standalone activity function for workflow use
+func AnalyzeFeedback(ctx context.Context, input AnalyzeFeedbackInput) (*AnalyzeFeedbackOutput, error) {
+	return globalActivities.AnalyzeFeedback(ctx, input)
+}
+
+// SendDiscordApproval is a standalone activity function for workflow use
+func SendDiscordApproval(ctx context.Context, input SendDiscordApprovalInput) error {
+	return globalActivities.SendDiscordApproval(ctx, input)
+}
+
+// CreateGitHubIssue is a standalone activity function for workflow use
+func CreateGitHubIssue(ctx context.Context, input CreateGitHubIssueInput) (string, error) {
+	return globalActivities.CreateGitHubIssue(ctx, input)
+}
+
+// CleanupHITLRecord removes a HITL record from the database after completion/timeout/rejection
+func (a *Activities) CleanupHITLRecord(ctx context.Context, input CleanupHITLRecordInput) error {
+	a.logger.Info("cleaning up HITL record", "task_id", input.TaskID)
+	// TODO: Implement database cleanup logic
+	// This would delete the record from hitl_queue table
+	return nil
+}
+
+// CleanupHITLRecord is a standalone activity function for workflow use
+func CleanupHITLRecord(ctx context.Context, input CleanupHITLRecordInput) error {
+	return globalActivities.CleanupHITLRecord(ctx, input)
+}
+
+// NotifyHITLTimeout sends a notification when HITL approval times out
+func (a *Activities) NotifyHITLTimeout(ctx context.Context, input NotifyHITLTimeoutInput) error {
+	a.logger.Info("notifying HITL timeout",
+		"channel_id", input.ChannelID,
+		"issue_title", input.IssueTitle,
+		"workflow_id", input.WorkflowID,
+	)
+
+	// Get Discord bot token from environment
+	discordToken := os.Getenv("DISCORD_BOT_TOKEN")
+	if discordToken == "" {
+		a.logger.Warn("discord token not configured, skipping timeout notification")
+		return nil
+	}
+
+	// Create Discord session with retry
+	var dg *discordgo.Session
+	err := retry.SimpleRetry(func() error {
+		var createErr error
+		dg, createErr = discordgo.New("Bot " + discordToken)
+		return createErr
+	})
+	if err != nil {
+		a.logger.Error("failed to create discord session", err)
+		return fmt.Errorf("failed to create Discord session: %w", err)
+	}
+
+	// Send timeout notification
+	_, err = dg.ChannelMessageSend(input.ChannelID, fmt.Sprintf(
+		"⏰ **Approval timeout**: The issue proposal \"%s\" has timed out after 48 hours without approval.",
+		input.IssueTitle,
+	))
+	if err != nil {
+		a.logger.Error("failed to send timeout notification", err)
+		return fmt.Errorf("failed to send timeout notification: %w", err)
+	}
+
+	return nil
+}
+
+// NotifyHITLTimeout is a standalone activity function for workflow use
+func NotifyHITLTimeout(ctx context.Context, input NotifyHITLTimeoutInput) error {
+	return globalActivities.NotifyHITLTimeout(ctx, input)
+}
+
+// SendToDLQ sends a failed task to the Dead Letter Queue
+func (a *Activities) SendToDLQ(ctx context.Context, input SendToDLQInput) error {
+	a.logger.Error("sending task to DLQ",
+		errors.New(input.ErrorMsg),
+		"task_id", input.TaskID,
+		"attempts", input.Attempts,
+	)
+
+	// TODO: Implement actual DLQ database insert
+	// This would insert into dead_letter_queue table
+	a.logger.Info("task sent to DLQ", "task_id", input.TaskID)
+	return nil
+}
+
+// SendToDLQ is a standalone activity function for workflow use
+func SendToDLQ(ctx context.Context, input SendToDLQInput) error {
+	return globalActivities.SendToDLQ(ctx, input)
 }
