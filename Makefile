@@ -91,7 +91,7 @@ security-test:
 	cd apps/core && go test ./internal/security/... -v -timeout 2m || true
 	@echo ""
 	@echo "[3/5] Python type safety tests..."
-cd apps/ai && uv run pytest tests/security/ -v || true
+	cd apps/ai && uv run pytest tests/security/ -v || true
 	@echo ""
 	@echo "✅ Security tests complete"
 
@@ -119,7 +119,7 @@ security-full: security-race security-test security-lint
 
 demo:
 	@echo "🚀 Starting IterateSwarm OS..."
-	docker start iterateswarm-redis iterateswarm-postgres iterateswarm-temporal iterateswarm-qdrant 2>/dev/null || docker compose up -d
+	docker start iterateswarm-postgres iterateswarm-temporal iterateswarm-qdrant 2>/dev/null || docker compose up -d
 	@echo "⏳ Waiting 15s for services..."
 	@sleep 15
 	$(MAKE) demo-seed
@@ -139,7 +139,7 @@ demo-seed:
 
 demo-reset:
 	@echo "🗑  Resetting all data..."
-	docker stop iterateswarm-redis iterateswarm-postgres iterateswarm-temporal iterateswarm-qdrant 2>/dev/null || true
+	docker stop iterateswarm-postgres iterateswarm-temporal iterateswarm-qdrant 2>/dev/null || true
 	docker compose down -v
 	@echo "✅ Reset complete. Run 'make demo' to restart."
 
@@ -152,7 +152,6 @@ demo-feedback:
 
 demo-health:
 	@echo "=== Infrastructure Health Check ==="
-	@docker exec iterateswarm-redis redis-cli PING | grep -q PONG && echo "✅ Redis" || echo "❌ Redis"
 	@docker exec iterateswarm-postgres pg_isready -U iterateswarm -d iterateswarm > /dev/null && echo "✅ PostgreSQL" || echo "❌ PostgreSQL"
 	@curl -sf http://localhost:8088/api/health > /dev/null && echo "✅ Temporal" || echo "❌ Temporal"
 	@curl -sf http://localhost:6333/health > /dev/null && echo "✅ Qdrant" || echo "❌ Qdrant"
@@ -174,3 +173,58 @@ test-e2e:
 	@echo ""
 	@echo "🧪 Running E2E workflow tests (requires all services)..."
 	cd apps/ai && uv run pytest tests/test_e2e_workflow.py -v -s -m e2e --timeout=300 || true
+
+# ===========================================
+# Health Check
+# ===========================================
+
+.PHONY: demo-health
+demo-health:
+	@echo "════════════════════════════════════════"
+	@echo "  IterateSwarm OS — Infrastructure Check"
+	@echo "════════════════════════════════════════"
+	@echo ""
+	@echo "--- Docker Containers ---"
+	@docker inspect --format \
+	  '  {{slice .Name 1 | printf "%-35s"}} {{.State.Status}}' \
+	  iterateswarm-postgres \
+	  iterateswarm-redpanda \
+	  iterateswarm-qdrant \
+	  iterateswarm-temporal \
+	  iterateswarm-temporal-ui \
+	  iterateswarm-temporal-admin \
+	  iterateswarm-worker \
+	  iterateswarm-consumer \
+	  2>&1
+	@echo ""
+	@echo "--- Service Endpoints ---"
+	@docker exec iterateswarm-postgres \
+	  pg_isready -U iterateswarm -q \
+	  && printf "  %-35s %s\n" "PostgreSQL :5432" "✅ accepting connections" \
+	  || printf "  %-35s %s\n" "PostgreSQL :5432" "❌ not ready"
+	@curl -sf http://localhost:6333/healthz > /dev/null \
+	  && printf "  %-35s %s\n" "Qdrant :6333" "✅ up" \
+	  || printf "  %-35s %s\n" "Qdrant :6333" "❌ down"
+	@docker exec iterateswarm-temporal-admin \
+	  temporal operator namespace describe default --address iterateswarm-temporal:7233 > /dev/null 2>&1 \
+	  && printf "  %-35s %s\n" "Temporal :7233" "✅ namespace:default ready" \
+	  || printf "  %-35s %s\n" "Temporal :7233" "❌ not ready"
+	@curl -sf http://localhost:8088 > /dev/null \
+	  && printf "  %-35s %s\n" "Temporal UI :8088" "✅ up" \
+	  || printf "  %-35s %s\n" "Temporal UI :8088" "❌ down"
+	@curl -sf http://localhost:3301 > /dev/null \
+	  && printf "  %-35s %s\n" "SigNoz :3301" "✅ up" \
+	  || printf "  %-35s %s\n" "SigNoz :3301" "⚠️  optional (not installed)"
+	@curl -sf http://localhost:3000/health > /dev/null \
+	  && printf "  %-35s %s\n" "Go API :3000" "✅ up" \
+	  || printf "  %-35s %s\n" "Go API :3000" "⚠️  run: cd apps/core && go run cmd/server/main.go"
+	@nc -zv localhost 50051 > /dev/null 2>&1 \
+	  && printf "  %-35s %s\n" "Python gRPC :50051" "✅ up" \
+	  || printf "  %-35s %s\n" "Python gRPC :50051" "⚠️  run: cd apps/ai && uv run python -m src.grpc_server"
+	@echo ""
+	@echo "--- Redpanda Topics ---"
+	@docker exec iterateswarm-redpanda \
+	  rpk topic list 2>/dev/null \
+	  && echo "  ✅ Redpanda cluster reachable" \
+	  || echo "  ⚠️  Redpanda not responding"
+	@echo "════════════════════════════════════════"

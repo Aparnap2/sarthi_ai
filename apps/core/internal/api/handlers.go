@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 
 	"iterateswarm-core/internal/db"
 	"iterateswarm-core/internal/logging"
@@ -59,17 +59,17 @@ type Handler struct {
 	redpandaClient *redpanda.Client
 	temporalClient *temporal.Client
 	repo           *db.Repository
-	redisClient    *redis.Client
+	db             *sql.DB
 	logger         *logging.Logger
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(redpandaClient *redpanda.Client, temporalClient *temporal.Client, repo *db.Repository, redisClient *redis.Client) *Handler {
+func NewHandler(redpandaClient *redpanda.Client, temporalClient *temporal.Client, repo *db.Repository, db *sql.DB) *Handler {
 	return &Handler{
 		redpandaClient: redpandaClient,
 		temporalClient: temporalClient,
 		repo:           repo,
-		redisClient:    redisClient,
+		db:             db,
 		logger:         logging.NewLogger("api"),
 	}
 }
@@ -94,16 +94,15 @@ func (h *Handler) HandleDiscordWebhook(c *fiber.Ctx) error {
 
 	// Idempotency check: Use X-Discord-Delivery header if available
 	idempotencyKey := c.Get("X-Discord-Delivery")
-	if idempotencyKey != "" && h.redisClient != nil {
-		// Check if this delivery was already processed
+	if idempotencyKey != "" && h.db != nil {
 		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 		defer cancel()
 
-		setResult, err := h.redisClient.SetNX(ctx, fmt.Sprintf("idempotency:discord:%s", idempotencyKey), "1", 24*time.Hour).Result()
+		isNew, err := h.repo.SetIdempotencyKey(ctx, fmt.Sprintf("discord:%s", idempotencyKey), "discord", 24*time.Hour)
 		if err != nil {
 			h.logger.Warn("failed to check idempotency", "error", err.Error())
-			// Continue anyway - don't block on Redis failure
-		} else if !setResult {
+			// Continue anyway - don't block on database failure
+		} else if !isNew {
 			// Already processed (key already existed)
 			h.logger.Info("duplicate webhook delivery skipped", "idempotency_key", idempotencyKey)
 			return c.Status(fiber.StatusOK).JSON(map[string]string{
@@ -139,13 +138,6 @@ func (h *Handler) HandleDiscordWebhook(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
 			"error": "Failed to queue event",
 		})
-	}
-
-	// Mark as processed if idempotency key was provided
-	if idempotencyKey != "" && h.redisClient != nil {
-		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
-		defer cancel()
-		_ = h.redisClient.SetNX(ctx, fmt.Sprintf("idempotency:discord:%s", idempotencyKey), "1", 24*time.Hour).Err()
 	}
 
 	duration := time.Since(startTime)
@@ -187,10 +179,10 @@ func (h *Handler) HandleSlackWebhook(c *fiber.Ctx) error {
 
 	// Parse Slack event
 	var slackEvent struct {
-		Token   string `json:"token"`
-		TeamID  string `json:"team_id"`
+		Token    string `json:"token"`
+		TeamID   string `json:"team_id"`
 		APIAppID string `json:"api_app_id"`
-		Event   struct {
+		Event    struct {
 			Type    string `json:"type"`
 			Text    string `json:"text"`
 			User    string `json:"user"`
@@ -217,14 +209,14 @@ func (h *Handler) HandleSlackWebhook(c *fiber.Ctx) error {
 	}
 
 	// Idempotency check using Slack event ID
-	if slackEvent.EventID != "" && h.redisClient != nil {
+	if slackEvent.EventID != "" && h.db != nil {
 		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 		defer cancel()
 
-		setResult, err := h.redisClient.SetNX(ctx, fmt.Sprintf("idempotency:slack:%s", slackEvent.EventID), "1", 24*time.Hour).Result()
+		isNew, err := h.repo.SetIdempotencyKey(ctx, fmt.Sprintf("slack:%s", slackEvent.EventID), "slack", 24*time.Hour)
 		if err != nil {
 			h.logger.Warn("failed to check slack idempotency", "error", err.Error())
-		} else if !setResult {
+		} else if !isNew {
 			h.logger.Info("duplicate slack event skipped", "event_id", slackEvent.EventID)
 			return c.Status(fiber.StatusOK).JSON(map[string]string{
 				"status": "already_processed",
@@ -260,13 +252,6 @@ func (h *Handler) HandleSlackWebhook(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
 			"error": "Failed to queue event",
 		})
-	}
-
-	// Mark as processed
-	if slackEvent.EventID != "" && h.redisClient != nil {
-		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
-		defer cancel()
-		_ = h.redisClient.SetNX(ctx, fmt.Sprintf("idempotency:slack:%s", slackEvent.EventID), "1", 24*time.Hour).Err()
 	}
 
 	duration := time.Since(startTime)
@@ -349,6 +334,24 @@ func (h *Handler) HandleDetailedHealth(c *fiber.Ctx) error {
 	ctx := c.Context()
 	checks := make(map[string]interface{})
 	allHealthy := true
+
+	// Check PostgreSQL
+	pgStart := time.Now()
+	pgErr := h.db.PingContext(ctx)
+	pgDuration := time.Since(pgStart)
+	if pgErr != nil {
+		checks["postgres"] = map[string]interface{}{
+			"status":     "unhealthy",
+			"error":      pgErr.Error(),
+			"latency_ms": pgDuration.Milliseconds(),
+		}
+		allHealthy = false
+	} else {
+		checks["postgres"] = map[string]interface{}{
+			"status":     "healthy",
+			"latency_ms": pgDuration.Milliseconds(),
+		}
+	}
 
 	// Check Temporal
 	temporalStart := time.Now()
@@ -457,6 +460,9 @@ func (h *Handler) HandleDashboardStats(c *fiber.Ctx) error {
 		redpandaHealthy = false
 	}
 
+	// Check PostgreSQL health
+	pgHealthy := h.db.PingContext(ctx) == nil
+
 	// Query database stats
 	dbStats, err := h.queryDatabaseStats(ctx)
 	if err != nil {
@@ -477,7 +483,7 @@ func (h *Handler) HandleDashboardStats(c *fiber.Ctx) error {
 			"python":   map[string]string{"status": "up"},
 			"temporal": map[string]string{"status": boolToString(temporalHealthy)},
 			"redpanda": map[string]string{"status": boolToString(redpandaHealthy)},
-			"postgres": map[string]string{"status": "up"},
+			"postgres": map[string]string{"status": boolToString(pgHealthy)},
 		},
 		"stats":     dbStats,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
@@ -572,14 +578,24 @@ func (h *Handler) HandleFeedbackList(c *fiber.Ctx) error {
 				createdAt = t.Format(time.RFC3339)
 			}
 		}
-		
+
 		var id, content, source, userID, status string
-		if v, ok := item["id"].(string); ok { id = v }
-		if v, ok := item["content"].(string); ok { content = v }
-		if v, ok := item["source"].(string); ok { source = v }
-		if v, ok := item["user_id"].(string); ok { userID = v }
-		if v, ok := item["status"].(string); ok { status = v }
-		
+		if v, ok := item["id"].(string); ok {
+			id = v
+		}
+		if v, ok := item["content"].(string); ok {
+			content = v
+		}
+		if v, ok := item["source"].(string); ok {
+			source = v
+		}
+		if v, ok := item["user_id"].(string); ok {
+			userID = v
+		}
+		if v, ok := item["status"].(string); ok {
+			status = v
+		}
+
 		responseItems[i] = map[string]interface{}{
 			"id":         id,
 			"title":      extractTitle(content),

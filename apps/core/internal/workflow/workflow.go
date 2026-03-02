@@ -50,9 +50,32 @@ type CreateGitHubIssueInput struct {
 	Assignee  string
 }
 
+// CleanupHITLRecordInput is input for cleaning up HITL records.
+type CleanupHITLRecordInput struct {
+	TaskID string
+}
+
+// NotifyHITLTimeoutInput is input for notifying about HITL timeout.
+type NotifyHITLTimeoutInput struct {
+	ChannelID  string
+	IssueTitle string
+	WorkflowID string
+}
+
+// SendToDLQInput is input for sending a task to the Dead Letter Queue.
+type SendToDLQInput struct {
+	TaskID   string
+	Payload  map[string]interface{}
+	ErrorMsg string
+	Attempts int
+}
+
+// HITLTimeoutDuration is the timeout for human-in-the-loop approval (48 hours).
+const HITLTimeoutDuration = 48 * time.Hour
+
 // FeedbackWorkflow is the main workflow for processing feedback.
 func FeedbackWorkflow(ctx workflow.Context, input FeedbackInput) error {
-	// Set activity options with retry policy
+	// Set activity options with retry policy (MaximumAttempts: 5)
 	ao := workflow.ActivityOptions{
 		StartToCloseTimeout: 2 * time.Minute,
 		HeartbeatTimeout:    30 * time.Second,
@@ -60,7 +83,7 @@ func FeedbackWorkflow(ctx workflow.Context, input FeedbackInput) error {
 			InitialInterval:    time.Second,
 			BackoffCoefficient: 2.0,
 			MaximumInterval:    time.Minute,
-			MaximumAttempts:    3,
+			MaximumAttempts:    5,
 		},
 	}
 	ctx = workflow.WithActivityOptions(ctx, ao)
@@ -70,15 +93,18 @@ func FeedbackWorkflow(ctx workflow.Context, input FeedbackInput) error {
 
 	var analyzeResult *AnalyzeFeedbackOutput
 
-	// Step 1: Analyze feedback with AI (now using Go activities)
-	activities := NewActivities()
-	err := workflow.ExecuteActivity(ctx, activities.AnalyzeFeedback, AnalyzeFeedbackInput{
+	// Step 1: Analyze feedback with AI (using activity function reference)
+	err := workflow.ExecuteActivity(ctx, AnalyzeFeedback, AnalyzeFeedbackInput{
 		Text:      input.Text,
 		Source:    input.Source,
 		UserID:    input.UserID,
 		ChannelID: input.ChannelID,
 	}).Get(ctx, &analyzeResult)
 	if err != nil {
+		// Check if we've exhausted retries and should send to DLQ
+		if isRetryExhausted(err) {
+			sendToDLQ(ctx, input, err, 5)
+		}
 		return err
 	}
 
@@ -90,7 +116,7 @@ func FeedbackWorkflow(ctx workflow.Context, input FeedbackInput) error {
 	// Step 2: Send approval request to Discord
 	// P1-1 FIX: Use WorkflowID instead of RunID for correct signal routing
 	workflowInfo := workflow.GetInfo(ctx)
-	err = workflow.ExecuteActivity(ctx, activities.SendDiscordApproval, SendDiscordApprovalInput{
+	err = workflow.ExecuteActivity(ctx, SendDiscordApproval, SendDiscordApprovalInput{
 		ChannelID:   input.ChannelID,
 		IssueTitle:  analyzeResult.Title,
 		IssueBody:   analyzeResult.Description,
@@ -100,15 +126,18 @@ func FeedbackWorkflow(ctx workflow.Context, input FeedbackInput) error {
 		WorkflowID:  workflowInfo.WorkflowExecution.ID, // Was RunID - now uses ID
 	}).Get(ctx, nil)
 	if err != nil {
+		if isRetryExhausted(err) {
+			sendToDLQ(ctx, input, err, 5)
+		}
 		return err
 	}
 
-	// Step 3: Wait for user approval (signal with timeout)
+	// Step 3: Wait for user approval with 48-hour timeout
 	var signalValue interface{}
 	signalReceived := false
 
-	// Wait for signal with 5 minute timeout
-	_, _ = workflow.AwaitWithTimeout(ctx, 5*time.Minute, func() bool {
+	// Wait for signal with 48-hour timeout using AwaitWithTimeout
+	timedOut, err := workflow.AwaitWithTimeout(ctx, HITLTimeoutDuration, func() bool {
 		received := signalChan.ReceiveAsync(&signalValue)
 		if received {
 			signalReceived = true
@@ -116,6 +145,26 @@ func FeedbackWorkflow(ctx workflow.Context, input FeedbackInput) error {
 		}
 		return false
 	})
+	if err != nil {
+		return err
+	}
+
+	// Check if we timed out
+	if timedOut && !signalReceived {
+		// HITL timed out - notify and cleanup
+		_ = workflow.ExecuteActivity(ctx, NotifyHITLTimeout, NotifyHITLTimeoutInput{
+			ChannelID:  input.ChannelID,
+			IssueTitle: analyzeResult.Title,
+			WorkflowID: workflowInfo.WorkflowExecution.ID,
+		}).Get(ctx, nil)
+
+		// Cleanup HITL record
+		_ = workflow.ExecuteActivity(ctx, CleanupHITLRecord, CleanupHITLRecordInput{
+			TaskID: workflowInfo.WorkflowExecution.ID,
+		}).Get(ctx, nil)
+
+		return nil
+	}
 
 	// Check if we received a signal or timed out
 	approved := false
@@ -127,11 +176,15 @@ func FeedbackWorkflow(ctx workflow.Context, input FeedbackInput) error {
 
 	// Step 4: Handle approval/rejection
 	if !approved {
+		// Cleanup HITL record on rejection
+		_ = workflow.ExecuteActivity(ctx, CleanupHITLRecord, CleanupHITLRecordInput{
+			TaskID: workflowInfo.WorkflowExecution.ID,
+		}).Get(ctx, nil)
 		return nil
 	}
 
 	// Step 5: Create GitHub issue
-	err = workflow.ExecuteActivity(ctx, activities.CreateGitHubIssue, CreateGitHubIssueInput{
+	err = workflow.ExecuteActivity(ctx, CreateGitHubIssue, CreateGitHubIssueInput{
 		Title:     analyzeResult.Title,
 		Body:      analyzeResult.Description,
 		Labels:    analyzeResult.Labels,
@@ -139,5 +192,46 @@ func FeedbackWorkflow(ctx workflow.Context, input FeedbackInput) error {
 		RepoName:  input.RepoName,
 	}).Get(ctx, nil)
 
-	return err
+	if err != nil {
+		if isRetryExhausted(err) {
+			sendToDLQ(ctx, input, err, 5)
+		}
+		return err
+	}
+
+	// Cleanup HITL record after successful issue creation
+	_ = workflow.ExecuteActivity(ctx, CleanupHITLRecord, CleanupHITLRecordInput{
+		TaskID: workflowInfo.WorkflowExecution.ID,
+	}).Get(ctx, nil)
+
+	return nil
+}
+
+// isRetryExhausted checks if an error indicates retry exhaustion
+func isRetryExhausted(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for Temporal retry exhaustion
+	// This is a simplified check - in production, check for specific error types
+	return true
+}
+
+// sendToDLQ sends a failed task to the Dead Letter Queue
+func sendToDLQ(ctx workflow.Context, input FeedbackInput, err error, attempts int) {
+	payload := map[string]interface{}{
+		"text":       input.Text,
+		"source":     input.Source,
+		"user_id":    input.UserID,
+		"channel_id": input.ChannelID,
+		"repo_owner": input.RepoOwner,
+		"repo_name":  input.RepoName,
+	}
+
+	_ = workflow.ExecuteActivity(ctx, SendToDLQ, SendToDLQInput{
+		TaskID:   input.UserID + "-" + time.Now().String(),
+		Payload:  payload,
+		ErrorMsg: err.Error(),
+		Attempts: attempts,
+	}).Get(ctx, nil)
 }

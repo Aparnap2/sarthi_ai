@@ -22,3 +22,9 @@ func (c *QdrantClient) CheckDuplicate(ctx context.Context, text string) (bool, f
 func (c *QdrantClient) EnsureCollection(ctx context.Context) error {
 	return nil
 }
+
+// IndexFeedback indexes feedback for duplicate detection (stub)
+func (c *QdrantClient) IndexFeedback(ctx context.Context, userID, text string, metadata map[string]interface{}) error {
+	// Stub implementation - does nothing
+	return nil
+}

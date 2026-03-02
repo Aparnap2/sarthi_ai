@@ -28,7 +28,7 @@ async def run_worker():
 
     # Connect to Temporal server
     client = await Client.connect(
-        target=config.temporal.address,
+        config.temporal.address,
         namespace=config.temporal.namespace,
     )
 
@@ -49,10 +49,6 @@ async def run_worker():
 
 def main():
     """Entry point for the AI worker."""
-    # Configure structured logging
-    structlog.configure(
-        wrapper_class=structlog.make_prevent_logging_config,
-    )
     log = structlog.get_logger()
 
     try:
