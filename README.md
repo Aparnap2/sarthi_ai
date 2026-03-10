@@ -13,7 +13,7 @@
 
 From feedback to merged PR — fully automated, production-ready, no third-party dependencies required.
 
-[Architecture](#architecture) • [Quick Start](#quick-start) • [Services](#services) • [API Docs](#api-endpoints) • [Testing](#testing)
+[Architecture](#architecture) • [Quick Start](#quick-start) • [Services](#services) • [API Endpoints](#api-endpoints) • [Testing](#testing)
 
 </div>
 
@@ -38,7 +38,7 @@ From feedback to merged PR — fully automated, production-ready, no third-party
 
 ### System Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                    IterateSwarm Native Platform                  │
 │                                                                  │
@@ -110,8 +110,8 @@ graph TD
 
 ```bash
 # Clone the repository
-git clone https://github.com/Aparnap2/iterate_swarm.git
-cd iterate_swarm
+git clone https://github.com/Aparnap2/IterateSwarm.git
+cd IterateSwarm
 
 # Start all services
 docker compose up -d
@@ -170,7 +170,7 @@ docker compose ps
 
 ### Agent Architecture
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │          Supervisor Agent               │
 │  - Routes tasks to specialized agents   │
@@ -215,7 +215,7 @@ docker compose ps
 
 ### Test Summary
 
-```
+```text
 Total Tests: 156
 ✅ Passing: 156
 ❌ Failing: 0
@@ -312,7 +312,7 @@ curl http://localhost:3000/health
 
 ### "Why build SwarmChat and SwarmRepo?"
 
-**Answer:** "I built native services to demonstrate the **Adapter Pattern at the infrastructure level**. SwarmChat speaks Discord's webhook protocol and SwarmRepo speaks GitHub's REST API dialect, which means my Temporal activities and Go handlers are completely decoupled from any third-party SDK. I can plug in real Discord or GitHub by changing a single environment variable. This is exactly how enterprise teams handle vendor switching without rewriting business logic."
+**Answer:** "I built native services to demonstrate the **Adapter Pattern at the infrastructure level**. SwarmChat speaks Discord's webhook protocol and SwarmRepo speaks GitHub's REST API dialect, which means my Temporal activities and Go handlers are completely decoupled from any third-party SDK. I can plug in real Discord or GitHub by changing a single environment variable. This is how enterprise teams handle vendor switching without rewriting business logic."
 
 ### "How do you handle failures?"
 
@@ -326,10 +326,9 @@ curl http://localhost:3000/health
 
 ## 📚 Documentation
 
-- **[PRD](docs/PRD.md)** - Product Requirements Document
-- **[Architecture](docs/architecture/)** - System design documents
-- **[API Docs](docs/api/)** - API specifications
-- **[Testing Guide](docs/testing.md)** - Testing strategy and guides
+- **[PRD](prd.md)** - Product Requirements Document
+- **[Architecture](ARCHITECTURE.md)** - System design documents
+- **[Testing Guide](E2E_IMPLEMENTATION_REPORT.md)** - Testing strategy and guides
 
 ---
 
@@ -346,7 +345,7 @@ curl http://localhost:3000/health
 - [x] PostgreSQL for all state
 - [x] Redpanda for event streaming
 - [x] Qdrant for vector search
-- [x] Automatic backups
+- [ ] Automatic backups
 
 ### Observability ✅
 - [x] Structured logging
