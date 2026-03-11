@@ -58,4 +58,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/Aparnap2/iterate_swarm/gen/go => /gen/go
+replace github.com/Aparnap2/iterate_swarm/gen/go => ../../gen/go

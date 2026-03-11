@@ -108,5 +108,22 @@ apps/core/cmd/test_azure/
 apps/core/cmd/test_azure_simple/
 apps/core/cmd/test_real/
 TDD_IMPLEMENTATION.md
-*.md
 .env
+
+# ===============================
+# Large Directories (DO NOT COMMIT)
+# ===============================
+.venv/
+venv/
+node_modules/
+signoz-install/
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
