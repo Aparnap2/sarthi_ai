@@ -66,33 +66,53 @@ From feedback to merged PR — fully automated, production-ready, no third-party
 
 ```mermaid
 graph TD
-    User((User)) -->|Feedback| SwarmChat[SwarmChat UI]
-    User -->|Webhook| Discord[Discord Webhook]
-    
-    SwarmChat -->|POST /messages| GoAPI[Go API Gateway]
+    %% Nodes
+    User((End User))
+    SwarmChat[SwarmChat UI]
+    HITL[HITL Control Panel]
+    Discord[Discord]
+    GoAPI[Go API Gateway]
+    Redpanda[(Redpanda)]
+    Consumer[Go Consumer]
+    Temporal[Temporal]
+    Worker[Go Worker]
+    PythonAI[Python AI Agents]
+    Qdrant[(Qdrant)]
+    Azure[Azure OpenAI]
+    SwarmRepo[SwarmRepo]
+
+    %% Links
+    User -->|Feedback| SwarmChat
+    User -->|Webhook| Discord
+    SwarmChat -->|POST /messages| GoAPI
     Discord -->|POST /webhooks| GoAPI
-    
-    GoAPI -->|Produce| Redpanda[(Redpanda)]
-    Redpanda -->|Consume| Consumer[Go Consumer]
-    Consumer -->|Start Workflow| Temporal[Temporal]
-    
-    Temporal -->|Execute| Worker[Go Worker]
-    Worker -->|gRPC| PythonAI[Python AI Agents]
-    PythonAI -->|Query| Qdrant[(Qdrant)]
-    PythonAI -->|LLM| Azure[Azure OpenAI]
-    
-    Worker -->|Create Issue| SwarmRepo[SwarmRepo]
+    GoAPI -->|Produce| Redpanda
+    Redpanda -->|Consume| Consumer
+    Consumer -->|Start Workflow| Temporal
+    Temporal -->|Execute| Worker
+    Worker -->|gRPC| PythonAI
+    PythonAI -->|Query| Qdrant
+    PythonAI -->|LLM| Azure
+    Worker -->|Create Issue| SwarmRepo
     Worker -->|Create PR| SwarmRepo
-    
     SwarmRepo -->|Webhook| GoAPI
-    SwarmChat -->|HITL UI| HITL[HITL Buttons]
+    SwarmChat -->|HITL UI| HITL
     HITL -->|Signal| Temporal
-    
-    style SwarmChat fill:#e3f2fd
-    style SwarmRepo fill:#f3e5f5
-    style GoAPI fill:#fff3e0
-    style Temporal fill:#e8f5e9
-    style PythonAI fill:#fce4ec
+
+    %% Explicit styling with text color for visibility
+    style User fill:#bbdefb,stroke:#1565c0,stroke-width:2px,color:#0b3d91
+    style SwarmChat fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0b3d91
+    style HITL fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0b3d91
+    style Discord fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0b3d91
+    style GoAPI fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#5d4037
+    style Redpanda fill:#fff8e1,stroke:#ffb74d,stroke-width:1px,color:#5d4037
+    style Consumer fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#1b5e20
+    style Temporal fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#1b5e20
+    style Worker fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#1b5e20
+    style PythonAI fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
+    style Qdrant fill:#f8bbd0,stroke:#ad1457,stroke-width:1px,color:#880e4f
+    style Azure fill:#fce4ec,stroke:#c2185b,stroke-width:1px,color:#880e4f
+    style SwarmRepo fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a0072
 ```
 
 ---
