@@ -108,5 +108,4 @@ apps/core/cmd/test_azure/
 apps/core/cmd/test_azure_simple/
 apps/core/cmd/test_real/
 TDD_IMPLEMENTATION.md
-*.md
 .env
