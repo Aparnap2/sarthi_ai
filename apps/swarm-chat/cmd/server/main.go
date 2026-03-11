@@ -98,8 +98,12 @@ func main() {
 	})
 
 	// Middleware
+	corsOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if corsOrigins == "" {
+		corsOrigins = "*" // Default for development
+	}
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
+		AllowOrigins: corsOrigins,
 		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 	}))
@@ -164,11 +168,11 @@ func runMigrations() {
 		},
 		{
 			name: "create_messages_channel_idx",
-			sql: `CREATE INDEX IF NOT EXISTS idx_messages_channel_id ON messages(channel_id)`,
+			sql:  `CREATE INDEX IF NOT EXISTS idx_messages_channel_id ON messages(channel_id)`,
 		},
 		{
 			name: "create_messages_created_idx",
-			sql: `CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC)`,
+			sql:  `CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC)`,
 		},
 		{
 			name: "create_notify_function",
@@ -421,7 +425,9 @@ func loadRecentMessages(channelID uuid.UUID, limit int) ([]Message, error) {
 			continue
 		}
 		if len(metadataJSON) > 0 {
-			json.Unmarshal(metadataJSON, &msg.Metadata)
+			if err := json.Unmarshal(metadataJSON, &msg.Metadata); err != nil {
+				log.Printf("Failed to unmarshal metadata for message %s: %v (raw: %s)", msg.ID, err, string(metadataJSON))
+			}
 		}
 		messages = append(messages, msg)
 	}
@@ -460,7 +466,9 @@ func loadMessagesSince(channelID uuid.UUID, since time.Time) ([]Message, error) 
 			continue
 		}
 		if len(metadataJSON) > 0 {
-			json.Unmarshal(metadataJSON, &msg.Metadata)
+			if err := json.Unmarshal(metadataJSON, &msg.Metadata); err != nil {
+				log.Printf("Failed to unmarshal metadata for message %s: %v (raw: %s)", msg.ID, err, string(metadataJSON))
+			}
 		}
 		messages = append(messages, msg)
 	}

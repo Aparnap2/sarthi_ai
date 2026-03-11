@@ -31,19 +31,19 @@ import (
 
 // Issue represents a GitHub-compatible issue.
 type Issue struct {
-	ID        int       `json:"number"`
-	NodeID    string    `json:"node_id"`
-	Title     string    `json:"title"`
-	Body      string    `json:"body"`
-	State     string    `json:"state"`
-	Labels    []Label   `json:"labels"`
-	HTMLURL   string    `json:"html_url"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        int        `json:"number"`
+	NodeID    string     `json:"node_id"`
+	Title     string     `json:"title"`
+	Body      string     `json:"body"`
+	State     string     `json:"state"`
+	Labels    []Label    `json:"labels"`
+	HTMLURL   string     `json:"html_url"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 	ClosedAt  *time.Time `json:"closed_at,omitempty"`
-	User      User      `json:"user"`
-	Assignee  *User     `json:"assignee,omitempty"`
-	Comments  int       `json:"comments"`
+	User      User       `json:"user"`
+	Assignee  *User      `json:"assignee,omitempty"`
+	Comments  int        `json:"comments"`
 }
 
 // Label represents a GitHub label.
@@ -83,8 +83,8 @@ type PullRequest struct {
 
 // Ref represents a git reference (branch).
 type Ref struct {
-	Ref string `json:"ref"`
-	SHA string `json:"sha"`
+	Ref  string `json:"ref"`
+	SHA  string `json:"sha"`
 	Repo Repo   `json:"repo"`
 }
 
@@ -106,6 +106,7 @@ type IssueRequest struct {
 	Assignee  string   `json:"assignee"`
 	Severity  string   `json:"severity"`
 	IssueType string   `json:"issue_type"`
+	State     string   `json:"state"` // "open" or "closed"
 }
 
 // PullRequestRequest is the request body for creating a PR.
@@ -154,7 +155,7 @@ func main() {
 	if corsOrigins == "" {
 		corsOrigins = "http://localhost:3000,http://localhost:4001"
 	}
-	
+
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: corsOrigins,
 		AllowMethods: "GET,POST,PUT,DELETE,PATCH,OPTIONS",
@@ -264,15 +265,15 @@ func runMigrations() {
 		},
 		{
 			name: "create_issues_repo_idx",
-			sql: `CREATE INDEX IF NOT EXISTS idx_issues_repo_id ON issues(repo_id)`,
+			sql:  `CREATE INDEX IF NOT EXISTS idx_issues_repo_id ON issues(repo_id)`,
 		},
 		{
 			name: "create_issues_status_idx",
-			sql: `CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status)`,
+			sql:  `CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status)`,
 		},
 		{
 			name: "create_pulls_repo_idx",
-			sql: `CREATE INDEX IF NOT EXISTS idx_pull_requests_repo_id ON pull_requests(repo_id)`,
+			sql:  `CREATE INDEX IF NOT EXISTS idx_pull_requests_repo_id ON pull_requests(repo_id)`,
 		},
 		{
 			name: "create_issues_updated_trigger",
@@ -327,11 +328,11 @@ func dashboard(c *fiber.Ctx) error {
 	db.QueryRow("SELECT COUNT(*) FROM pull_requests WHERE status = 'open'").Scan(&openPRs)
 
 	return c.Render("dashboard", fiber.Map{
-		"Title":       "SwarmRepo Dashboard",
-		"IssueCount":  issueCount,
-		"PRCount":     prCount,
-		"OpenIssues":  openIssues,
-		"OpenPRs":     openPRs,
+		"Title":      "SwarmRepo Dashboard",
+		"IssueCount": issueCount,
+		"PRCount":    prCount,
+		"OpenIssues": openIssues,
+		"OpenPRs":    openPRs,
 	})
 }
 
@@ -396,8 +397,8 @@ func createIssue(c *fiber.Ctx) error {
 
 // createIssueDirect creates an issue without owner/repo params.
 func createIssueDirect(c *fiber.Ctx) error {
-	c.Params("owner", "iterateswarm")
-	c.Params("repo", "demo")
+	c.Locals("owner", "iterateswarm")
+	c.Locals("repo", "demo")
 	return createIssue(c)
 }
 
@@ -473,8 +474,8 @@ func listIssues(c *fiber.Ctx) error {
 
 // listIssuesDirect lists issues without owner/repo params.
 func listIssuesDirect(c *fiber.Ctx) error {
-	c.Params("owner", "iterateswarm")
-	c.Params("repo", "demo")
+	c.Locals("owner", "iterateswarm")
+	c.Locals("repo", "demo")
 	return listIssues(c)
 }
 
@@ -518,8 +519,8 @@ func getIssue(c *fiber.Ctx) error {
 
 // getIssueDirect gets an issue without owner/repo params.
 func getIssueDirect(c *fiber.Ctx) error {
-	c.Params("owner", "iterateswarm")
-	c.Params("repo", "demo")
+	c.Locals("owner", "iterateswarm")
+	c.Locals("repo", "demo")
 	return getIssue(c)
 }
 
@@ -569,9 +570,14 @@ func updateIssue(c *fiber.Ctx) error {
 		argNum++
 	}
 
-	// Handle state change
-	if req.Severity == "closed" || (req.IssueType == "" && len(updates) == 0) {
-		// Check if body contains state info
+	// Handle state change (validate allowed values: "open" or "closed")
+	if req.State != "" {
+		if req.State != "open" && req.State != "closed" {
+			return c.Status(400).JSON(fiber.Map{"error": "State must be 'open' or 'closed'"})
+		}
+		updates = append(updates, fmt.Sprintf("status = $%d", argNum))
+		args = append(args, req.State)
+		argNum++
 	}
 
 	if len(updates) == 0 {
@@ -716,8 +722,8 @@ func listPRs(c *fiber.Ctx) error {
 
 // listPRsDirect lists PRs without owner/repo params.
 func listPRsDirect(c *fiber.Ctx) error {
-	c.Params("owner", "iterateswarm")
-	c.Params("repo", "demo")
+	c.Locals("owner", "iterateswarm")
+	c.Locals("repo", "demo")
 	return listPRs(c)
 }
 
@@ -755,8 +761,8 @@ func getPR(c *fiber.Ctx) error {
 
 // getPRDirect gets a PR without owner/repo params.
 func getPRDirect(c *fiber.Ctx) error {
-	c.Params("owner", "iterateswarm")
-	c.Params("repo", "demo")
+	c.Locals("owner", "iterateswarm")
+	c.Locals("repo", "demo")
 	return getPR(c)
 }
 

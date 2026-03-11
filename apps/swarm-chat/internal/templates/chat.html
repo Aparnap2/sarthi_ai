@@ -1,0 +1,148 @@
+{{define "content"}}
+<header>
+    <h1>
+        <span>🐝</span>
+        SwarmChat
+        <span style="font-size: 0.8rem; opacity: 0.8; font-weight: normal;">| {{.ChannelName}}</span>
+    </h1>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 0.85rem;">Connected</span>
+        <div class="status-indicator"></div>
+    </div>
+</header>
+
+<div class="chat-container">
+    <div id="messages" 
+         hx-ext="sse" 
+         sse-connect="/channels/{{.ChannelID}}/stream"
+         sse-swap="message"
+         hx-on::after-swap="scrollToBottom()">
+        
+        <!-- Initial empty state -->
+        <div class="empty-state" id="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+            <p>No messages yet. Start the conversation!</p>
+        </div>
+    </div>
+
+    <div class="typing-indicator" id="typing" style="display: none;">
+        Swarm is typing...
+    </div>
+
+    <div class="input-area">
+        <form class="input-form" 
+              hx-post="/channels/{{.ChannelID}}/messages"
+              hx-target="#messages"
+              hx-swap="beforeend"
+              hx-on::before-request="showTyping()"
+              hx-on::after-request="hideTyping(); clearInput(); scrollToBottom()"
+              hx-on::after-swap="document.getElementById('empty-state').style.display='none'">
+            <input type="text" 
+                   name="content" 
+                   id="message-input"
+                   placeholder="Describe the issue or ask a question..." 
+                   required 
+                   autocomplete="off" />
+            <input type="hidden" name="user_id" value="demo-user" />
+            <input type="hidden" name="source" value="user" />
+            <button type="submit" id="send-btn">
+                Send to Swarm
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Scroll to bottom of messages
+    function scrollToBottom() {
+        const messages = document.getElementById('messages');
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    // Show typing indicator
+    function showTyping() {
+        document.getElementById('typing').style.display = 'block';
+        document.getElementById('send-btn').disabled = true;
+    }
+
+    // Hide typing indicator
+    function hideTyping() {
+        document.getElementById('typing').style.display = 'none';
+        document.getElementById('send-btn').disabled = false;
+    }
+
+    // Clear input after sending
+    function clearInput() {
+        document.getElementById('message-input').value = '';
+    }
+
+    // Handle SSE messages
+    document.body.addEventListener('htmx:sseMessage', function(evt) {
+        const data = evt.detail.message;
+        console.log('SSE Message:', data);
+        
+        // Hide empty state on first message
+        const emptyState = document.getElementById('empty-state');
+        if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+        
+        // Scroll to bottom
+        setTimeout(scrollToBottom, 100);
+    });
+
+    // Handle connection
+    document.body.addEventListener('htmx:sseOpen', function(evt) {
+        console.log('SSE Connected');
+    });
+
+    // Handle errors
+    document.body.addEventListener('htmx:sseError', function(evt) {
+        console.error('SSE Error:', evt.detail.error);
+    });
+
+    // Initial scroll
+    scrollToBottom();
+
+    // Focus input on load
+    document.getElementById('message-input').focus();
+</script>
+
+<!-- Message template for HTMX to use -->
+<template id="message-template">
+    <div class="message {source}">
+        <div class="message-header">
+            <span class="message-source">{source}</span>
+            <span class="message-time">{time}</span>
+        </div>
+        <div class="message-content">{content}</div>
+    </div>
+</template>
+
+<!-- HITL Card template -->
+<template id="hitl-template">
+    <div class="hitl-card">
+        <h4>⚠️ Human Approval Required</h4>
+        <p><strong>Title:</strong> {title}</p>
+        <p><strong>Severity:</strong> {severity}</p>
+        <p><strong>Type:</strong> {type}</p>
+        <p style="margin-top: 10px; color: #666;">{description}</p>
+        <div class="hitl-actions">
+            <button class="btn-approve" 
+                    hx-post="/hitl/{workflow_id}/approve"
+                    hx-target="closest .hitl-card"
+                    hx-swap="outerHTML">
+                ✓ Approve
+            </button>
+            <button class="btn-reject"
+                    hx-post="/hitl/{workflow_id}/reject"
+                    hx-target="closest .hitl-card"
+                    hx-swap="outerHTML">
+                ✗ Reject
+            </button>
+        </div>
+    </div>
+</template>
+{{end}}

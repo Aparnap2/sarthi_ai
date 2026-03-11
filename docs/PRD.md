@@ -62,7 +62,7 @@
 
 ### High-Level Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                    IterateSwarm Native Platform                  │
 │                                                                  │
@@ -222,7 +222,7 @@ CREATE TABLE pull_requests (
 
 ### Agent Architecture
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │          Supervisor Agent               │
 │  - Routes tasks to specialized agents   │

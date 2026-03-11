@@ -379,22 +379,22 @@ func (a *Activities) CreateGitHubIssue(ctx context.Context, input CreateGitHubIs
 		return "", fmt.Errorf("failed to marshal issue body: %w", err)
 	}
 
-	// Create HTTP request to SwarmRepo
-	url := fmt.Sprintf("%s/repos/%s/%s/issues", swarmRepoURL, owner, repo)
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	// Execute request with retry
+	// Execute request with retry - recreate request on each attempt
 	client := &http.Client{Timeout: 30 * time.Second}
 	var resp *http.Response
 	err = retry.SimpleRetry(func() error {
-		var reqErr error
-		resp, reqErr = client.Do(req)
-		return reqErr
+		// Recreate request body on each retry (bytes.Buffer is single-use)
+		url := fmt.Sprintf("%s/repos/%s/%s/issues", swarmRepoURL, owner, repo)
+		req, reqErr := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+		if reqErr != nil {
+			return fmt.Errorf("failed to create request: %w", reqErr)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+		var doErr error
+		resp, doErr = client.Do(req)
+		return doErr
 	})
 	if err != nil {
 		a.logger.Error("failed to create issue in SwarmRepo", err)
