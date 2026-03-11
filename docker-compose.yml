@@ -241,6 +241,55 @@ services:
       - iterateswarm-net
     command: go run cmd/worker/main.go -temporal=temporal:7233 -queue=GO_TASK_QUEUE
 
+  # ===========================================
+  # SwarmChat - Discord Replacement
+  # ===========================================
+  swarm-chat:
+    build:
+      context: ./apps/swarm-chat
+      dockerfile: Dockerfile
+    container_name: iterateswarm-swarm-chat
+    ports:
+      - "4000:4000"
+    environment:
+      - POSTGRES_URL=postgres://iterateswarm:iterateswarm@postgres:5432/iterateswarm?sslmode=disable
+      - TEMPORAL_ADDRESS=temporal:7233
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================
+  # SwarmRepo - GitHub Replacement
+  # ===========================================
+  swarm-repo:
+    build:
+      context: ./apps/swarm-repo
+      dockerfile: Dockerfile
+    container_name: iterateswarm-swarm-repo
+    ports:
+      - "4001:4001"
+    environment:
+      - POSTGRES_URL=postgres://iterateswarm:iterateswarm@postgres:5432/iterateswarm?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   redpanda-data:
     driver: local

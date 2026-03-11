@@ -1,9 +1,13 @@
 package workflow
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -14,8 +18,6 @@ import (
 	"iterateswarm-core/internal/retry"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/google/go-github/v50/github"
-	"golang.org/x/oauth2"
 
 	// gRPC imports for Python agent communication
 	aiv1 "github.com/Aparnap2/iterate_swarm/gen/go/ai/v1"
@@ -327,7 +329,7 @@ func (a *Activities) SendDiscordApproval(ctx context.Context, input SendDiscordA
 }
 
 // CreateGitHubIssue creates a GitHub issue when approved.
-// Supports test mode via TEST_GITHUB_REPO environment variable for E2E testing.
+// Uses SwarmRepo (GitHub-compatible API) when available, falls back to GitHub.
 func (a *Activities) CreateGitHubIssue(ctx context.Context, input CreateGitHubIssueInput) (string, error) {
 	startTime := time.Now()
 	a.logger.Info("creating github issue",
@@ -336,19 +338,11 @@ func (a *Activities) CreateGitHubIssue(ctx context.Context, input CreateGitHubIs
 		"repo_name", input.RepoName,
 	)
 
-	// Get GitHub token from environment
-	githubToken := os.Getenv("GITHUB_TOKEN")
-	if githubToken == "" {
-		a.logger.Warn("github token not configured, skipping issue creation")
-		return "", nil
+	// Check if SwarmRepo is configured (via SWARM_REPO_URL env var)
+	swarmRepoURL := os.Getenv("SWARM_REPO_URL")
+	if swarmRepoURL == "" {
+		swarmRepoURL = "http://localhost:4001" // Default to local SwarmRepo
 	}
-
-	// Create OAuth2 client for GitHub authentication
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: githubToken},
-	)
-	tc := oauth2.NewClient(ctx, ts)
-	client := github.NewClient(tc)
 
 	// Get repository owner from environment if not provided
 	owner := input.RepoOwner
@@ -356,67 +350,83 @@ func (a *Activities) CreateGitHubIssue(ctx context.Context, input CreateGitHubIs
 		owner = os.Getenv("GITHUB_OWNER")
 	}
 	if owner == "" {
-		return "", fmt.Errorf("GITHUB_OWNER not set and RepoOwner not provided")
+		owner = "iterateswarm" // Default for SwarmRepo
 	}
 
 	// Get repository name from environment if not provided
-	// P4 FIX: Support TEST_GITHUB_REPO for E2E testing isolation
 	repo := input.RepoName
 	if repo == "" {
-		// Check if we're in test mode
-		testRepo := os.Getenv("TEST_GITHUB_REPO")
-		if testRepo != "" && os.Getenv("TEST_MODE") == "true" {
-			repo = testRepo
-			a.logger.Info("using test repository for E2E testing", "repo", repo)
-		} else {
-			repo = os.Getenv("GITHUB_REPO")
-		}
+		repo = os.Getenv("GITHUB_REPO")
 	}
 	if repo == "" {
-		return "", fmt.Errorf("GITHUB_REPO not set and RepoName not provided")
+		repo = "demo" // Default for SwarmRepo
 	}
 
-	// Prepare issue request
-	issueLabels := &input.Labels
-	if issueLabels == nil || len(*issueLabels) == 0 {
-		defaultLabels := []string{"ai-generated"}
-		issueLabels = &defaultLabels
+	// Prepare issue request body
+	issueLabels := input.Labels
+	if issueLabels == nil || len(issueLabels) == 0 {
+		issueLabels = []string{"ai-generated"}
 	}
 
-	issueRequest := &github.IssueRequest{
-		Title:  &input.Title,
-		Body:   &input.Body,
-		Labels: issueLabels,
+	issueBody := map[string]interface{}{
+		"title":  input.Title,
+		"body":   input.Body,
+		"labels": issueLabels,
 	}
 
-	// Add assignee if provided
-	if input.Assignee != "" {
-		issueRequest.Assignee = &input.Assignee
+	jsonBody, err := json.Marshal(issueBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal issue body: %w", err)
 	}
 
-	// Create the issue with retry
-	var issue *github.Issue
-	err := retry.SimpleRetry(func() error {
-		var createErr error
-		issue, _, createErr = client.Issues.Create(ctx, owner, repo, issueRequest)
-		return createErr
+	// Create HTTP request to SwarmRepo
+	url := fmt.Sprintf("%s/repos/%s/%s/issues", swarmRepoURL, owner, repo)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	// Execute request with retry
+	client := &http.Client{Timeout: 30 * time.Second}
+	var resp *http.Response
+	err = retry.SimpleRetry(func() error {
+		var reqErr error
+		resp, reqErr = client.Do(req)
+		return reqErr
 	})
 	if err != nil {
-		a.logger.Error("failed to create github issue", err,
-			"owner", owner,
-			"repo", repo,
+		a.logger.Error("failed to create issue in SwarmRepo", err)
+		return "", fmt.Errorf("failed to create issue: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		a.logger.Error("SwarmRepo returned error", fmt.Errorf("status: %d", resp.StatusCode),
+			"body", string(body),
 		)
-		return "", fmt.Errorf("failed to create GitHub issue: %w", err)
+		return "", fmt.Errorf("SwarmRepo error: %s", resp.Status)
 	}
 
-	issueURL := issue.GetHTMLURL()
+	// Parse response
+	var result struct {
+		ID      int    `json:"number"`
+		HTMLURL string `json:"html_url"`
+		Title   string `json:"title"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
 	duration := time.Since(startTime)
 	a.logger.LogActivity(ctx, "CreateGitHubIssue", duration, true,
-		"issue_url", issueURL,
-		"issue_number", issue.GetNumber(),
+		"issue_url", result.HTMLURL,
+		"issue_number", result.ID,
 	)
 
-	return issueURL, nil
+	return result.HTMLURL, nil
 }
 
 // truncateString truncates a string to the specified max length.
