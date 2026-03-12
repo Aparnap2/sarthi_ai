@@ -2,6 +2,7 @@ package redpanda
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -111,6 +112,15 @@ func (c *Client) PublishToTopic(topic string, value []byte) error {
 
 	log.Printf("Message published to %s", topic)
 	return nil
+}
+
+// ProduceMessage publishes a map as a JSON message to a topic.
+func (c *Client) ProduceMessage(topic string, message map[string]interface{}) error {
+	data, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message: %w", err)
+	}
+	return c.PublishToTopic(topic, data)
 }
 
 // PublishFeedback sends a feedback event.
