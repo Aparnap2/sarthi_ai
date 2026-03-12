@@ -16,6 +16,21 @@ import asyncpg
 
 from src.config.llm import get_llm_client, get_model
 
+POSITIVE_TRIGGER_ADDENDUM = """
+IMPORTANT — Sarthi fires for GOOD NEWS too, not just problems.
+
+Positive trigger conditions (score these HIGH, 0.75-0.90):
+- best_profit_month: highest profit in founder's history
+- commitment_completion: completed all stated commitments this week
+- revenue_milestone: crossed a meaningful round number
+- momentum_streak: 3+ consecutive weeks of positive momentum
+
+When any positive condition is detected:
+  fire = true
+  is_good_news = true
+  message should LEAD with celebration, not caveats
+"""
+
 
 class TriggerState(TypedDict):
     """State representing trigger evaluation result."""
@@ -39,13 +54,20 @@ class TriggerInput:
 @dataclass
 class TriggerDecision:
     """Represents a trigger decision."""
+
     fire: bool
     score: float
     trigger_type: str
     message: Optional[str]
     why_now: str
-    suppression_reason: Optional[str]
-    commitments_to_create: List[Dict[str, Any]]
+    is_good_news: bool = False  # NEW: distinguishes positive triggers
+    suppression_reason: Optional[str] = None
+    commitments_to_create: List[Dict[str, Any]] = None
+
+    def __post_init__(self) -> None:
+        """Initialize mutable default fields."""
+        if self.commitments_to_create is None:
+            self.commitments_to_create = []
 
 
 class TriggerAgent:
@@ -123,7 +145,9 @@ class TriggerAgent:
                     "content": f"""You are Sarthi, a proactive co-founder AI.
 THRESHOLD: {threshold}
 Only fire if total score >= {threshold}.
-Return JSON with: score, fire, trigger_type, why_now, what_is_true, do_this, suppression_reason, commitments_to_create"""
+Return JSON with: score, fire, trigger_type, why_now, what_is_true, do_this, suppression_reason, commitments_to_create, is_good_news
+
+{POSITIVE_TRIGGER_ADDENDUM}""",
                 },
                 {
                     "role": "user",
@@ -135,20 +159,21 @@ Return JSON with: score, fire, trigger_type, why_now, what_is_true, do_this, sup
         )
         
         result = json.loads(response.choices[0].message.content)
-        
+
         # Format Slack message if firing
         message = None
         if result["fire"]:
             message = self._format_slack_message(result)
-        
+
         return TriggerDecision(
             fire=result["fire"],
             score=result["score"],
             trigger_type=result.get("trigger_type", inp.signal_type),
             message=message,
             why_now=result["why_now"],
+            is_good_news=result.get("is_good_news", False),
             suppression_reason=result.get("suppression_reason"),
-            commitments_to_create=result.get("commitments_to_create", [])
+            commitments_to_create=result.get("commitments_to_create", []),
         )
     
     def _format_slack_message(self, result: Dict[str, Any]) -> str:
