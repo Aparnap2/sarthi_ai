@@ -339,6 +339,33 @@ services:
       timeout: 10s
       retries: 5
 
+  # ===========================================
+  # Saarathi Sandbox - Isolated Python Execution
+  # ===========================================
+  saarathi-sandbox:
+    build:
+      context: ./apps/sandbox
+      dockerfile: Dockerfile
+    container_name: saarathi-sandbox
+    ports:
+      - "5001:5000"
+    environment:
+      - MAX_EXECUTION_SECONDS=15
+      - SANDBOX_SECRET=${SANDBOX_SECRET:-saarathi-local}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    networks:
+      - iterateswarm-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   redpanda-data:
     driver: local
