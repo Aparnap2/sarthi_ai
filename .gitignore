@@ -127,3 +127,33 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# ===============================
+# Security - Explicit Secrets
+# ===============================
+# NEVER commit these:
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*-key
+credentials
+secrets
+
+# ===============================
+# Build Artifacts
+# ===============================
+apps/*/server
+apps/core/bin/
+*.so
+*.dylib
+
+# ===============================
+# Test Artifacts
+# ===============================
+*.log
+test-results/
+coverage/
