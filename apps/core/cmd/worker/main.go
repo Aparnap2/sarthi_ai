@@ -48,7 +48,7 @@ func main() {
 	// Create Temporal worker
 	w := worker.New(temporalClient.Client, *taskQueue, worker.Options{})
 
-	// Register workflow and activities
+	// Register feedback workflow and activities
 	w.RegisterWorkflow(workflow.FeedbackWorkflow)
 
 	// Note: aiClient is nil because Go-based agents use Azure OpenAI directly
@@ -57,6 +57,15 @@ func main() {
 	w.RegisterActivity(activities.AnalyzeFeedback)
 	w.RegisterActivity(activities.SendDiscordApproval)
 	w.RegisterActivity(activities.CreateGitHubIssue)
+
+	// Register onboarding workflow and activities
+	w.RegisterWorkflow(workflow.OnboardingWorkflow)
+	w.RegisterActivity(workflow.GetNextQuestionActivity)
+	w.RegisterActivity(workflow.SendTelegramOnboardingMessageActivity)
+	w.RegisterActivity(workflow.ProcessOnboardingAnswerActivity)
+	w.RegisterActivity(workflow.StoreOnboardingAnswerActivity)
+	w.RegisterActivity(workflow.DetectArchetypeActivity)
+	w.RegisterActivity(workflow.CompleteOnboardingActivity)
 
 	log.Printf("Worker listening on task queue: %s", *taskQueue)
 

@@ -491,16 +491,40 @@ func (h *Handler) GetLogsData(c *fiber.Ctx) error {
 	})
 }
 
+// FounderDashboard serves the founder dashboard page
+func (h *Handler) FounderDashboard(c *fiber.Ctx) error {
+	return Render(c, "founder_dashboard", fiber.Map{
+		"Title": "Saarathi — Your Patterns",
+	})
+}
+
 // RegisterRoutes registers all web routes
 func (h *Handler) RegisterRoutes(app *fiber.App) {
 	// Main dashboard
 	app.Get("/", h.Dashboard)
 	app.Get("/dashboard", h.Dashboard)
+	
+	// Founder routes
+	app.Get("/founder/dashboard", h.FounderDashboard)
 
 	// API endpoints for HTMX
 	app.Post("/api/feedback", h.HandleFeedback)
 	app.Get("/api/stats", h.HandleStats)
 	app.Get("/api/metrics", h.HandleMetrics)
+	
+	// Founder API endpoints
+	app.Get("/founder/dashboard/summary", func(c *fiber.Ctx) error {
+		// This will be handled by FounderDashboardHandler
+		return c.SendString("Dashboard summary - use FounderDashboardHandler")
+	})
+	app.Get("/founder/dashboard/stream", func(c *fiber.Ctx) error {
+		// This will be handled by FounderDashboardHandler
+		return c.SendString("Dashboard stream - use FounderDashboardHandler")
+	})
+	app.Post("/founder/reflection", func(c *fiber.Ctx) error {
+		// This will be handled by ReflectionHandler
+		return c.SendString("Reflection - use ReflectionHandler")
+	})
 
 	// Panel 1: Live Feed
 	app.Get("/api/live-feed", h.GetLiveFeed)

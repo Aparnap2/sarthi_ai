@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"iterateswarm-core/internal/api"
 	"iterateswarm-core/internal/db"
@@ -68,6 +70,21 @@ func main() {
 		}
 	}
 	defer pgDB.Close()
+	
+	// Initialize pgxpool for advanced features (SSE, async operations)
+	var pool *pgxpool.Pool
+	ctx := context.Background()
+	pool, err = pgxpool.New(ctx, dbURL)
+	if err != nil {
+		log.Printf("Warning: Failed to create pgxpool: %v", err)
+	} else {
+		if err := pool.Ping(ctx); err != nil {
+			log.Printf("Warning: pgxpool ping failed: %v", err)
+		} else {
+			log.Println("pgxpool initialized")
+		}
+	}
+	defer pool.Close()
 
 	// Create repository
 	var repo *db.Repository
@@ -136,6 +153,19 @@ func main() {
 	webHandler := web.NewHandler(pgDB)
 	webHandler.RegisterRoutes(app)
 	webHandler.RegisterAdminRoutes(app)
+	
+	// Founder Dashboard routes
+	if pool != nil {
+		founderDashboardHandler := web.NewFounderDashboardHandler(pool)
+		founderReflectionHandler := web.NewReflectionHandler(pool, redpandaClient)
+		
+		// Founder routes (public for demo)
+		app.Get("/founder/dashboard", founderDashboardHandler.FounderDashboard)
+		app.Get("/founder/dashboard/summary", founderDashboardHandler.FounderDashboardPartial)
+		app.Get("/founder/dashboard/stream", founderDashboardHandler.FounderDashboardStream)
+		app.Post("/founder/reflection", founderReflectionHandler.SubmitReflection)
+		log.Println("Founder dashboard routes initialized")
+	}
 
 	// SSE routes (Server-Sent Events for Live Feed) - require auth
 	sseHandler := web.NewSSEHandler(pgDB)

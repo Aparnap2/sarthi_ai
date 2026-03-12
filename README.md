@@ -1,399 +1,508 @@
-# IterateSwarm OS
+# Sarthi.ai — Your Virtual Back-Office OS
 
 <div align="center">
 
-![Status](https://img.shields.io/badge/status-production%20ready-brightgreen)
-![Tests](https://img.shields.io/badge/tests-156%20passing-brightgreen)
-![Services](https://img.shields.io/badge/services-11%20running-blue)
-![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square&logo=go)
-![Python](https://img.shields.io/badge/Python-3.13+-3776AB?style=flat-square&logo=python)
-![Azure](https://img.shields.io/badge/Azure-OpenAI-0078D4?style=flat-square&logo=microsoft-azure)
+**Internal ops OS powered by self-correcting, context-aware, proactive, obedient vertical agentic AI**
 
-**Your Autonomous Engineering Organization**
+[![Tests](https://img.shields.io/badge/tests-151%2B%20target-brightgreen)](./apps/ai/tests/)
+[![Agents](https://img.shields.io/badge/agents-17%20vertical-blue)](./docs/PRD.md)
+[![Cost](https://img.shields.io/badge/cost-%240%2Fmonth-green)](./docs/PRD.md)
+[![Version](https://img.shields.io/badge/version-v4.1.0--alpha-purple)](./docs/PRD.md)
 
-From feedback to merged PR — fully automated, production-ready, no third-party dependencies required.
-
-[Architecture](#architecture) • [Quick Start](#quick-start) • [Services](#services) • [API Endpoints](#api-endpoints) • [Testing](#testing)
+[Live Demo](#) • [Architecture](#architecture) • [Agents](#the-complete-agent-hierarchy-v41) • [API Docs](./docs/api/) • [PRD](./docs/PRD.md) • [Phases](./docs/PHASES.md)
 
 </div>
 
 ---
 
-## 🎯 What Is IterateSwarm?
+## The Problem
 
-**IterateSwarm OS** is a **polyglot, event-driven, autonomous agent swarm** that transforms unstructured feedback into production-ready code changes. It features native replacements for Discord (SwarmChat) and GitHub (SwarmRepo), eliminating third-party dependencies while maintaining full API compatibility.
+Early-stage startups drown in operational chaos:
 
-### Key Capabilities
+| Metric | Impact |
+|--------|--------|
+| **Tools fragmentation** | Average startup uses **15 different tools** across payroll, finance, HR, compliance |
+| **Founder time waste** | **15–20 hours/week** on back-office = **$9,000–$22,500/month** hidden cost |
+| **Roadmap delay** | Back-office drag delays product roadmaps by **~3 months per year** |
 
-- ✅ **11 Production Services** - All containerized, all healthy
-- ✅ **156 Passing Tests** - Real infrastructure, no mocks
-- ✅ **Native Platform** - SwarmChat (Discord) + SwarmRepo (GitHub)
-- ✅ **Multi-Agent System** - Supervisor, Researcher, SRE, SWE, Reviewer, Triage
-- ✅ **Real-time UI** - HTMX dashboards with SSE streaming
-- ✅ **Production Ready** - Idempotency, rate limiting, DLQ, HITL timeout
+**The gap:** Not "startups don't have tools" — it's **15 disconnected tools with no intelligence layer connecting them**.
 
 ---
 
-## 🏗️ Architecture
+## The Solution
 
-### System Overview
+**Sarthi** is the intelligence layer that sits above all your existing tools and runs the ops *between* them.
 
-```text
+```
+Every operational task that doesn't require your
+unique human judgment — Sarthi handles.
+Everything that does — Sarthi prepares perfectly
+and puts in front of you in 30 seconds, not 3 hours.
+```
+
+### What Sarthi Does (Real Examples)
+
+> "Sarthi saved me 18 hours this week:
+> - Prepared my GST + VAT filing data automatically (India + UK)
+> - Sent payment reminders to 5 overdue clients
+> - Told me my runway dropped from 9 to 7 months and showed me exactly why
+> - Drafted the offer letter for my new UK hire (compliant with UK law)
+> - Found an R&D tax credit I didn't know about (£35k value)
+> - Applied to an Innovate UK grant on my behalf"
+
+**That's not a feature list. That's a Wednesday.**
+
+---
+
+## Architecture
+
+```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    IterateSwarm Native Platform                  │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │  SwarmChat   │  │  SwarmRepo   │  │  SwarmCore   │          │
-│  │  (Discord)   │  │  (GitHub)    │  │  (Backend)   │          │
-│  │  Port 4000   │  │  Port 4001   │  │  Port 3000   │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   Redpanda   │  │   Temporal   │  │  PostgreSQL  │          │
-│  │  (Kafka)     │  │ (Workflow)   │  │   (State)    │          │
-│  │  Port 9094   │  │  Port 7233   │  │  Port 5433   │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │ Python AI    │  │    Qdrant    │  │   Grafana    │          │
-│  │   Agents     │  │  (Vector)    │  │  (Metrics)   │          │
-│  │  Port 50051  │  │  Port 6333   │  │  Port 3001   │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
+│  TIER 0 — KERNEL (Go + Temporal + Graphiti)                     │
+│  BusinessOSWorkflow: orchestrates all agents, manages state     │
+│  enforces HITL gates, temporal knowledge graph                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  TIER 1 — CHIEF OF STAFF (1 agent)                              │
+│  The only agent that talks to the founder.                      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  TIER 2 — INTELLIGENCE (observe + advise)                       │
+│  CFO | BI | Risk | Market | Fundraise | Tax Intel | Grant      │
+│  | Jurisdiction                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  TIER 3 — OPERATIONS (execute, not advise)                      │
+│  Finance | Accounting | Legal | HR | RevOps | Admin            │
+│  | Procurement | Cap Table | Grant Ops                         │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  TIER 4 — DATA LAYER (ingest + memory, never surfaces)          │
+│  Ingestion | Memory (Qdrant + Neo4j) | Crawler | Connector      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow
+### Infrastructure Stack ($0/month)
 
-```mermaid
-graph TD
-    %% Nodes
-    User((End User))
-    SwarmChat[SwarmChat UI]
-    HITL[HITL Control Panel]
-    Discord[Discord]
-    GoAPI[Go API Gateway]
-    Redpanda[(Redpanda)]
-    Consumer[Go Consumer]
-    Temporal[Temporal]
-    Worker[Go Worker]
-    PythonAI[Python AI Agents]
-    Qdrant[(Qdrant)]
-    Azure[Azure OpenAI]
-    SwarmRepo[SwarmRepo]
+| Layer | Tool | Cost |
+|-------|------|------|
+| **Interface** | Telegram Bot API | $0 forever |
+| **LLM** | Azure OpenAI | $0 (existing) |
+| **Orchestration** | Temporal (self-hosted) | $0 |
+| **Message Queue** | Redpanda (self-hosted) | $0 |
+| **Databases** | PostgreSQL + Qdrant + Neo4j | $0 |
+| **Graph** | Graphiti (Neo4j plugin) | $0 OSS |
+| **Bank Parsing** | Docling + pdfplumber (OSS) | $0 |
+| **Market Crawling** | Crawl4AI (Docker, OSS) | $0 |
 
-    %% Links
-    User -->|Feedback| SwarmChat
-    User -->|Webhook| Discord
-    SwarmChat -->|POST /messages| GoAPI
-    Discord -->|POST /webhooks| GoAPI
-    GoAPI -->|Produce| Redpanda
-    Redpanda -->|Consume| Consumer
-    Consumer -->|Start Workflow| Temporal
-    Temporal -->|Execute| Worker
-    Worker -->|gRPC| PythonAI
-    PythonAI -->|Query| Qdrant
-    PythonAI -->|LLM| Azure
-    Worker -->|Create Issue| SwarmRepo
-    Worker -->|Create PR| SwarmRepo
-    SwarmRepo -->|Webhook| GoAPI
-    SwarmChat -->|HITL UI| HITL
-    HITL -->|Signal| Temporal
-
-    %% Explicit styling with text color for visibility
-    style User fill:#bbdefb,stroke:#1565c0,stroke-width:2px,color:#0b3d91
-    style SwarmChat fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0b3d91
-    style HITL fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0b3d91
-    style Discord fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0b3d91
-    style GoAPI fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#5d4037
-    style Redpanda fill:#fff8e1,stroke:#ffb74d,stroke-width:1px,color:#5d4037
-    style Consumer fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#1b5e20
-    style Temporal fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#1b5e20
-    style Worker fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#1b5e20
-    style PythonAI fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
-    style Qdrant fill:#f8bbd0,stroke:#ad1457,stroke-width:1px,color:#880e4f
-    style Azure fill:#fce4ec,stroke:#c2185b,stroke-width:1px,color:#880e4f
-    style SwarmRepo fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a0072
-```
+**Total monthly cost for MVP: $0**
 
 ---
 
-## 🚀 Quick Start
+## The Complete Agent Hierarchy (v4.1)
+
+### Tier 1: Chief of Staff Agent
+
+**Role:** The face of Sarthi. Routes work, synthesizes intelligence, manages the relationship.
+
+**Output:**
+- "Here's what I found + one action"
+- "I handled X — here's what I did"
+- "I need your decision on X — here's context"
+- "Weekly briefing: X handled, Y needs you"
+
+---
+
+### Tier 2: Intelligence Agents (8 agents)
+
+#### CFO Agent
+- 13-week rolling cash flow forecast
+- Burn rate + runway calculation
+- Unit economics: CAC, LTV, payback
+- Scenario modeling: "what if we hire in March?"
+
+**Fires when:** Runway < 6 months, burn spikes >15%, margin goes negative
+
+#### BI Agent
+- Customer cohort analysis (retention, churn)
+- Revenue concentration risk
+- Anomaly detection across all data sources
+- Cross-source pattern correlation
+
+**Fires when:** Churn pattern detected, one customer >30% revenue, usage predicts churn
+
+#### Risk Agent
+- GST, TDS, advance tax deadlines (India)
+- VAT, Corporation Tax, PAYE (UK)
+- PF, ESIC, PT compliance
+- Contract expiry tracking
+- DPDP Act / GDPR compliance
+
+**Fires when:** Deadline <14 days, contract expires <30 days, regulatory change
+
+#### Market Agent
+- Competitor pricing + feature tracking
+- Funding announcements in sector
+- Hiring signals (what competitors building)
+- Emerging customer pain points
+
+**Fires when:** Competitor changes pricing, major funding in space, regulation affects them
+
+#### Fundraise Readiness Agent (NEW v4.1)
+- Fundraising readiness score (0-100)
+- Data room completeness audit
+- Financial model review
+- Cap table health check
+- Pitch deck gap analysis
+
+**Fires when:** Readiness score <70, data room incomplete, cap table red flags
+
+#### Tax Intelligence Agent (NEW v4.1)
+- R&D tax credit identification (US, UK, EU)
+- QSBS tracking (US Section 1202)
+- Patent box optimization (UK, EU)
+- GST input credit optimization (India)
+- Transfer pricing risk assessment
+
+**Fires when:** R&D credit eligibility (£/$/₹50k+), QSBS window closing
+
+#### Grant & Credit Agent (NEW v4.1)
+- SBIR/STTR grant matching (US)
+- Innovate UK grant matching
+- Horizon Europe grant matching
+- State-level incentive tracking
+- Application deadline tracking
+
+**Fires when:** Grant match score >80%, deadline <30 days
+
+#### Jurisdiction Agent (NEW v4.1)
+- Entity formation recommendation
+- Tax residency optimization
+- Permanent establishment risk
+- Local compliance requirements
+- Banking/payroll recommendations
+
+**Fires when:** Expansion signal detected, PE risk triggered
+
+---
+
+### Tier 3: Operations Agents (9 agents)
+
+#### Finance Ops Agent
+- Expense categorization (auto)
+- Invoice generation + payment reminders
+- GST/VAT return data prep
+- Bank vs books reconciliation
+
+**HITL:** Low-risk auto, medium 1-tap, high explicit confirm
+
+#### Accounting Ops Agent (NEW v4.1)
+- Month-end close checklist
+- Accrual calculations
+- Depreciation schedules
+- Consolidated financial statements
+- Audit prep workpapers
+
+#### HR Ops Agent
+- Onboarding checklist execution
+- Offer letter generation
+- Payroll data prep
+- PF/ESIC/pension filing reminders
+
+#### Legal Ops Agent
+- NDA generation (templates)
+- Contract review summary
+- MCA/Companies House filing reminders
+- Term sheet summary
+
+#### RevOps Agent
+- CRM hygiene (auto-update stale deals)
+- Pipeline velocity + stall detection
+- Proposal generation
+- Customer health scoring
+
+#### Admin Ops Agent
+- Meeting prep + action items
+- SOP documentation
+- Tool stack audit
+- Subscription management
+
+#### Procurement Ops Agent (NEW v4.1)
+- Vendor quote comparison
+- Contract renewal tracking (90-day warning)
+- Spend analysis by category
+- Negotiation prep (benchmarks)
+
+#### Cap Table Ops Agent (NEW v4.1)
+- Cap table maintenance
+- Option pool tracking
+- Dilution scenario modeling
+- SAFE/convertible tracking
+- Exit waterfall analysis
+
+#### Grant Ops Agent (NEW v4.1)
+- Grant application drafting
+- Supporting document collection
+- Milestone tracking (post-award)
+- Reporting compliance
+
+---
+
+### Tier 4: Data Layer (Invisible)
+
+- **IngestionAgent:** Normalizes all data (bank PDF, accounting, Notion, Slack, Stripe)
+- **MemoryAgent:** Qdrant + Neo4j + Graphiti — company's long-term brain (vector + temporal)
+- **CrawlerAgent:** Crawl4AI + Firecrawl for external intelligence
+- **ConnectorAgent:** OAuth + API connections to all tools
+
+---
+
+## The Self-Correcting System
+
+**How Sarthi gets smarter about YOUR company over time:**
+
+1. **AGENT ACTS** → Finance Ops sends payment reminder to Client X
+2. **OUTCOME OBSERVED** → Client X pays within 24 hours
+3. **MEMORY UPDATED** → "Client X responds to reminders within 24h. High relationship quality." (Qdrant + Neo4j)
+4. **FUTURE ADJUSTED** → Next time: warmer tone, less formal timing
+5. **CONTEXT DRIFT DETECTED** → "You've raised prices twice but win rate unchanged. Pricing headroom?"
+
+**Not generic AI. Company-specific intelligence.**
+
+---
+
+## Global Expansion
+
+### Market Entry Order
+
+| Phase | Market | Key Features |
+|-------|--------|--------------|
+| **v4.0.0** | 🇮🇳 India | GST, TDS, PF, ESIC, Razorpay, Zoho |
+| **v4.1.0** | 🇺🇸 United States | Delaware C-Corp, QSBS, R&D credits, Stripe, Gusto |
+| **v4.1.0** | 🇬🇧 United Kingdom | UK Ltd, VAT, Innovate UK, Xero, Wise |
+| **v4.1.0** | 🇪🇺 European Union | VAT MOSS, Horizon Europe, GDPR, Deel |
+| **v4.2.0** | 🇸🇬 Southeast Asia | Singapore Pte, PDPA, CPF, EDB grants |
+
+### Jurisdiction-Specific Compliance
+
+| Feature | India | US | UK | EU |
+|---------|-------|----|----|----|
+| **Tax** | GST, TDS | Sales tax | VAT, PAYE | VAT MOSS |
+| **Grants** | DST, BIRAC | SBIR/STTR | Innovate UK | Horizon Europe |
+| **Credits** | Limited | R&D, QSBS | R&D, Patent Box | R&D, Patent Box |
+| **Privacy** | DPDP Act | CCPA | UK GDPR | EU GDPR |
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
 - Docker & Docker Compose
-- Go 1.24+
-- Python 3.13+
-- Azure OpenAI account (optional, for AI features)
+- Azure OpenAI account (or OpenRouter)
+- Telegram Bot Token (from @BotFather, free)
 
 ### Start All Services
 
 ```bash
-# Clone the repository
+# Clone
 git clone https://github.com/Aparnap2/IterateSwarm.git
-cd IterateSwarm
+cd iterate_swarm
 
-# Start all services
+# Start infrastructure
 docker compose up -d
 
-# Wait for services to initialize
+# Wait for services
 sleep 60
 
-# Check service health
+# Check health
 docker compose ps
 ```
 
-### Access Services
+### Access Points
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| **SwarmChat** | http://localhost:4000 | Real-time messaging and HITL |
-| **SwarmRepo** | http://localhost:4001 | Issues and Pull Requests |
-| **Go API** | http://localhost:3000 | Webhook ingestion |
+| Service | URL | Purpose |
+|---------|-----|---------|
+| **Telegram Bot** | @YourBotName | Primary interface |
 | **Temporal UI** | http://localhost:8088 | Workflow tracing |
-| **Grafana** | http://localhost:3001 | Metrics dashboard |
-| **Qdrant** | http://localhost:6333 | Vector search API |
+| **Neo4j Browser** | http://localhost:7474 | Knowledge graph |
+| **Qdrant Dashboard** | http://localhost:6333 | Vector search |
+| **Redpanda Console** | http://localhost:9644 | Event streaming |
+
+### First Run
+
+1. Message your Telegram bot: `/start`
+2. Complete 6-question onboarding
+3. Upload first bank statement (CSV/Excel/PDF)
+4. Receive first insight: "Here's your cash position + one action"
 
 ---
 
-## 📦 Services
-
-### Core Services
-
-| Service | Port | Language | Purpose |
-|---------|------|----------|---------|
-| **SwarmCore** | 3000 | Go | Webhook ingestion, API gateway |
-| **Consumer** | - | Go | Redpanda → Temporal bridge |
-| **Worker** | - | Go | Temporal workflow executor |
-| **Python gRPC** | 50051 | Python | AI agent service |
-
-### Native Platform
-
-| Service | Port | Language | Replaces |
-|---------|------|----------|----------|
-| **SwarmChat** | 4000 | Go | Discord |
-| **SwarmRepo** | 4001 | Go | GitHub |
-
-### Infrastructure
-
-| Service | Port | Purpose |
-|---------|------|---------|
-| **PostgreSQL** | 5433 | Primary database |
-| **Redpanda** | 9094 | Event streaming (Kafka-compatible) |
-| **Temporal** | 7233 | Workflow orchestration |
-| **Qdrant** | 6333 | Vector search |
-| **Grafana** | 3001 | Metrics dashboard |
-
----
-
-## 🤖 Multi-Agent System
-
-### Agent Architecture
-
-```text
-┌─────────────────────────────────────────┐
-│          Supervisor Agent               │
-│  - Routes tasks to specialized agents   │
-│  - Handles interrupts from SRE          │
-│  - Manages replanning on priority       │
-└─────────────────────────────────────────┘
-                    │
-        ┌───────────┼───────────┐
-        │           │           │
-        ▼           ▼           ▼
-┌──────────────┐ ┌──────────┐ ┌──────────┐
-│  Researcher  │ │   SRE    │ │   SWE    │
-│  - GitHub    │ │ - SigNoz │ │ - Branch │
-│  - Sentry    │ │ - HyperDX│ │ - Modify │
-│  - Qdrant    │ │ - Temporal│ │ - PR     │
-│  - Web       │ │ - Interrupt│ │ - CI     │
-└──────────────┘ └──────────┘ └──────────┘
-        │
-        ▼
-┌──────────────┐
-│   Reviewer   │
-│ - Code Review│
-│ - Security   │
-│ - Coverage   │
-└──────────────┘
-```
-
-### Agent Details
-
-| Agent | Purpose | Tools | Status |
-|-------|---------|-------|--------|
-| **Supervisor** | Orchestrates all agents | LangGraph state graph | ✅ |
-| **Researcher** | Finds prior art and root causes | GitHub, Sentry, Qdrant, Web | ✅ |
-| **SRE** | Production monitoring | SigNoz, HyperDX, Temporal | ✅ |
-| **SWE** | Creates PRs | GitHub/SwarmRepo API | ✅ |
-| **Reviewer** | Code review | Security scan, coverage | ✅ |
-| **Triage** | Classifies feedback | LLM classification | ✅ |
-
----
-
-## 🧪 Testing
-
-### Test Summary
-
-```text
-Total Tests: 156
-✅ Passing: 156
-❌ Failing: 0
-⏸️  Blocked: 0
-```
+## Development
 
 ### Run Tests
 
 ```bash
-# All Python tests
+# All tests (~151+ target)
 cd apps/ai
-uv run pytest tests/ -v
+uv run pytest tests/ -v --timeout=120
 
-# All Go tests
-cd apps/core
-go test ./... -v
+# Specific groups
+uv run pytest tests/test_sarthi_tdd.py -v           # TDD tests (~80)
+uv run pytest tests/test_e2e_saarathi.py -v         # E2E flows (20)
+uv run pytest tests/test_llm_eval.py -v             # LLM evals (15)
+uv run pytest tests/test_tier2_agents.py -v         # Tier 2 agents (40)
+uv run pytest tests/test_tier3_agents.py -v         # Tier 3 agents (45)
 
-# E2E tests
-cd apps/ai
-uv run pytest tests/test_e2e_workflow.py -v
+# With coverage
+uv run pytest tests/ --cov=src --cov-report=html
 ```
 
-### Test Coverage
+**Test Categories:**
+1. **Infrastructure Health** (6 tests) — Azure LLM, Qdrant, Neo4j, PostgreSQL reachable
+2. **Memory Agent** (15 tests) — Embeddings, Qdrant upsert, Neo4j graph, semantic search
+3. **Chief of Staff** (5 tests) — Plain language, correct routing, ToneFilter fidelity
+4. **Bank Parser** (8 tests) — HDFC/ICICI/SBI CSV, Docling accurate mode, multi-format
+5. **CFO Agent** (5 tests) — Runway calculation, proactive alert, scenario modeling
+6. **Tier 2 Agents** (40 tests) — BI, Risk, Market, Fundraise, Tax, Grant, Jurisdiction
+7. **Tier 3 Agents** (45 tests) — Finance, Accounting, HR, Legal, RevOps, Admin, Procurement, Cap Table, Grant Ops
+8. **E2E Flows** (20 tests) — Full stack: onboarding, reflection, market signal, sandbox, calibration
+9. **LLM Evals** (15 evals) — LLM-as-judge for tone, jargon, actionability
 
-| Category | Tests | Status |
-|----------|-------|--------|
-| **Python Agents** | 126 | ✅ Passing |
-| **Go Services** | 26 | ✅ Passing |
-| **E2E Workflow** | 4 | ✅ Passing |
+**Test Status Target:** 151+ tests passing
 
----
+**v4.1.0 Status:** v4.1.0-alpha — Global expansion, Neo4j + Graphiti locked in.
 
-## 🔌 API Endpoints
+See [`docs/TESTING_ARCHITECTURE.md`](./docs/TESTING_ARCHITECTURE.md) for complete testing docs.
 
-### SwarmChat (Port 4000)
+### Add a New Agent
+
+1. Create `apps/ai/src/agents/your_agent.py`
+2. Define role, tools, APIs, output format (Pydantic)
+3. Register in `supervisor_agent.py`
+4. Add tests in `apps/ai/tests/test_your_agent.py`
+5. Run: `uv run pytest tests/test_your_agent.py -v`
+
+### Environment Variables
 
 ```bash
-# Create message
-curl -X POST http://localhost:4000/channels/feedback/messages \
-  -H "Content-Type: application/json" \
-  -d '{"content": "Test message", "user_id": "user123"}'
+# LLM (swap provider by changing these 3 lines)
+LLM_BASE_URL=https://openrouter.ai/api/v1
+LLM_API_KEY=sk-or-v1-...
+LLM_MODEL=openai/gpt-4o-mini
 
-# List messages
-curl http://localhost:4000/channels/feedback/messages
+# Telegram
+TELEGRAM_BOT_TOKEN=...
 
-# SSE stream
-curl -N http://localhost:4000/channels/feedback/stream
-```
+# Neo4j / Graphiti
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=...
 
-### SwarmRepo (Port 4001) - GitHub Compatible
+# PostgreSQL
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=sarthi
 
-```bash
-# Create issue
-curl -X POST http://localhost:4001/repos/iterateswarm/demo/issues \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Test Issue", "body": "Description"}'
+# Qdrant
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
 
-# List issues
-curl http://localhost:4001/repos/iterateswarm/demo/issues
-
-# Create PR
-curl -X POST http://localhost:4001/repos/iterateswarm/demo/pulls \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Test PR", "body": "Fix description", "branch": "fix-branch"}'
-```
-
-### Go API (Port 3000)
-
-```bash
-# Discord webhook
-curl -X POST http://localhost:3000/webhooks/discord \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Feedback text", "source": "discord", "user_id": "user123"}'
-
-# Health check
-curl http://localhost:3000/health
+# Sandbox
+SANDBOX_URL=http://localhost:5001
+SANDBOX_SECRET=...
 ```
 
 ---
 
-## 📊 Performance Metrics
+## v4.1 Roadmap
 
-| Metric | Target | Actual |
-|--------|--------|--------|
-| Webhook → Redpanda | < 100ms | ✅ < 50ms |
-| Redpanda → Consumer | < 500ms | ✅ < 200ms |
-| Consumer → Workflow Start | < 1s | ✅ < 500ms |
-| Workflow → Activity | < 2s | ✅ < 1s |
-| **Total End-to-End** | < 5s | ✅ **< 3s** |
+### Phase 2 (IN PROGRESS)
+- [ ] LLM unification (`get_llm_client` everywhere)
+- [ ] Graphiti + Neo4j full integration
+- [ ] 125 tests passing
 
----
+### Phase 3
+- [ ] ToneFilter DSPy-compiled (4 signatures)
+- [ ] Telegram inline keyboards
+- [ ] Pydantic findings schemas
+- [ ] Bank statement parser (multi-format)
+- [ ] 160 tests passing
 
-## 🎤 Interview Talking Points
+### Phase 4
+- [ ] CFO agent (complete)
+- [ ] Risk agent (multi-jurisdiction)
+- [ ] Jurisdiction agent (NEW)
+- [ ] Fundraise readiness agent (NEW)
+- [ ] Tax intelligence agent (NEW)
+- [ ] Grant & credit agent (NEW)
+- [ ] 195 tests passing
 
-### "Why build SwarmChat and SwarmRepo?"
+### Phase 5
+- [ ] All Tier 3 ops agents (9 total)
+- [ ] BusinessOS workflow (Go + Temporal)
+- [ ] Onboarding workflow (Go)
+- [ ] HITL gate E2E test
+- [ ] 20/20 E2E tests green
 
-**Answer:** "I built native services to demonstrate the **Adapter Pattern at the infrastructure level**. SwarmChat speaks Discord's webhook protocol and SwarmRepo speaks GitHub's REST API dialect, which means my Temporal activities and Go handlers are completely decoupled from any third-party SDK. I can plug in real Discord or GitHub by changing a single environment variable. This is how enterprise teams handle vendor switching without rewriting business logic."
+### Phase 6
+- [ ] DSPy eval suite (≥13/15 pass)
+- [ ] Circuit breaker (all external calls)
+- [ ] GitHub Actions CI
+- [ ] Langfuse traces < 8s p95
 
-### "How do you handle failures?"
+### Phase 7: v4.0.0
+- [ ] One real founder onboards
+- [ ] Receives real CFO finding
+- [ ] Reports "This saved me time"
+- → **TAG v4.0.0**
 
-**Answer:** "Multiple layers: 1) Redpanda provides at-least-once delivery with offset commits, 2) Temporal provides durable execution with automatic retries, 3) Go worker implements retry logic with exponential backoff, 4) All services have health checks and graceful shutdown, 5) Dead Letter Queue catches poison pills after 5 failed attempts."
-
-### "What's the most impressive achievement?"
-
-**Answer:** "The complete end-to-end automation with zero data loss. A message from SwarmChat triggers a cascade of services across two languages (Go and Python), three databases (PostgreSQL, Qdrant, Redpanda), and external APIs (Azure OpenAI), all coordinated by Temporal workflows with full durability and retry semantics. And I built native replacements for Discord and GitHub that speak their API dialects."
-
----
-
-## 📚 Documentation
-
-- **[PRD](prd.md)** - Product Requirements Document
-- **[Architecture](ARCHITECTURE.md)** - System design documents
-- **[Testing Guide](E2E_IMPLEMENTATION_REPORT.md)** - Testing strategy and guides
-
----
-
-## 🏆 Production Readiness
-
-### Infrastructure ✅
-- [x] All services containerized
-- [x] Health checks configured
-- [x] Graceful shutdown implemented
-- [x] Resource limits defined
-- [x] Network isolation
-
-### Data Persistence ✅
-- [x] PostgreSQL for all state
-- [x] Redpanda for event streaming
-- [x] Qdrant for vector search
-- [ ] Automatic backups
-
-### Observability ✅
-- [x] Structured logging
-- [x] Grafana metrics
-- [x] Temporal tracing
-- [x] Health endpoints
-
-### Security ✅
-- [x] JWT authentication
-- [x] Input validation
-- [x] SQL injection prevention
-- [x] XSS prevention
-
-### Reliability ✅
-- [x] Idempotency
-- [x] Rate limiting
-- [x] Dead Letter Queue
-- [x] HITL timeout
-- [x] Retry logic
+### Phase 8: v4.1.0
+- [ ] Jurisdiction agent live (US + UK + EU)
+- [ ] Grant agent: SBIR, Innovate UK, Horizon Europe
+- [ ] First non-India founder onboarded
+- → **TAG v4.1.0**
 
 ---
 
-## 📝 License
+## Documentation
 
-MIT License - see [LICENSE](LICENSE) file for details.
+| Doc | Purpose |
+|-----|---------|
+| [PRD](./docs/PRD.md) | Complete product requirements, agent specs (v4.1) |
+| [PHASES](./docs/PHASES.md) | Phase execution order (PHASE 0-8) |
+| [TESTING](./docs/TESTING_ARCHITECTURE.md) | Testing strategy, 151+ test targets |
+| [Architecture](./docs/architecture/) | System design, data flow |
+| [API Docs](./docs/api/) | All endpoints, request/response schemas |
 
 ---
 
-**Last Updated:** 2026-03-08  
-**Version:** 3.0 - Native Platform Edition  
-**Status:** ✅ PRODUCTION READY
+## Contributing
+
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feat/your-feature`)
+3. Write tests first (RED → GREEN → REFACTOR)
+4. Commit with conventional commits
+5. Open a PR
+
+**Note:** All agents must have 100% test coverage before merge.
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) file.
+
+---
+
+**Built with:** Go 1.24 • Python 3.13 • Temporal • Redpanda • PostgreSQL • Qdrant • Neo4j • Graphiti • Azure OpenAI • LangGraph • DSPy • Pydantic v2
+
+**Status:** ✅ v4.1.0-alpha — Global expansion, Neo4j + Graphiti locked in

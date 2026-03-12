@@ -11,7 +11,7 @@ import httpx
 import structlog
 from pydantic import BaseModel
 
-from src.config import get_config, OllamaConfig
+from src import config as _config
 
 logger = structlog.get_logger(__name__)
 
@@ -40,13 +40,13 @@ class OllamaEmbeddings:
     Supports cosine similarity for duplicate detection.
     """
 
-    def __init__(self, config: OllamaConfig | None = None):
+    def __init__(self, config=None):
         """Initialize the embeddings service.
 
         Args:
             config: Optional Ollama configuration. If not provided, loads from settings.
         """
-        self.config = config or get_config().ollama
+        self.config = config or _config.get_config().ollama
         self.http_client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:

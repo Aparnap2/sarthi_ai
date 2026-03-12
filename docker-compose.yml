@@ -290,6 +290,103 @@ services:
       timeout: 10s
       retries: 3
 
+  # ===========================================
+  # Crawl4AI - Market Signal Crawler (Saarathi Week 2)
+  # ===========================================
+  saarathi-crawl4ai:
+    image: unclecode/crawl4ai:all
+    container_name: saarathi-crawl4ai
+    ports:
+      - "11235:11235"
+    environment:
+      - CRAWL4AI_API_TOKEN=${CRAWL4AI_API_TOKEN:-saarathi-local}
+      - MAX_CONCURRENT_TASKS=3
+    volumes:
+      - /dev/shm:/dev/shm
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11235/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================
+  # Neo4j - Temporal Knowledge Graph (Saarathi Memory)
+  # ===========================================
+  saarathi-neo4j:
+    image: neo4j:5.22.0
+    container_name: saarathi-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-saarathi}
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=1G
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - iterateswarm-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD:-saarathi}", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Langfuse - LLM Observability (self-hosted)
+  # Requires ClickHouse + PostgreSQL
+  # For dev: use Langfuse Cloud (free tier) or skip Langfuse tests
+  # langfuse:
+  #   image: langfuse/langfuse:3
+  #   ports:
+  #     - "3001:3000"
+  #   environment:
+  #     - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/langfuse
+  #     - CLICKHOUSE_HOST=clickhouse
+  #     - CLICKHOUSE_PORT=9000
+  #     - CLICKHOUSE_USER=clickhouse
+  #     - CLICKHOUSE_PASSWORD=clickhouse
+  #     - NEXTAUTH_SECRET=sarthi-local-secret
+  #     - NEXTAUTH_URL=http://localhost:3001
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - iterateswarm-net
+  #   restart: unless-stopped
+
+  # ===========================================
+  # Saarathi Sandbox - Isolated Python Execution
+  # ===========================================
+  saarathi-sandbox:
+    build:
+      context: ./apps/sandbox
+      dockerfile: Dockerfile
+    container_name: saarathi-sandbox
+    ports:
+      - "5001:5000"
+    environment:
+      - MAX_EXECUTION_SECONDS=15
+      - SANDBOX_SECRET=${SANDBOX_SECRET:-saarathi-local}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    networks:
+      - iterateswarm-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   redpanda-data:
     driver: local
@@ -302,6 +399,8 @@ volumes:
   prometheus-data:
     driver: local
   grafana-data:
+    driver: local
+  neo4j_data:
     driver: local
 
 networks:
