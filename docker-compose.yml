@@ -315,6 +315,30 @@ services:
       timeout: 10s
       retries: 3
 
+  # ===========================================
+  # Neo4j - Temporal Knowledge Graph (Saarathi Memory)
+  # ===========================================
+  saarathi-neo4j:
+    image: neo4j:5.22.0
+    container_name: saarathi-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-saarathi}
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=1G
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - iterateswarm-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD:-saarathi}", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
 volumes:
   redpanda-data:
     driver: local
@@ -327,6 +351,8 @@ volumes:
   prometheus-data:
     driver: local
   grafana-data:
+    driver: local
+  neo4j_data:
     driver: local
 
 networks:

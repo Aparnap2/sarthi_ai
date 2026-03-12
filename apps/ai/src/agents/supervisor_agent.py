@@ -21,6 +21,7 @@ from langgraph.graph import StateGraph, END
 from src.agents.memory_agent import MemoryAgent, FounderMemoryState, get_memory_agent
 from src.agents.trigger_agent import TriggerAgent, TriggerState, get_trigger_agent
 from src.agents.context_interview_agent import ContextInterviewAgent
+from src.agents.graph_memory_agent import GraphMemoryAgent
 
 logger = structlog.get_logger(__name__)
 
@@ -69,6 +70,7 @@ class SupervisorAgent:
         self.llm = llm
         self.slack_client = slack_client
         self._memory_agent: Optional[MemoryAgent] = None
+        self._graph_agent: Optional[GraphMemoryAgent] = None
         self._trigger_agent: Optional[TriggerAgent] = None
         self._interview_agent: Optional[ContextInterviewAgent] = None
 
@@ -77,6 +79,13 @@ class SupervisorAgent:
         if self._memory_agent is None:
             self._memory_agent = await get_memory_agent(self.pool, self.llm)
         return self._memory_agent
+
+    async def _get_graph_agent(self) -> GraphMemoryAgent:
+        """Get or create GraphMemoryAgent instance."""
+        if self._graph_agent is None:
+            self._graph_agent = GraphMemoryAgent()
+            await self._graph_agent.initialize()
+        return self._graph_agent
 
     async def _get_trigger_agent(self) -> TriggerAgent:
         """Get or create TriggerAgent instance."""
