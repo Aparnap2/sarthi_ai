@@ -290,6 +290,31 @@ services:
       timeout: 10s
       retries: 3
 
+  # ===========================================
+  # Crawl4AI - Market Signal Crawler (Saarathi Week 2)
+  # ===========================================
+  saarathi-crawl4ai:
+    image: unclecode/crawl4ai:all
+    container_name: saarathi-crawl4ai
+    ports:
+      - "11235:11235"
+    environment:
+      - CRAWL4AI_API_TOKEN=${CRAWL4AI_API_TOKEN:-saarathi-local}
+      - MAX_CONCURRENT_TASKS=3
+    volumes:
+      - /dev/shm:/dev/shm
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11235/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   redpanda-data:
     driver: local

@@ -388,14 +388,18 @@ Return JSON: {{"message": "...", "cta": "..."}}"""
         
         graph = self.create_graph()
         result = await graph.ainvoke(initial_state)
-        
+
+        # LangGraph may return dict or dataclass - handle both
+        score = result.score if hasattr(result, 'score') else result.get('score', 0)
+        should_fire = result.should_fire if hasattr(result, 'should_fire') else result.get('should_fire', False)
+
         logger.info(
             "Trigger evaluation complete",
             founder_id=founder_id,
-            score=result.score,
-            fired=result.should_fire,
+            score=score,
+            fired=should_fire,
         )
-        
+
         return result
 
     async def evaluate_all_founders(self) -> List[TriggerState]:

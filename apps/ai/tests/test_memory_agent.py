@@ -229,9 +229,9 @@ async def test_store_reflection_in_db(mock_db_pool, mock_llm, mock_qdrant):
     conn = AsyncMock()
     conn.fetchrow.return_value = {"id": "reflection-uuid"}
     mock_db_pool.acquire.return_value.__aenter__.return_value = conn
-    
+
     agent = MemoryAgent(db_pool=mock_db_pool, llm=mock_llm, qdrant_service=mock_qdrant)
-    
+
     state = FounderMemoryState(
         founder_id="test-founder-id",
         new_reflection="Test reflection",
@@ -242,35 +242,37 @@ async def test_store_reflection_in_db(mock_db_pool, mock_llm, mock_qdrant):
         raw_text="Test reflection",
         embedding_id="test-embedding-id",
     )
-    
+
     result = await agent.store_reflection_in_db(state)
-    
+
     # Verify INSERT was called
     conn.fetchrow.assert_called_once()
-    
-    # Verify embedding_id was passed
+
+    # Verify embedding_id was passed (7th positional arg, index 6)
     call_args = conn.fetchrow.call_args[0]
-    assert call_args[6] == "test-embedding-id"  # embedding_id parameter
+    # call_args[0] = (sql_string, founder_id, week_start, shipped, blocked, energy_score, raw_text, embedding_id)
+    assert call_args[7] == "test-embedding-id"  # embedding_id parameter
 
 
 @pytest.mark.asyncio
 async def test_process_reflection_full_workflow(mock_db_pool, mock_llm, mock_qdrant):
     """Test complete reflection processing workflow."""
     agent = MemoryAgent(db_pool=mock_db_pool, llm=mock_llm, qdrant_service=mock_qdrant)
-    
+
     # Mock all database calls
     conn = AsyncMock()
+    # fetchrow is called 3 times in order: store_in_db (1), compute_patterns (2)
     conn.fetchrow.side_effect = [
-        {"completion_rate": 0.8, "overdue_count": 0},
-        {"days_since_last_reflection": 3.0},
         {"id": "reflection-uuid"},  # store_reflection_in_db
+        {"completion_rate": 0.8, "overdue_count": 0},  # compute_behavioral_patterns
+        {"days_since_last_reflection": 3.0},  # compute_behavioral_patterns
     ]
     conn.fetch.return_value = [
         {"energy_score": 8},
         {"energy_score": 8},
     ]
     mock_db_pool.acquire.return_value.__aenter__.return_value = conn
-    
+
     result = await agent.process_reflection(
         founder_id="test-founder-id",
         reflection_text="This week I made great progress!",
@@ -279,25 +281,34 @@ async def test_process_reflection_full_workflow(mock_db_pool, mock_llm, mock_qdr
         blocked=None,
         energy_score=9,
     )
-    
-    # Verify workflow completed
-    assert result.founder_id == "test-founder-id"
-    assert result.patterns is not None
-    assert result.embedding_id is not None
+
+    # LangGraph may return dict or dataclass - handle both
+    if hasattr(result, 'founder_id'):
+        assert result.founder_id == "test-founder-id"
+        assert result.patterns is not None
+        assert result.embedding_id is not None
+    else:
+        assert isinstance(result, dict)
+        assert result.get("founder_id") == "test-founder-id"
+        assert result.get("patterns") is not None
+        assert result.get("embedding_id") is not None
 
 
 @pytest.mark.asyncio
 async def test_get_founder_context_without_new_reflection(mock_db_pool, mock_llm, mock_qdrant):
     """Test getting context without storing a new reflection."""
     agent = MemoryAgent(db_pool=mock_db_pool, llm=mock_llm, qdrant_service=mock_qdrant)
-    
+
     result = await agent.get_founder_context(founder_id="test-founder-id")
-    
-    # Verify context was retrieved
-    assert result.retrieved_context is not None
-    
-    # Verify patterns were computed
-    assert result.patterns is not None
+
+    # LangGraph may return dict or dataclass - handle both
+    if hasattr(result, 'retrieved_context'):
+        assert result.retrieved_context is not None
+        assert result.patterns is not None
+    else:
+        assert isinstance(result, dict)
+        assert result.get("retrieved_context") is not None
+        assert result.get("patterns") is not None
 
 
 @pytest.mark.asyncio

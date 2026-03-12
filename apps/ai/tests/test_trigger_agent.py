@@ -406,7 +406,7 @@ async def test_log_trigger_decision(mock_db_pool, mock_llm):
 async def test_evaluate_trigger_full_workflow(mock_db_pool, mock_llm, mock_slack_client):
     """Test complete trigger evaluation workflow."""
     agent = TriggerAgent(db_pool=mock_db_pool, llm=mock_llm, slack_client=mock_slack_client)
-    
+
     patterns = {
         "commitment_completion_rate": 0.3,
         "overdue_commitments": 2,
@@ -414,18 +414,25 @@ async def test_evaluate_trigger_full_workflow(mock_db_pool, mock_llm, mock_slack
         "momentum_drop": 0.2,
         "retrieved_context": "Previous context",
     }
-    
+
     result = await agent.evaluate_trigger(
         founder_id="test-founder-id",
         patterns=patterns,
         market_signal=None,
     )
-    
-    # Verify workflow completed
-    assert result.founder_id == "test-founder-id"
-    assert result.score > 0
-    assert result.trigger_type is not None
-    assert isinstance(result.should_fire, bool)
+
+    # LangGraph may return dict or dataclass - handle both
+    if hasattr(result, 'founder_id'):
+        assert result.founder_id == "test-founder-id"
+        assert result.score > 0
+        assert result.trigger_type is not None
+        assert isinstance(result.should_fire, bool)
+    else:
+        assert isinstance(result, dict)
+        assert result.get("founder_id") == "test-founder-id"
+        assert result.get("score", 0) > 0
+        assert result.get("trigger_type") is not None
+        assert isinstance(result.get("should_fire"), bool)
 
 
 @pytest.mark.asyncio
