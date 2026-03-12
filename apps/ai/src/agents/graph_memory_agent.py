@@ -16,7 +16,7 @@ from graphiti_core import Graphiti
 from graphiti_core.nodes import EpisodeType
 from graphiti_core.llm_client.openai_client import OpenAIClient
 from graphiti_core.llm_client.config import LLMConfig
-from graphiti_core.embedder.openai import OpenAIEmbedder
+from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
 from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerClient
 from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 
@@ -54,8 +54,10 @@ class GraphMemoryAgent:
             config=llm_config,
         )
         embedder_client = OpenAIEmbedder(
-            client=llm,
-            embedding_model=embedding_model,
+            config=OpenAIEmbedderConfig(
+                api_key=os.environ.get("AZURE_OPENAI_API_KEY", "test-key"),
+                embedding_model=embedding_model,
+            ),
         )
 
         # Create cross-encoder (reranker) client using the same client
