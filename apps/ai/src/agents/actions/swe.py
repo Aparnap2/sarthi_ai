@@ -54,36 +54,10 @@ class SWEResult(BaseModel):
 # ========================
 
 
-def get_azure_openai_client() -> Optional[AsyncOpenAI]:
-    """Get configured Azure OpenAI client."""
-    config = get_config()
-    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-    azure_key = os.getenv("AZURE_OPENAI_API_KEY")
-
-    if not azure_endpoint or not azure_key:
-        return None
-
-    return AsyncOpenAI(
-        azure_endpoint=azure_endpoint,
-        api_key=azure_key,
-    )
-
-
-def get_ollama_client() -> AsyncOpenAI:
-    """Get configured Ollama client."""
-    config = get_config()
-    return AsyncOpenAI(
-        base_url=config.ollama.base_url,
-        api_key=config.ollama.api_key,
-    )
-
-
 def get_llm_client() -> AsyncOpenAI:
-    """Get the best available LLM client."""
-    azure = get_azure_openai_client()
-    if azure:
-        return azure
-    return get_ollama_client()
+    """Get universal OpenAI-compatible LLM client."""
+    from src.config.llm import get_llm_client as get_universal_client
+    return get_universal_client()
 
 
 # ========================

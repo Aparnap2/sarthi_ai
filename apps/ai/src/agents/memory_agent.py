@@ -6,7 +6,7 @@ Maintains founder long-term memory. Extracts behavioral patterns.
 Every reflection is embedded and indexed for retrieval during trigger evaluation.
 """
 
-from openai import AzureOpenAI
+from openai import OpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct, VectorParams, Distance, Filter, FieldCondition, MatchValue, MatchAny
 import os
@@ -15,6 +15,8 @@ import json
 from typing import Optional, List, Dict, Any, TypedDict
 from dataclasses import dataclass
 import asyncpg
+
+from src.config.llm import get_llm_client, get_model
 
 
 class FounderMemoryState(TypedDict):
@@ -55,15 +57,11 @@ class MemoryAgent:
     """
     
     COLLECTION_NAME = "sarthi_founder_memory"
-    EMBEDDING_MODEL = "text-embedding-ada-002"
-    
+    EMBEDDING_MODEL = "text-embedding-3-small"
+
     def __init__(self):
-        """Initialize MemoryAgent with Azure OpenAI and Qdrant clients."""
-        self.azure_client = AzureOpenAI(
-            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-            api_key=os.environ["AZURE_OPENAI_KEY"],
-            api_version="2024-02-01"
-        )
+        """Initialize MemoryAgent with OpenAI-compatible and Qdrant clients."""
+        self.client = get_llm_client()
         self.qdrant = QdrantClient(
             host=os.environ.get("QDRANT_HOST", "localhost"),
             port=int(os.environ.get("QDRANT_PORT", "6333"))
@@ -81,17 +79,17 @@ class MemoryAgent:
     
     def _embed(self, text: str) -> List[float]:
         """
-        Generate embedding for text using Azure OpenAI.
-        
+        Generate embedding for text using OpenAI-compatible API.
+
         Args:
             text: Text to embed
-            
+
         Returns:
             List of floats representing the embedding vector
         """
-        response = self.azure_client.embeddings.create(
+        response = self.client.embeddings.create(
             input=text,
-            model=self.EMBEDDING_MODEL
+            model=os.environ.get("EMBEDDING_MODEL", self.EMBEDDING_MODEL)
         )
         return response.data[0].embedding
     
@@ -185,19 +183,15 @@ class MemoryAgent:
     def detect_patterns(self, founder_id: str) -> Dict[str, Any]:
         """
         Detect behavioral patterns for a founder.
-        
+
         Args:
             founder_id: Founder UUID
-            
+
         Returns:
             Dictionary containing detected patterns and archetype
         """
-        client = AzureOpenAI(
-            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-            api_key=os.environ["AZURE_OPENAI_KEY"],
-            api_version="2024-02-01"
-        )
-        
+        client = get_llm_client()
+
         # Query relevant memories
         reflections = self.query(MemoryQuery(
             founder_id=founder_id,
@@ -205,16 +199,16 @@ class MemoryAgent:
             memory_types=["reflection", "commitment"],
             top_k=20
         ))
-        
+
         if not reflections:
             return {"patterns": [], "archetype": "unknown"}
-        
+
         # Build context from memories
         context = "\n".join([r["content"] for r in reflections])
-        
+
         # Use LLM to detect patterns
         response = client.chat.completions.create(
-            model=os.environ["AZURE_OPENAI_DEPLOYMENT"],
+            model=get_model(),
             messages=[
                 {
                     "role": "system",
@@ -234,7 +228,7 @@ Return JSON: {
             temperature=0.1,
             response_format={"type": "json_object"}
         )
-        
+
         return json.loads(response.choices[0].message.content)
 
 

@@ -11,11 +11,18 @@ SupervisorAgent merges both before scoring.
 from __future__ import annotations
 import os
 from datetime import datetime, timezone
+from openai import AsyncOpenAI
 from graphiti_core import Graphiti
 from graphiti_core.nodes import EpisodeType
+from graphiti_core.llm_client.openai_client import OpenAIClient
+from graphiti_core.llm_client.config import LLMConfig
+from graphiti_core.embedder.openai import OpenAIEmbedder
+from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerClient
 from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://saarathi-neo4j:7687")
+from src.config.llm import get_llm_client, get_model
+
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASS = os.getenv("NEO4J_PASSWORD", "saarathi")
 
@@ -28,10 +35,42 @@ class GraphMemoryAgent:
     """
 
     def __init__(self) -> None:
+        # Initialize universal OpenAI-compatible client
+        llm = get_llm_client()
+
+        # Get model name
+        model = get_model()
+        embedding_model = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
+
+        # LLM config
+        llm_config = LLMConfig(
+            model=model,
+            small_model=model,
+        )
+
+        # Create LLM and Embedder clients using universal OpenAI client
+        llm_client = OpenAIClient(
+            client=llm,
+            config=llm_config,
+        )
+        embedder_client = OpenAIEmbedder(
+            client=llm,
+            embedding_model=embedding_model,
+        )
+
+        # Create cross-encoder (reranker) client using the same client
+        cross_encoder = OpenAIRerankerClient(
+            client=llm,
+            config=llm_config,
+        )
+
         self._g = Graphiti(
-            neo4j_uri=NEO4J_URI,
-            neo4j_user=NEO4J_USER,
-            neo4j_password=NEO4J_PASS,
+            NEO4J_URI,
+            NEO4J_USER,
+            NEO4J_PASS,
+            llm_client=llm_client,
+            embedder=embedder_client,
+            cross_encoder=cross_encoder,
         )
 
     async def initialize(self) -> None:

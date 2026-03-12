@@ -5,12 +5,14 @@ Asks 6 questions over a thread. Extracts structured context.
 Writes to Qdrant via existing MemoryAgent + Postgres.
 """
 
-from openai import AzureOpenAI
+from openai import OpenAI
 from .memory_agent import MemoryAgent, MemoryWrite
 import os
 import json
 from dataclasses import dataclass
 from typing import Optional
+
+from src.config.llm import get_llm_client, get_model
 
 
 ONBOARDING_QUESTIONS = [
@@ -41,13 +43,9 @@ class ContextInterviewAgent:
     """
 
     def __init__(self):
-        """Initialize ContextInterviewAgent with MemoryAgent and Azure OpenAI client."""
+        """Initialize ContextInterviewAgent with MemoryAgent and OpenAI-compatible client."""
         self.memory = MemoryAgent()
-        self.client = AzureOpenAI(
-            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-            api_key=os.environ["AZURE_OPENAI_KEY"],
-            api_version="2024-02-01"
-        )
+        self.client = get_llm_client()
 
     def get_next_question(self, answered_ids: list[str]) -> Optional[dict]:
         """
@@ -90,7 +88,7 @@ class ContextInterviewAgent:
             Dict with extracted context, confidence, and Qdrant point ID
         """
         response = self.client.chat.completions.create(
-            model=os.environ["AZURE_OPENAI_DEPLOYMENT"],
+            model=get_model(),
             messages=[{
                 "role": "system",
                 "content": """Extract structured founder context.

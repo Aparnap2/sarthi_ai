@@ -6,13 +6,15 @@ Never nags. Only fires when score > threshold.
 Computes a 0–1 score and generates Slack messages with feedback buttons.
 """
 
-from openai import AzureOpenAI
+from openai import OpenAI
 from .memory_agent import MemoryAgent, MemoryQuery
 import os
 import json
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, TypedDict
 import asyncpg
+
+from src.config.llm import get_llm_client, get_model
 
 
 class TriggerState(TypedDict):
@@ -55,13 +57,9 @@ class TriggerAgent:
     """
     
     def __init__(self):
-        """Initialize TriggerAgent with MemoryAgent and Azure OpenAI client."""
+        """Initialize TriggerAgent with MemoryAgent and OpenAI-compatible client."""
         self.memory = MemoryAgent()
-        self.client = AzureOpenAI(
-            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-            api_key=os.environ["AZURE_OPENAI_KEY"],
-            api_version="2024-02-01"
-        )
+        self.client = get_llm_client()
     
     def _get_dynamic_threshold(self, founder_context: Dict[str, Any]) -> float:
         """
@@ -118,7 +116,7 @@ class TriggerAgent:
         
         # Call LLM for scoring and decision
         response = self.client.chat.completions.create(
-            model=os.environ["AZURE_OPENAI_DEPLOYMENT"],
+            model=get_model(),
             messages=[
                 {
                     "role": "system",
