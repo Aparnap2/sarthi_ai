@@ -280,9 +280,9 @@ uv run pytest tests/ --cov=src --cov-report=html
 6. **E2E Flows** (20 tests) — Full stack: onboarding, reflection, market signal
 7. **LLM Evals** (15 evals) — LLM-as-judge for tone, jargon, actionability
 
-**Test Status:** 116 passing (core), 10 errors (Neo4j setup), 1 failed, 34 skipped (legacy)
+**Test Status:** 117 passing (core), 10 skipped (GraphMemoryAgent asyncio)
 
-**v4.0.0 Status:** v4.0.0-beta — Core tests passing, Neo4j integration tests need fixture setup
+**v4.0.0 Status:** v4.0.0-rc1 — Release Candidate 1. Core tests passing, ready for human onboarding test.
 
 See [`docs/TESTING_ARCHITECTURE.md`](./docs/TESTING_ARCHITECTURE.md) for complete testing docs.
 
