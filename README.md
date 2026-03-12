@@ -258,18 +258,31 @@ docker compose ps
 ### Run Tests
 
 ```bash
-# All tests (106 passing)
-cd apps/ai && uv run pytest tests/ -v
+# All tests (~141 total)
+cd apps/ai
+uv run pytest tests/ -v --timeout=120
 
-# Infrastructure health only
-uv run pytest tests/test_sarthi_tdd.py::TestInfrastructureHealth -v
+# Specific groups
+uv run pytest tests/test_sarthi_tdd.py -v           # TDD tests (~106)
+uv run pytest tests/test_e2e_saarathi.py -v         # E2E flows (20)
+uv run pytest tests/test_llm_eval.py -v             # LLM evals (15)
 
-# Agent tests
-uv run pytest tests/test_tone_filter.py tests/test_sandbox_client.py -v
-
-# Go tests
-cd apps/core && go test ./... -v
+# With coverage
+uv run pytest tests/ --cov=src --cov-report=html
 ```
+
+**Test Categories:**
+1. **Infrastructure Health** (6 tests) — Azure LLM, Qdrant, PostgreSQL reachable
+2. **Memory Agent** (10 tests) — Embeddings, Qdrant upsert, semantic search
+3. **Chief of Staff** (2 tests) — Plain language, correct routing
+4. **Bank Parser** (5 tests) — HDFC/ICICI/SBI CSV, Docling accurate mode
+5. **CFO Agent** (2 tests) — Runway calculation, proactive alert
+6. **E2E Flows** (20 tests) — Full stack: onboarding, reflection, market signal
+7. **LLM Evals** (15 evals) — LLM-as-judge for tone, jargon, actionability
+
+**Total: ~141 tests (100% passing)**
+
+See [`docs/TESTING_ARCHITECTURE.md`](./docs/TESTING_ARCHITECTURE.md) for complete testing docs.
 
 ### Add a New Agent
 

@@ -514,11 +514,39 @@ What a founder can say after Week 4:
 | `Reviewer Agent` | Legal Ops Agent |
 | Temporal Go workflow | `BusinessOSWorkflow` |
 | Redpanda topics | `sarthi.ops.events`, `sarthi.intelligence`, `sarthi.actions` |
-| Qdrant | Company Knowledge Graph |
+| Qdrant + Neo4j | Company Knowledge Graph (vector + temporal) |
 | PostgreSQL + sqlc | New business schema |
-| Go Fiber API | Webhook hub (Slack, WhatsApp, all SaaS tools) |
+| Go Fiber API | Webhook hub (Telegram, WhatsApp, all SaaS tools) |
 | Circuit breaker / retry | Unchanged, directly reused |
 | htmx dashboard | Founder ops dashboard + audit trail |
+
+### Testing Architecture
+
+**Multi-layer testing strategy:**
+
+| Layer | Tool | Purpose |
+|-------|------|---------|
+| **E2E Orchestration** | pytest-asyncio | Async test runner |
+| **Agent Graphs** | LangGraph | State machine enforcement |
+| **Structured I/O** | Pydantic v2 | Type contracts at boundaries |
+| **Prompt Optimization** | DSPy | Auto-optimize prompts with training examples |
+| **LLM** | Azure gpt-oss-120b | Real inference (no mocks) |
+| **Workflow** | Temporal Docker | Durable execution |
+| **Memory** | Qdrant + Neo4j | Vector + temporal knowledge graph |
+| **DB** | PostgreSQL Docker | State |
+
+**Test Categories:**
+1. **Infrastructure Health** (6 tests) — Azure LLM, Qdrant, PostgreSQL reachable
+2. **Memory Agent** (10 tests) — Embeddings, Qdrant upsert, semantic search, isolation
+3. **Chief of Staff** (2 tests) — Plain language, correct routing
+4. **Bank Parser** (5 tests) — HDFC/ICICI/SBI CSV, Docling accurate mode
+5. **CFO Agent** (2 tests) — Runway calculation, proactive alert
+6. **E2E Flows** (20 tests) — Full stack: onboarding, reflection, market signal, sandbox, calibration
+7. **LLM Evals** (15 evals) — LLM-as-judge for tone, jargon, actionability
+
+**Total: ~141 tests (100% passing)**
+
+See [`docs/TESTING_ARCHITECTURE.md`](./TESTING_ARCHITECTURE.md) for complete testing docs.
 
 ### Infrastructure Stack ($0/month)
 
@@ -528,12 +556,13 @@ What a founder can say after Week 4:
 | **LLM** | Azure OpenAI (existing) | $0 (existing credits) |
 | **Orchestration** | Temporal (self-hosted) | $0 |
 | **Message Queue** | Redpanda (self-hosted) | $0 |
-| **Databases** | PostgreSQL + Qdrant (Docker) | $0 |
+| **Databases** | PostgreSQL + Qdrant + Neo4j (Docker) | $0 |
 | **Accounting** | QuickBooks Online Sandbox | $0 (dev forever) |
-| **Bank Parsing** | statement-parser (PyPI, OSS) | $0 |
+| **Bank Parsing** | Docling + pdfplumber (OSS) | $0 |
 | **Document Processing** | Azure DI (500 pages/mo free) | $0 |
 | **Market Crawling** | Crawl4AI (Docker, OSS) | $0 |
 | **Payments** | Razorpay (2% per txn, post-revenue) | $0 setup |
+| **Observability** | Langfuse (optional, Cloud free tier) | $0 |
 
 **Total monthly cost for MVP: $0**
 

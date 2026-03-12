@@ -339,6 +339,27 @@ services:
       timeout: 10s
       retries: 5
 
+  # Langfuse - LLM Observability (self-hosted)
+  # Requires ClickHouse + PostgreSQL
+  # For dev: use Langfuse Cloud (free tier) or skip Langfuse tests
+  # langfuse:
+  #   image: langfuse/langfuse:3
+  #   ports:
+  #     - "3001:3000"
+  #   environment:
+  #     - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/langfuse
+  #     - CLICKHOUSE_HOST=clickhouse
+  #     - CLICKHOUSE_PORT=9000
+  #     - CLICKHOUSE_USER=clickhouse
+  #     - CLICKHOUSE_PASSWORD=clickhouse
+  #     - NEXTAUTH_SECRET=sarthi-local-secret
+  #     - NEXTAUTH_URL=http://localhost:3001
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - iterateswarm-net
+  #   restart: unless-stopped
+
   # ===========================================
   # Saarathi Sandbox - Isolated Python Execution
   # ===========================================
