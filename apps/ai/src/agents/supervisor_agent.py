@@ -20,6 +20,7 @@ from langgraph.graph import StateGraph, END
 
 from src.agents.memory_agent import MemoryAgent, FounderMemoryState, get_memory_agent
 from src.agents.trigger_agent import TriggerAgent, TriggerState, get_trigger_agent
+from src.agents.context_interview_agent import ContextInterviewAgent
 
 logger = structlog.get_logger(__name__)
 
@@ -58,7 +59,7 @@ class SupervisorAgent:
     def __init__(self, db_pool: asyncpg.Pool, llm, slack_client=None):
         """
         Initialize SupervisorAgent.
-        
+
         Args:
             db_pool: Async PostgreSQL connection pool
             llm: LLM client for message generation
@@ -69,6 +70,7 @@ class SupervisorAgent:
         self.slack_client = slack_client
         self._memory_agent: Optional[MemoryAgent] = None
         self._trigger_agent: Optional[TriggerAgent] = None
+        self._interview_agent: Optional[ContextInterviewAgent] = None
 
     async def _get_memory_agent(self) -> MemoryAgent:
         """Get or create MemoryAgent instance."""
@@ -81,6 +83,12 @@ class SupervisorAgent:
         if self._trigger_agent is None:
             self._trigger_agent = await get_trigger_agent(self.pool, self.llm, self.slack_client)
         return self._trigger_agent
+
+    async def _get_interview_agent(self) -> ContextInterviewAgent:
+        """Get or create ContextInterviewAgent instance."""
+        if self._interview_agent is None:
+            self._interview_agent = ContextInterviewAgent()
+        return self._interview_agent
 
     async def process_weekly_reflection(self, state: SupervisorState) -> SupervisorState:
         """

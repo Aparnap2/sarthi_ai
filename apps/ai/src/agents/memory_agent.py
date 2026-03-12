@@ -1,397 +1,241 @@
 """
-MemoryAgent — Reads/writes Qdrant with founder-specific namespacing.
+MemoryAgent — Sarthi founder memory management.
 
+Reads/writes Qdrant with founder-specific namespacing.
 Maintains founder long-term memory. Extracts behavioral patterns.
 Every reflection is embedded and indexed for retrieval during trigger evaluation.
 """
 
-from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List
-import asyncio
+from openai import AzureOpenAI
+from qdrant_client import QdrantClient
+from qdrant_client.models import PointStruct, VectorParams, Distance, Filter, FieldCondition, MatchValue, MatchAny
+import os
+import uuid
 import json
-import structlog
-from datetime import datetime
+from typing import Optional, List, Dict, Any, TypedDict
+from dataclasses import dataclass
 import asyncpg
 
-from langgraph.graph import StateGraph, END
 
-from src.services.qdrant import QdrantService, get_qdrant_service
-from src.config import get_config
-
-logger = structlog.get_logger(__name__)
+class FounderMemoryState(TypedDict):
+    """State representing founder's memory context."""
+    founder_id: str
+    embeddings: List[str]
+    patterns: Optional[Dict[str, Any]]
+    reflection_count: int
 
 
 @dataclass
-class FounderMemoryState:
-    """State for the MemoryAgent workflow."""
-    
+class MemoryWrite:
+    """Represents a memory to be written."""
     founder_id: str
-    new_reflection: Optional[str] = None
-    retrieved_context: Optional[str] = None
-    patterns: Optional[Dict[str, Any]] = field(default_factory=dict)
-    embedding_id: Optional[str] = None
-    week_start: Optional[str] = None
-    shipped: Optional[str] = None
-    blocked: Optional[str] = None
-    energy_score: Optional[int] = None
-    raw_text: Optional[str] = None
+    content: str
+    memory_type: str
+    confidence: float = 1.0
+    source: str = "system"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class MemoryQuery:
+    """Represents a memory query."""
+    founder_id: str
+    query_text: str
+    memory_types: Optional[List[str]] = None
+    top_k: int = 10
+    min_confidence: float = 0.5
 
 
 class MemoryAgent:
     """
-    Maintains founder long-term memory in Qdrant.
+    Sarthi Memory Agent for founder memory management.
     
-    Every reflection is embedded and indexed.
-    On each trigger evaluation, retrieves relevant past context.
-    Computes behavioral patterns: commitment_rate, stall_days, etc.
+    Stores and retrieves founder memories using Qdrant vector database.
+    Uses Azure OpenAI for embeddings.
     """
-
-    def __init__(self, db_pool: asyncpg.Pool, llm, qdrant_service: Optional[QdrantService] = None):
-        """
-        Initialize MemoryAgent.
-        
-        Args:
-            db_pool: Async PostgreSQL connection pool
-            llm: LLM client for processing
-            qdrant_service: Qdrant service for embeddings (auto-created if not provided)
-        """
-        self.pool = db_pool
-        self.llm = llm
-        self.qdrant = qdrant_service or QdrantService()
-        self.collection = "founder_memory"
-
-    async def _ensure_collection(self) -> None:
-        """Ensure founder memory collection exists."""
-        collections = await self.qdrant.client.get_collections()
-        collection_names = [c.name for c in collections.collections]
-
-        if self.collection not in collection_names:
-            logger.info("Creating founder memory collection", collection=self.collection)
-            await self.qdrant.client.create_collection(
-                collection_name=self.collection,
-                vectors_config={
-                    "content": {
-                        "size": 768,  # nomic-embed-text dimension
-                        "distance": "Cosine",
-                    }
-                },
+    
+    COLLECTION_NAME = "sarthi_founder_memory"
+    EMBEDDING_MODEL = "text-embedding-ada-002"
+    
+    def __init__(self):
+        """Initialize MemoryAgent with Azure OpenAI and Qdrant clients."""
+        self.azure_client = AzureOpenAI(
+            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+            api_key=os.environ["AZURE_OPENAI_KEY"],
+            api_version="2024-02-01"
+        )
+        self.qdrant = QdrantClient(
+            host=os.environ.get("QDRANT_HOST", "localhost"),
+            port=int(os.environ.get("QDRANT_PORT", "6333"))
+        )
+        self._ensure_collection()
+    
+    def _ensure_collection(self) -> None:
+        """Ensure the founder memory collection exists in Qdrant."""
+        collections = [c.name for c in self.qdrant.get_collections().collections]
+        if self.COLLECTION_NAME not in collections:
+            self.qdrant.create_collection(
+                collection_name=self.COLLECTION_NAME,
+                vectors_config=VectorParams(size=1536, distance=Distance.COSINE)
             )
-            logger.info("Founder memory collection created", collection=self.collection)
-
-    async def embed_and_store(self, state: FounderMemoryState) -> FounderMemoryState:
+    
+    def _embed(self, text: str) -> List[float]:
         """
-        Embed new reflection and store in Qdrant.
+        Generate embedding for text using Azure OpenAI.
         
         Args:
-            state: Current founder memory state
+            text: Text to embed
             
         Returns:
-            Updated state with embedding_id
+            List of floats representing the embedding vector
         """
-        if not state.new_reflection:
-            logger.info("No new reflection to embed", founder_id=state.founder_id)
-            return state
-            
-        await self._ensure_collection()
-        
-        # Get embedding
-        embedding = await self.qdrant.get_embedding(state.new_reflection)
-        
-        # Create point ID
-        point_id = f"{state.founder_id}_{datetime.utcnow().isoformat()}"
-        
-        # Store in Qdrant with founder-specific metadata
-        from qdrant_client.models import PointStruct
-        
-        point = PointStruct(
-            id=point_id,
-            vector=embedding,
-            payload={
-                "founder_id": state.founder_id,
-                "text": state.new_reflection,
-                "type": "weekly_reflection",
-                "week_start": state.week_start,
-                "energy_score": state.energy_score,
-                "shipped": state.shipped,
-                "blocked": state.blocked,
-                "created_at": datetime.utcnow().isoformat(),
-            }
+        response = self.azure_client.embeddings.create(
+            input=text,
+            model=self.EMBEDDING_MODEL
         )
-        
-        await self.qdrant.client.upsert(
-            collection_name=self.collection,
-            points=[point],
-        )
-        
-        logger.info("Reflection embedded and stored", founder_id=state.founder_id, point_id=point_id)
-        
-        return FounderMemoryState(
-            **{**state.__dict__, "embedding_id": point_id}
-        )
-
-    async def retrieve_relevant_context(self, state: FounderMemoryState) -> FounderMemoryState:
+        return response.data[0].embedding
+    
+    def write(self, memory: MemoryWrite) -> str:
         """
-        Pull last 5 most relevant memory chunks for this founder.
+        Write a memory to Qdrant.
         
         Args:
-            state: Current founder memory state
+            memory: MemoryWrite object containing memory data
             
         Returns:
-            Updated state with retrieved_context
+            Point ID of the written memory
         """
-        await self._ensure_collection()
-        
-        # Get embedding for the query
-        query = "recent commitments blocks decisions energy"
-        query_embedding = await self.qdrant.get_embedding(query)
-        
-        # Search with founder filter
-        from qdrant_client.models import Filter, FieldCondition, MatchValue
-        
-        search_results = await self.qdrant.client.search(
-            collection_name=self.collection,
-            query_vector=query_embedding,
-            limit=5,
-            with_payload=True,
-            query_filter=Filter(
-                must=[
-                    FieldCondition(
-                        key="founder_id",
-                        match=MatchValue(value=state.founder_id),
-                    )
-                ]
-            ),
-        )
-        
-        # Extract context from results
-        context_chunks = []
-        for result in search_results:
-            payload = result.payload or {}
-            text = payload.get("text", "")
-            if text:
-                context_chunks.append(f"[{payload.get('week_start', 'unknown')}] {text}")
-        
-        context = "\n---\n".join(context_chunks)
-        
-        logger.info(
-            "Retrieved founder context",
-            founder_id=state.founder_id,
-            chunks_count=len(context_chunks),
-        )
-        
-        return FounderMemoryState(
-            **{**state.__dict__, "retrieved_context": context}
-        )
-
-    async def compute_behavioral_patterns(self, state: FounderMemoryState) -> FounderMemoryState:
-        """
-        Compute real behavioral metrics from Postgres.
-        
-        These feed directly into TriggerAgent's scoring function.
-        
-        Args:
-            state: Current founder memory state
-            
-        Returns:
-            Updated state with computed patterns
-        """
-        async with self.pool.acquire() as conn:
-            # Commitment completion rate (last 4 weeks)
-            commitment_stats = await conn.fetchrow("""
-                SELECT
-                    COUNT(*) FILTER (WHERE completed = true)::float /
-                    NULLIF(COUNT(*), 0) AS completion_rate,
-                    COUNT(*) FILTER (WHERE completed = false
-                        AND due_date < NOW()) AS overdue_count
-                FROM commitments
-                WHERE founder_id = $1
-                  AND created_at > NOW() - INTERVAL '4 weeks'
-            """, state.founder_id)
-
-            # Days since last commit (decision_stall proxy)
-            last_activity = await conn.fetchrow("""
-                SELECT
-                    EXTRACT(EPOCH FROM (NOW() - MAX(created_at)))/86400
-                    AS days_since_last_reflection
-                FROM weekly_reflections
-                WHERE founder_id = $1
-            """, state.founder_id)
-
-            # Energy trend (declining = momentum drop)
-            energy_trend = await conn.fetch("""
-                SELECT energy_score
-                FROM weekly_reflections
-                WHERE founder_id = $1
-                ORDER BY created_at DESC
-                LIMIT 4
-            """, state.founder_id)
-
-        # Calculate momentum drop
-        scores = [r["energy_score"] for r in energy_trend if r["energy_score"]]
-        momentum_drop = (scores[0] - scores[-1]) / 10 if len(scores) >= 2 else 0
-
-        patterns = {
-            "commitment_completion_rate": float(commitment_stats["completion_rate"] or 0),
-            "overdue_commitments": int(commitment_stats["overdue_count"] or 0),
-            "days_since_reflection": float(last_activity["days_since_last_reflection"] or 0),
-            "momentum_drop": max(0, momentum_drop),
-            "retrieved_context": state.retrieved_context,
+        vector = self._embed(memory.content)
+        point_id = str(uuid.uuid4())
+        payload = {
+            "founder_id": memory.founder_id,
+            "content": memory.content,
+            "memory_type": memory.memory_type,
+            "confidence": memory.confidence,
+            "source": memory.source,
+            "metadata": memory.metadata or {},
         }
         
-        logger.info(
-            "Computed behavioral patterns",
-            founder_id=state.founder_id,
-            completion_rate=patterns["commitment_completion_rate"],
-            overdue=patterns["overdue_commitments"],
-            days_since=patterns["days_since_reflection"],
-            momentum_drop=patterns["momentum_drop"],
-        )
+        # Check for conflicts
+        conflicts = self._find_conflicts(memory)
+        if conflicts:
+            payload["has_conflicts"] = True
+            payload["conflict_ids"] = conflicts
+            payload["confidence"] = min(memory.confidence * 0.7, 0.6)
         
-        return FounderMemoryState(**{**state.__dict__, "patterns": patterns})
-
-    async def store_reflection_in_db(self, state: FounderMemoryState) -> FounderMemoryState:
+        self.qdrant.upsert(
+            collection_name=self.COLLECTION_NAME,
+            points=[PointStruct(id=point_id, vector=vector, payload=payload)]
+        )
+        return point_id
+    
+    def query(self, query: MemoryQuery) -> List[Dict[str, Any]]:
         """
-        Store the reflection in PostgreSQL.
+        Query memories from Qdrant.
         
         Args:
-            state: Current founder memory state
+            query: MemoryQuery object containing query parameters
             
         Returns:
-            Updated state with reflection stored
+            List of matching memories with scores
         """
-        if not state.new_reflection:
-            return state
-            
-        async with self.pool.acquire() as conn:
-            # Parse week_start if provided
-            week_start = None
-            if state.week_start:
-                try:
-                    week_start = datetime.fromisoformat(state.week_start).date()
-                except ValueError:
-                    week_start = datetime.utcnow().date()
-            else:
-                week_start = datetime.utcnow().date()
-            
-            # Insert reflection
-            result = await conn.fetchrow("""
-                INSERT INTO weekly_reflections 
-                    (founder_id, week_start, shipped, blocked, energy_score, raw_text, embedding_id)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                RETURNING id
-            """,
-                state.founder_id,
-                week_start,
-                state.shipped,
-                state.blocked,
-                state.energy_score,
-                state.raw_text or state.new_reflection,
-                state.embedding_id,
+        vector = self._embed(query.query_text)
+        
+        must_conditions = [
+            FieldCondition(key="founder_id", match=MatchValue(value=query.founder_id))
+        ]
+        if query.memory_types:
+            must_conditions.append(
+                FieldCondition(key="memory_type", match=MatchAny(any=query.memory_types))
             )
-            
-            logger.info("Reflection stored in database", founder_id=state.founder_id, reflection_id=result["id"])
         
-        return state
-
-    def create_graph(self) -> StateGraph:
-        """Create LangGraph workflow for memory operations."""
-        graph = StateGraph(FounderMemoryState)
+        results = self.qdrant.search(
+            collection_name=self.COLLECTION_NAME,
+            query_vector=vector,
+            query_filter=Filter(must=must_conditions),
+            limit=query.top_k,
+            score_threshold=query.min_confidence
+        )
         
-        # Add nodes
-        graph.add_node("retrieve_context", self.retrieve_relevant_context)
-        graph.add_node("compute_patterns", self.compute_behavioral_patterns)
-        graph.add_node("embed_reflection", self.embed_and_store)
-        graph.add_node("store_in_db", self.store_reflection_in_db)
-        
-        # Set entry point
-        graph.set_entry_point("retrieve_context")
-        
-        # Define conditional edges
-        def should_embed(state):
-            return "embed_reflection" if state.new_reflection else "store_in_db"
-        
-        graph.add_conditional_edges(
-            "retrieve_context",
-            should_embed,
+        return [
             {
-                "embed_reflection": "embed_reflection",
-                "store_in_db": "store_in_db",
+                "content": r.payload["content"],
+                "type": r.payload["memory_type"],
+                "score": r.score,
+                "confidence": r.payload.get("confidence", 1.0),
+                "source": r.payload.get("source", "unknown")
             }
-        )
-        
-        # After embedding, store in DB
-        graph.add_edge("embed_reflection", "store_in_db")
-        
-        # After storing in DB, compute patterns
-        graph.add_edge("store_in_db", "compute_patterns")
-        
-        # End after computing patterns
-        graph.add_edge("compute_patterns", END)
-        
-        return graph.compile()
-
-    async def process_reflection(
-        self,
-        founder_id: str,
-        reflection_text: str,
-        week_start: Optional[str] = None,
-        shipped: Optional[str] = None,
-        blocked: Optional[str] = None,
-        energy_score: Optional[int] = None,
-    ) -> FounderMemoryState:
+            for r in results
+        ]
+    
+    def _find_conflicts(self, memory: MemoryWrite) -> List[str]:
         """
-        Process a new founder reflection through the complete workflow.
+        Find conflicting memories (v1 stub - always returns no conflicts).
         
         Args:
-            founder_id: Founder UUID
-            reflection_text: The reflection text to process
-            week_start: ISO date string for week start
-            shipped: What the founder shipped
-            blocked: What's blocking the founder
-            energy_score: Energy level 1-10
+            memory: MemoryWrite object to check for conflicts
             
         Returns:
-            Final state with patterns computed
+            List of conflicting memory IDs (empty in v1)
         """
-        initial_state = FounderMemoryState(
-            founder_id=founder_id,
-            new_reflection=reflection_text,
-            week_start=week_start,
-            shipped=shipped,
-            blocked=blocked,
-            energy_score=energy_score,
-            raw_text=reflection_text,
-        )
-        
-        graph = self.create_graph()
-        result = await graph.ainvoke(initial_state)
-        
-        logger.info("Reflection processing complete", founder_id=founder_id)
-        
-        return result
-
-    async def get_founder_context(
-        self,
-        founder_id: str,
-    ) -> FounderMemoryState:
+        # v1 stub: always returns no conflicts
+        # v2: use LLM to detect semantic conflicts
+        return []
+    
+    def detect_patterns(self, founder_id: str) -> Dict[str, Any]:
         """
-        Retrieve context and compute patterns for an existing founder.
+        Detect behavioral patterns for a founder.
         
         Args:
             founder_id: Founder UUID
             
         Returns:
-            State with context and patterns (no new reflection stored)
+            Dictionary containing detected patterns and archetype
         """
-        initial_state = FounderMemoryState(
-            founder_id=founder_id,
-            new_reflection=None,  # No new reflection
+        client = AzureOpenAI(
+            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+            api_key=os.environ["AZURE_OPENAI_KEY"],
+            api_version="2024-02-01"
         )
         
-        graph = self.create_graph()
-        result = await graph.ainvoke(initial_state)
+        # Query relevant memories
+        reflections = self.query(MemoryQuery(
+            founder_id=founder_id,
+            query_text="weekly reflection commitment avoidance",
+            memory_types=["reflection", "commitment"],
+            top_k=20
+        ))
         
-        return result
+        if not reflections:
+            return {"patterns": [], "archetype": "unknown"}
+        
+        # Build context from memories
+        context = "\n".join([r["content"] for r in reflections])
+        
+        # Use LLM to detect patterns
+        response = client.chat.completions.create(
+            model=os.environ["AZURE_OPENAI_DEPLOYMENT"],
+            messages=[
+                {
+                    "role": "system",
+                    "content": """You are analyzing a founder's behavioral patterns.
+Return JSON: {
+  "archetype": str,
+  "patterns": [str, str, str],
+  "commitment_completion_rate": float,
+  "customer_frequency": str
+}"""
+                },
+                {
+                    "role": "user",
+                    "content": f"Founder history:\n{context}"
+                }
+            ],
+            temperature=0.1,
+            response_format={"type": "json_object"}
+        )
+        
+        return json.loads(response.choices[0].message.content)
 
 
 # Global instance
@@ -402,6 +246,5 @@ async def get_memory_agent(db_pool: asyncpg.Pool, llm) -> MemoryAgent:
     """Get or create the global MemoryAgent instance."""
     global _memory_agent
     if _memory_agent is None:
-        qdrant_service = await get_qdrant_service()
-        _memory_agent = MemoryAgent(db_pool=db_pool, llm=llm, qdrant_service=qdrant_service)
+        _memory_agent = MemoryAgent()
     return _memory_agent

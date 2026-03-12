@@ -183,11 +183,14 @@ func (h *Handler) HandleSlackWebhook(c *fiber.Ctx) error {
 		TeamID   string `json:"team_id"`
 		APIAppID string `json:"api_app_id"`
 		Event    struct {
-			Type    string `json:"type"`
-			Text    string `json:"text"`
-			User    string `json:"user"`
-			Channel string `json:"channel"`
-			Ts      string `json:"ts"`
+			Type          string `json:"type"`
+			Text          string `json:"text"`
+			User          string `json:"user"`
+			Channel       string `json:"channel"`
+			Ts            string `json:"ts"`
+			ThreadTs      string `json:"thread_ts,omitempty"`
+			ChannelType   string `json:"channel_type,omitempty"`
+			BotID         string `json:"bot_id,omitempty"`
 		} `json:"event"`
 		Type      string `json:"type"`
 		EventID   string `json:"event_id"`
@@ -221,6 +224,34 @@ func (h *Handler) HandleSlackWebhook(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusOK).JSON(map[string]string{
 				"status": "already_processed",
 			})
+		}
+	}
+
+	// Check if this is an onboarding reply (thread message in DM)
+	if slackEvent.Event.ThreadTs != "" && slackEvent.Event.ChannelType == "im" {
+		// This is a reply in a DM thread - check if founder is in onboarding
+		var founderID string
+		var onboardingComplete bool
+		err := h.db.QueryRowContext(c.Context(), `
+			SELECT id, onboarding_complete FROM founders WHERE slack_user_id = $1
+		`, slackEvent.Event.User).Scan(&founderID, &onboardingComplete)
+		
+		if err == nil && !onboardingComplete {
+			// Founder is in onboarding, process the reply
+			go func() {
+				if err := h.handleOnboardingReply(founderID, slackEvent.Event.User, slackEvent.Event.Text, slackEvent.Event.ThreadTs); err != nil {
+					h.logger.Error("failed to process onboarding reply", err)
+				}
+			}()
+			
+			// Still publish to Redpanda for analytics
+		} else if err == sql.ErrNoRows {
+			// First DM from unknown user - start onboarding
+			go func() {
+				if _, err := h.startOnboarding(slackEvent.Event.User); err != nil {
+					h.logger.Error("failed to start onboarding", err)
+				}
+			}()
 		}
 	}
 
