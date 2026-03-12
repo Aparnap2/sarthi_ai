@@ -280,7 +280,9 @@ uv run pytest tests/ --cov=src --cov-report=html
 6. **E2E Flows** (20 tests) — Full stack: onboarding, reflection, market signal
 7. **LLM Evals** (15 evals) — LLM-as-judge for tone, jargon, actionability
 
-**Total: ~141 tests (100% passing)**
+**Test Status:** ~99 passing, ~27 failing (sandbox network issues), ~34 skipped (legacy)
+
+**v4.0.0 Status:** v4.0.0-alpha — Architecture complete, fixing remaining test failures
 
 See [`docs/TESTING_ARCHITECTURE.md`](./docs/TESTING_ARCHITECTURE.md) for complete testing docs.
 
