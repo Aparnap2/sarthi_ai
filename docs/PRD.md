@@ -544,9 +544,9 @@ What a founder can say after Week 4:
 6. **E2E Flows** (20 tests) — Full stack: onboarding, reflection, market signal, sandbox, calibration
 7. **LLM Evals** (15 evals) — LLM-as-judge for tone, jargon, actionability
 
-**Test Status:** ~99 passing, ~27 failing (network/DNS issues in sandbox tests), ~34 skipped (legacy tests)
+**Test Status:** 116 passing (core tests), 10 errors (GraphMemoryAgent Neo4j setup), 1 failed (context interview), 34 skipped (legacy)
 
-**v4.0.0 Status:** v4.0.0-alpha — Architecture complete, fixing remaining test failures
+**v4.0.0 Status:** v4.0.0-beta — Core tests passing, Neo4j integration tests need fixture setup
 
 See [`docs/TESTING_ARCHITECTURE.md`](./TESTING_ARCHITECTURE.md) for complete testing docs.
 
