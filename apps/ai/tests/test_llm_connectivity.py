@@ -103,6 +103,10 @@ class TestLLMConnectivity:
         # Validate all values are floats
         assert all(isinstance(v, float) for v in embedding)
 
+    @pytest.mark.skipif(
+        not os.environ.get("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+        reason="Requires AZURE_OPENAI_CHAT_DEPLOYMENT"
+    )
     def test_get_chat_model_returns_string(self):
         """get_chat_model should return a non-empty string."""
         model = get_chat_model()

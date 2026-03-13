@@ -10,7 +10,7 @@
 [![ROI](https://img.shields.io/badge/ROI-20x%E2%80%9350x-green)](./docs/PRD.md)
 [![Version](https://img.shields.io/badge/version-v4.2.0--alpha-purple)](./docs/PRD.md)
 
-[Live Demo](#) • [Architecture](#architecture) • [6 Desks](#the-6-desks--13-virtual-employees) • [API Docs](./docs/api/) • [PRD](./docs/PRD.md) • [Scope](./docs/INTERNAL_OPS_SCOPE.md)
+[Live Demo (Coming Soon)](.) • [Architecture](#architecture) • [6 Desks](#the-6-desks--13-virtual-employees) • [API Docs](./docs/api/) • [PRD](./docs/PRD.md) • [Scope](./docs/INTERNAL_OPS_SCOPE.md)
 
 </div>
 
@@ -268,7 +268,7 @@ and puts in front of you in 30 seconds, not 3 hours.
 | Growth | ₹10,000 | All 6 Desks | 35x |
 | Scale | ₹15,000 | All 6 Desks + Priority | 50x |
 
-**Replace ₹3.5L–₹7.5L/month in admin costs with ₹5K–₹15K/month.**
+**Replace ₹2.0L–₹3.75L/month in admin costs with ₹5K–₹15K/month.**
 
 ---
 
@@ -357,7 +357,7 @@ uv run pytest tests/ --cov=src --cov-report=html
 11. **E2E Flows** (20 tests) — Full stack: onboarding, bank ingestion, HITL approval
 12. **LLM Evals** (15 evals) — LLM-as-judge for tone, jargon, actionability
 
-**Test Status Target:** ~189 tests passing
+**Test Status Target:** ~189 tests passing (165 current + 24 Phase 3 TBD)
 
 **v4.2.0 Status:** v4.2.0-alpha — Internal Ops Virtual Office Only.
 
@@ -378,6 +378,13 @@ See [`docs/TESTING_ARCHITECTURE.md`](./docs/TESTING_ARCHITECTURE.md) for complet
 LLM_BASE_URL=https://openrouter.ai/api/v1
 LLM_API_KEY=sk-or-v1-...
 LLM_MODEL=openai/gpt-4o-mini
+
+# Azure OpenAI (Alternative)
+AZURE_OPENAI_API_KEY=your-key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o-mini
+AZURE_OPENAI_API_VERSION=2024-02-01
+# Set these instead of LLM_BASE_URL/LLM_API_KEY/LLM_MODEL when using Azure.
 
 # Telegram
 TELEGRAM_BOT_TOKEN=...

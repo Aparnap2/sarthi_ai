@@ -8,7 +8,7 @@
 
 ## 1. The One-Line Definition
 
-```
+```text
 Sarthi is the internal operations virtual office for Seed to Series A startups.
 
 It does not find you customers.
@@ -131,7 +131,7 @@ Free, no per-message cost, async, file-capable, inline keyboards for HITL approv
 
 ## 6. The Agent Architecture — 6 Desks, 13 Virtual Employees
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │  TIER 0 — KERNEL (Go + Temporal + Graphiti)                     │
 │  BusinessOSWorkflow: orchestrates all agents, manages state     │
@@ -350,7 +350,7 @@ Free, no per-message cost, async, file-capable, inline keyboards for HITL approv
 
 ## 8. The Self-Correcting Loop
 
-```
+```text
 1. Agent acts      (e.g. Bookkeeper categorizes AWS expense)
 2. Outcome seen    (Founder confirms category is correct)
 3. MemoryAgent writes to Qdrant:
@@ -430,7 +430,7 @@ def get_llm_client() -> AzureOpenAI:
 #   - AZURE_OPENAI_API_VERSION: API version (default: 2024-02-01)
 #   - AZURE_OPENAI_CHAT_DEPLOYMENT: Chat model deployment name
 #   - EMBEDDING_MODEL: Embedding model name (optional)
-```
+```python
 
 ### Document Processing ($0 OSS)
 
@@ -458,7 +458,7 @@ def get_llm_client() -> AzureOpenAI:
 
 ### BANNED IN ALL OUTPUT (every agent, every message)
 
-```
+```text
 EBITDA, DSO, bps, YoY, MoM, liquidity,
 working capital, CAGR, accounts receivable,
 burn multiple, runway compression, NWC,
@@ -505,7 +505,7 @@ actionable insights, KPIs, metrics, data-driven
 
 ## 12. The Data Flow
 
-```
+```text
 EVENT: Founder sends HDFC CSV to Telegram bot
          │
          ▼
@@ -704,7 +704,7 @@ services:
   
   # Utilities
   sandbox:           # Isolated code execution
-```
+```yaml
 
 ---
 

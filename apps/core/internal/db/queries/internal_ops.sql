@@ -29,8 +29,13 @@ SET status = $2,
 WHERE id = $1
 RETURNING *;
 
--- name: DeleteFinanceOp :exec
-DELETE FROM finance_ops WHERE id = $1;
+-- name: DeleteFinanceOp :one
+UPDATE finance_ops
+SET status = 'deleted',
+    updated_at = NOW(),
+    deleted_at = NOW()
+WHERE id = $1
+RETURNING *;
 
 -- name: InsertPeopleOp :one
 INSERT INTO people_ops (founder_id, event_type, employee_name, payload, status, event_date)
@@ -59,8 +64,13 @@ SET status = $2,
 WHERE id = $1
 RETURNING *;
 
--- name: DeletePeopleOp :exec
-DELETE FROM people_ops WHERE id = $1;
+-- name: DeletePeopleOp :one
+UPDATE people_ops
+SET status = 'deleted',
+    updated_at = NOW(),
+    deleted_at = NOW()
+WHERE id = $1
+RETURNING *;
 
 -- name: InsertLegalOp :one
 INSERT INTO legal_ops (founder_id, document_type, document_name, expiry_date, esign_status, payload, status)
@@ -91,8 +101,13 @@ SET status = $2,
 WHERE id = $1
 RETURNING *;
 
--- name: DeleteLegalOp :exec
-DELETE FROM legal_ops WHERE id = $1;
+-- name: DeleteLegalOp :one
+UPDATE legal_ops
+SET status = 'deleted',
+    updated_at = NOW(),
+    deleted_at = NOW()
+WHERE id = $1
+RETURNING *;
 
 -- name: InsertITAsset :one
 INSERT INTO it_assets (founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status)
@@ -128,8 +143,13 @@ SET status = $2,
 WHERE id = $1
 RETURNING *;
 
--- name: DeleteITAsset :exec
-DELETE FROM it_assets WHERE id = $1;
+-- name: DeleteITAsset :one
+UPDATE it_assets
+SET status = 'deleted',
+    updated_at = NOW(),
+    deleted_at = NOW()
+WHERE id = $1
+RETURNING *;
 
 -- name: InsertAdminEvent :one
 INSERT INTO admin_events (founder_id, event_type, title, payload, meeting_date, action_items, sop_reference)
@@ -161,5 +181,10 @@ SET title = COALESCE($2, title),
 WHERE id = $1
 RETURNING *;
 
--- name: DeleteAdminEvent :exec
-DELETE FROM admin_events WHERE id = $1;
+-- name: DeleteAdminEvent :one
+UPDATE admin_events
+SET status = 'deleted',
+    updated_at = NOW(),
+    deleted_at = NOW()
+WHERE id = $1
+RETURNING *;

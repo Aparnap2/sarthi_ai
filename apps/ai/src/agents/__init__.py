@@ -11,10 +11,19 @@ V2 (dormant in actions/):
 - Triage Agent: Feedback classification
 """
 
+from pathlib import Path
+
 from src.config.llm_guard import scan_directory_for_violations
 
-# Run enforcement on import - let ImportError propagate
-scan_directory_for_violations("apps/ai/src/agents")
+# Run enforcement on import - compute path from this module's location
+package_dir = Path(__file__).resolve().parent
+violations = scan_directory_for_violations(str(package_dir))
+
+if violations:
+    raise ImportError(
+        f"LLM guard violations found:\n"
+        + "\n".join([f"  - {v}" for v in violations])
+    )
 
 from src.agents.memory_agent import MemoryAgent, FounderMemoryState, get_memory_agent
 from src.agents.trigger_agent import TriggerAgent, TriggerState, get_trigger_agent

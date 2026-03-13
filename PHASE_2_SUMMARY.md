@@ -59,6 +59,7 @@ cd apps/core && ~/go/bin/sqlc generate
 **File:** `apps/core/internal/db/internal_ops_test.go` (835 lines)
 
 **Test Coverage:**
+
 | Test Function | Table | Operations Tested |
 |--------------|-------|-------------------|
 | `TestFinanceOpsCRUD` | finance_ops | CREATE, READ, UPDATE, DELETE |

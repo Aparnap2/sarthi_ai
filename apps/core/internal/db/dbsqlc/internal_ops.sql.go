@@ -14,53 +14,148 @@ import (
 	"github.com/sqlc-dev/pqtype"
 )
 
-const deleteAdminEvent = `-- name: DeleteAdminEvent :exec
-DELETE FROM admin_events WHERE id = $1
+const deleteAdminEvent = `-- name: DeleteAdminEvent :one
+UPDATE admin_events
+SET status = 'deleted',
+    updated_at = NOW(),
+    deleted_at = NOW()
+WHERE id = $1
+RETURNING id, founder_id, event_type, title, payload, meeting_date, action_items, sop_reference, deleted_at, created_at, updated_at
 `
 
-func (q *Queries) DeleteAdminEvent(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteAdminEvent, id)
-	return err
+func (q *Queries) DeleteAdminEvent(ctx context.Context, id uuid.UUID) (AdminEvent, error) {
+	row := q.db.QueryRowContext(ctx, deleteAdminEvent, id)
+	var i AdminEvent
+	err := row.Scan(
+		&i.ID,
+		&i.FounderID,
+		&i.EventType,
+		&i.Title,
+		&i.Payload,
+		&i.MeetingDate,
+		&i.ActionItems,
+		&i.SopReference,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
-const deleteFinanceOp = `-- name: DeleteFinanceOp :exec
-DELETE FROM finance_ops WHERE id = $1
+const deleteFinanceOp = `-- name: DeleteFinanceOp :one
+UPDATE finance_ops
+SET status = 'deleted',
+    updated_at = NOW(),
+    deleted_at = NOW()
+WHERE id = $1
+RETURNING id, founder_id, task_type, payload, status, due_date, completed_at, deleted_at, created_at, updated_at
 `
 
-func (q *Queries) DeleteFinanceOp(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteFinanceOp, id)
-	return err
+func (q *Queries) DeleteFinanceOp(ctx context.Context, id uuid.UUID) (FinanceOp, error) {
+	row := q.db.QueryRowContext(ctx, deleteFinanceOp, id)
+	var i FinanceOp
+	err := row.Scan(
+		&i.ID,
+		&i.FounderID,
+		&i.TaskType,
+		&i.Payload,
+		&i.Status,
+		&i.DueDate,
+		&i.CompletedAt,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
-const deleteITAsset = `-- name: DeleteITAsset :exec
-DELETE FROM it_assets WHERE id = $1
+const deleteITAsset = `-- name: DeleteITAsset :one
+UPDATE it_assets
+SET status = 'deleted',
+    updated_at = NOW(),
+    deleted_at = NOW()
+WHERE id = $1
+RETURNING id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, deleted_at, created_at, updated_at
 `
 
-func (q *Queries) DeleteITAsset(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteITAsset, id)
-	return err
+func (q *Queries) DeleteITAsset(ctx context.Context, id uuid.UUID) (ItAsset, error) {
+	row := q.db.QueryRowContext(ctx, deleteITAsset, id)
+	var i ItAsset
+	err := row.Scan(
+		&i.ID,
+		&i.FounderID,
+		&i.AssetType,
+		&i.AssetName,
+		&i.MonthlyCost,
+		&i.LastUsedDate,
+		&i.RenewalDate,
+		&i.Payload,
+		&i.Status,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
-const deleteLegalOp = `-- name: DeleteLegalOp :exec
-DELETE FROM legal_ops WHERE id = $1
+const deleteLegalOp = `-- name: DeleteLegalOp :one
+UPDATE legal_ops
+SET status = 'deleted',
+    updated_at = NOW(),
+    deleted_at = NOW()
+WHERE id = $1
+RETURNING id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, deleted_at, created_at, updated_at
 `
 
-func (q *Queries) DeleteLegalOp(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteLegalOp, id)
-	return err
+func (q *Queries) DeleteLegalOp(ctx context.Context, id uuid.UUID) (LegalOp, error) {
+	row := q.db.QueryRowContext(ctx, deleteLegalOp, id)
+	var i LegalOp
+	err := row.Scan(
+		&i.ID,
+		&i.FounderID,
+		&i.DocumentType,
+		&i.DocumentName,
+		&i.ExpiryDate,
+		&i.EsignStatus,
+		&i.Payload,
+		&i.Status,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
-const deletePeopleOp = `-- name: DeletePeopleOp :exec
-DELETE FROM people_ops WHERE id = $1
+const deletePeopleOp = `-- name: DeletePeopleOp :one
+UPDATE people_ops
+SET status = 'deleted',
+    updated_at = NOW(),
+    deleted_at = NOW()
+WHERE id = $1
+RETURNING id, founder_id, event_type, employee_name, payload, status, event_date, completed_at, deleted_at, created_at, updated_at
 `
 
-func (q *Queries) DeletePeopleOp(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deletePeopleOp, id)
-	return err
+func (q *Queries) DeletePeopleOp(ctx context.Context, id uuid.UUID) (PeopleOp, error) {
+	row := q.db.QueryRowContext(ctx, deletePeopleOp, id)
+	var i PeopleOp
+	err := row.Scan(
+		&i.ID,
+		&i.FounderID,
+		&i.EventType,
+		&i.EmployeeName,
+		&i.Payload,
+		&i.Status,
+		&i.EventDate,
+		&i.CompletedAt,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getAdminEventByID = `-- name: GetAdminEventByID :one
-SELECT id, founder_id, event_type, title, payload, meeting_date, action_items, sop_reference, created_at, updated_at FROM admin_events
+SELECT id, founder_id, event_type, title, payload, meeting_date, action_items, sop_reference, deleted_at, created_at, updated_at FROM admin_events
 WHERE id = $1
 `
 
@@ -76,6 +171,7 @@ func (q *Queries) GetAdminEventByID(ctx context.Context, id uuid.UUID) (AdminEve
 		&i.MeetingDate,
 		&i.ActionItems,
 		&i.SopReference,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -83,7 +179,7 @@ func (q *Queries) GetAdminEventByID(ctx context.Context, id uuid.UUID) (AdminEve
 }
 
 const getFinanceOpByID = `-- name: GetFinanceOpByID :one
-SELECT id, founder_id, task_type, payload, status, due_date, completed_at, created_at, updated_at FROM finance_ops
+SELECT id, founder_id, task_type, payload, status, due_date, completed_at, deleted_at, created_at, updated_at FROM finance_ops
 WHERE id = $1
 `
 
@@ -98,6 +194,7 @@ func (q *Queries) GetFinanceOpByID(ctx context.Context, id uuid.UUID) (FinanceOp
 		&i.Status,
 		&i.DueDate,
 		&i.CompletedAt,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -105,7 +202,7 @@ func (q *Queries) GetFinanceOpByID(ctx context.Context, id uuid.UUID) (FinanceOp
 }
 
 const getITAssetByID = `-- name: GetITAssetByID :one
-SELECT id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, created_at, updated_at FROM it_assets
+SELECT id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, deleted_at, created_at, updated_at FROM it_assets
 WHERE id = $1
 `
 
@@ -122,6 +219,7 @@ func (q *Queries) GetITAssetByID(ctx context.Context, id uuid.UUID) (ItAsset, er
 		&i.RenewalDate,
 		&i.Payload,
 		&i.Status,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -129,7 +227,7 @@ func (q *Queries) GetITAssetByID(ctx context.Context, id uuid.UUID) (ItAsset, er
 }
 
 const getLegalOpByID = `-- name: GetLegalOpByID :one
-SELECT id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, created_at, updated_at FROM legal_ops
+SELECT id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, deleted_at, created_at, updated_at FROM legal_ops
 WHERE id = $1
 `
 
@@ -145,6 +243,7 @@ func (q *Queries) GetLegalOpByID(ctx context.Context, id uuid.UUID) (LegalOp, er
 		&i.EsignStatus,
 		&i.Payload,
 		&i.Status,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -152,7 +251,7 @@ func (q *Queries) GetLegalOpByID(ctx context.Context, id uuid.UUID) (LegalOp, er
 }
 
 const getPeopleOpByID = `-- name: GetPeopleOpByID :one
-SELECT id, founder_id, event_type, employee_name, payload, status, event_date, completed_at, created_at, updated_at FROM people_ops
+SELECT id, founder_id, event_type, employee_name, payload, status, event_date, completed_at, deleted_at, created_at, updated_at FROM people_ops
 WHERE id = $1
 `
 
@@ -168,6 +267,7 @@ func (q *Queries) GetPeopleOpByID(ctx context.Context, id uuid.UUID) (PeopleOp, 
 		&i.Status,
 		&i.EventDate,
 		&i.CompletedAt,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -177,7 +277,7 @@ func (q *Queries) GetPeopleOpByID(ctx context.Context, id uuid.UUID) (PeopleOp, 
 const insertAdminEvent = `-- name: InsertAdminEvent :one
 INSERT INTO admin_events (founder_id, event_type, title, payload, meeting_date, action_items, sop_reference)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, founder_id, event_type, title, payload, meeting_date, action_items, sop_reference, created_at, updated_at
+RETURNING id, founder_id, event_type, title, payload, meeting_date, action_items, sop_reference, deleted_at, created_at, updated_at
 `
 
 type InsertAdminEventParams struct {
@@ -210,6 +310,7 @@ func (q *Queries) InsertAdminEvent(ctx context.Context, arg InsertAdminEventPara
 		&i.MeetingDate,
 		&i.ActionItems,
 		&i.SopReference,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -219,7 +320,7 @@ func (q *Queries) InsertAdminEvent(ctx context.Context, arg InsertAdminEventPara
 const insertFinanceOp = `-- name: InsertFinanceOp :one
 INSERT INTO finance_ops (founder_id, task_type, payload, status, due_date)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, founder_id, task_type, payload, status, due_date, completed_at, created_at, updated_at
+RETURNING id, founder_id, task_type, payload, status, due_date, completed_at, deleted_at, created_at, updated_at
 `
 
 type InsertFinanceOpParams struct {
@@ -247,6 +348,7 @@ func (q *Queries) InsertFinanceOp(ctx context.Context, arg InsertFinanceOpParams
 		&i.Status,
 		&i.DueDate,
 		&i.CompletedAt,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -256,7 +358,7 @@ func (q *Queries) InsertFinanceOp(ctx context.Context, arg InsertFinanceOpParams
 const insertITAsset = `-- name: InsertITAsset :one
 INSERT INTO it_assets (founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, created_at, updated_at
+RETURNING id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, deleted_at, created_at, updated_at
 `
 
 type InsertITAssetParams struct {
@@ -292,6 +394,7 @@ func (q *Queries) InsertITAsset(ctx context.Context, arg InsertITAssetParams) (I
 		&i.RenewalDate,
 		&i.Payload,
 		&i.Status,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -301,7 +404,7 @@ func (q *Queries) InsertITAsset(ctx context.Context, arg InsertITAssetParams) (I
 const insertLegalOp = `-- name: InsertLegalOp :one
 INSERT INTO legal_ops (founder_id, document_type, document_name, expiry_date, esign_status, payload, status)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, created_at, updated_at
+RETURNING id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, deleted_at, created_at, updated_at
 `
 
 type InsertLegalOpParams struct {
@@ -334,6 +437,7 @@ func (q *Queries) InsertLegalOp(ctx context.Context, arg InsertLegalOpParams) (L
 		&i.EsignStatus,
 		&i.Payload,
 		&i.Status,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -343,7 +447,7 @@ func (q *Queries) InsertLegalOp(ctx context.Context, arg InsertLegalOpParams) (L
 const insertPeopleOp = `-- name: InsertPeopleOp :one
 INSERT INTO people_ops (founder_id, event_type, employee_name, payload, status, event_date)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, founder_id, event_type, employee_name, payload, status, event_date, completed_at, created_at, updated_at
+RETURNING id, founder_id, event_type, employee_name, payload, status, event_date, completed_at, deleted_at, created_at, updated_at
 `
 
 type InsertPeopleOpParams struct {
@@ -374,6 +478,7 @@ func (q *Queries) InsertPeopleOp(ctx context.Context, arg InsertPeopleOpParams) 
 		&i.Status,
 		&i.EventDate,
 		&i.CompletedAt,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -381,7 +486,7 @@ func (q *Queries) InsertPeopleOp(ctx context.Context, arg InsertPeopleOpParams) 
 }
 
 const listAdminEventsByFounder = `-- name: ListAdminEventsByFounder :many
-SELECT id, founder_id, event_type, title, payload, meeting_date, action_items, sop_reference, created_at, updated_at FROM admin_events
+SELECT id, founder_id, event_type, title, payload, meeting_date, action_items, sop_reference, deleted_at, created_at, updated_at FROM admin_events
 WHERE founder_id = $1
 ORDER BY created_at DESC
 `
@@ -404,6 +509,7 @@ func (q *Queries) ListAdminEventsByFounder(ctx context.Context, founderID uuid.N
 			&i.MeetingDate,
 			&i.ActionItems,
 			&i.SopReference,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -421,7 +527,7 @@ func (q *Queries) ListAdminEventsByFounder(ctx context.Context, founderID uuid.N
 }
 
 const listAdminEventsByType = `-- name: ListAdminEventsByType :many
-SELECT id, founder_id, event_type, title, payload, meeting_date, action_items, sop_reference, created_at, updated_at FROM admin_events
+SELECT id, founder_id, event_type, title, payload, meeting_date, action_items, sop_reference, deleted_at, created_at, updated_at FROM admin_events
 WHERE event_type = $1
 ORDER BY meeting_date DESC
 `
@@ -444,6 +550,7 @@ func (q *Queries) ListAdminEventsByType(ctx context.Context, eventType string) (
 			&i.MeetingDate,
 			&i.ActionItems,
 			&i.SopReference,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -461,7 +568,7 @@ func (q *Queries) ListAdminEventsByType(ctx context.Context, eventType string) (
 }
 
 const listFinanceOpsByFounder = `-- name: ListFinanceOpsByFounder :many
-SELECT id, founder_id, task_type, payload, status, due_date, completed_at, created_at, updated_at FROM finance_ops
+SELECT id, founder_id, task_type, payload, status, due_date, completed_at, deleted_at, created_at, updated_at FROM finance_ops
 WHERE founder_id = $1
 ORDER BY created_at DESC
 `
@@ -483,6 +590,7 @@ func (q *Queries) ListFinanceOpsByFounder(ctx context.Context, founderID uuid.Nu
 			&i.Status,
 			&i.DueDate,
 			&i.CompletedAt,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -500,7 +608,7 @@ func (q *Queries) ListFinanceOpsByFounder(ctx context.Context, founderID uuid.Nu
 }
 
 const listFinanceOpsByStatus = `-- name: ListFinanceOpsByStatus :many
-SELECT id, founder_id, task_type, payload, status, due_date, completed_at, created_at, updated_at FROM finance_ops
+SELECT id, founder_id, task_type, payload, status, due_date, completed_at, deleted_at, created_at, updated_at FROM finance_ops
 WHERE status = $1
 ORDER BY due_date ASC
 `
@@ -522,6 +630,7 @@ func (q *Queries) ListFinanceOpsByStatus(ctx context.Context, status sql.NullStr
 			&i.Status,
 			&i.DueDate,
 			&i.CompletedAt,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -539,7 +648,7 @@ func (q *Queries) ListFinanceOpsByStatus(ctx context.Context, status sql.NullStr
 }
 
 const listITAssetsByFounder = `-- name: ListITAssetsByFounder :many
-SELECT id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, created_at, updated_at FROM it_assets
+SELECT id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, deleted_at, created_at, updated_at FROM it_assets
 WHERE founder_id = $1
 ORDER BY monthly_cost DESC
 `
@@ -563,6 +672,7 @@ func (q *Queries) ListITAssetsByFounder(ctx context.Context, founderID uuid.Null
 			&i.RenewalDate,
 			&i.Payload,
 			&i.Status,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -580,7 +690,7 @@ func (q *Queries) ListITAssetsByFounder(ctx context.Context, founderID uuid.Null
 }
 
 const listITAssetsByStatus = `-- name: ListITAssetsByStatus :many
-SELECT id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, created_at, updated_at FROM it_assets
+SELECT id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, deleted_at, created_at, updated_at FROM it_assets
 WHERE status = $1
 ORDER BY asset_name ASC
 `
@@ -604,6 +714,7 @@ func (q *Queries) ListITAssetsByStatus(ctx context.Context, status sql.NullStrin
 			&i.RenewalDate,
 			&i.Payload,
 			&i.Status,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -621,7 +732,7 @@ func (q *Queries) ListITAssetsByStatus(ctx context.Context, status sql.NullStrin
 }
 
 const listITAssetsRenewingSoon = `-- name: ListITAssetsRenewingSoon :many
-SELECT id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, created_at, updated_at FROM it_assets
+SELECT id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, deleted_at, created_at, updated_at FROM it_assets
 WHERE renewal_date IS NOT NULL
   AND renewal_date <= NOW() + INTERVAL '30 days'
   AND status = 'active'
@@ -647,6 +758,7 @@ func (q *Queries) ListITAssetsRenewingSoon(ctx context.Context) ([]ItAsset, erro
 			&i.RenewalDate,
 			&i.Payload,
 			&i.Status,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -664,7 +776,7 @@ func (q *Queries) ListITAssetsRenewingSoon(ctx context.Context) ([]ItAsset, erro
 }
 
 const listLegalOpsByFounder = `-- name: ListLegalOpsByFounder :many
-SELECT id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, created_at, updated_at FROM legal_ops
+SELECT id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, deleted_at, created_at, updated_at FROM legal_ops
 WHERE founder_id = $1
 ORDER BY created_at DESC
 `
@@ -687,6 +799,7 @@ func (q *Queries) ListLegalOpsByFounder(ctx context.Context, founderID uuid.Null
 			&i.EsignStatus,
 			&i.Payload,
 			&i.Status,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -704,7 +817,7 @@ func (q *Queries) ListLegalOpsByFounder(ctx context.Context, founderID uuid.Null
 }
 
 const listLegalOpsExpiringSoon = `-- name: ListLegalOpsExpiringSoon :many
-SELECT id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, created_at, updated_at FROM legal_ops
+SELECT id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, deleted_at, created_at, updated_at FROM legal_ops
 WHERE expiry_date IS NOT NULL
   AND expiry_date <= NOW() + INTERVAL '30 days'
   AND esign_status IS DISTINCT FROM 'expired'
@@ -729,6 +842,7 @@ func (q *Queries) ListLegalOpsExpiringSoon(ctx context.Context) ([]LegalOp, erro
 			&i.EsignStatus,
 			&i.Payload,
 			&i.Status,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -746,7 +860,7 @@ func (q *Queries) ListLegalOpsExpiringSoon(ctx context.Context) ([]LegalOp, erro
 }
 
 const listPeopleOpsByEventType = `-- name: ListPeopleOpsByEventType :many
-SELECT id, founder_id, event_type, employee_name, payload, status, event_date, completed_at, created_at, updated_at FROM people_ops
+SELECT id, founder_id, event_type, employee_name, payload, status, event_date, completed_at, deleted_at, created_at, updated_at FROM people_ops
 WHERE event_type = $1
 ORDER BY event_date DESC
 `
@@ -769,6 +883,7 @@ func (q *Queries) ListPeopleOpsByEventType(ctx context.Context, eventType string
 			&i.Status,
 			&i.EventDate,
 			&i.CompletedAt,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -786,7 +901,7 @@ func (q *Queries) ListPeopleOpsByEventType(ctx context.Context, eventType string
 }
 
 const listPeopleOpsByFounder = `-- name: ListPeopleOpsByFounder :many
-SELECT id, founder_id, event_type, employee_name, payload, status, event_date, completed_at, created_at, updated_at FROM people_ops
+SELECT id, founder_id, event_type, employee_name, payload, status, event_date, completed_at, deleted_at, created_at, updated_at FROM people_ops
 WHERE founder_id = $1
 ORDER BY created_at DESC
 `
@@ -809,6 +924,7 @@ func (q *Queries) ListPeopleOpsByFounder(ctx context.Context, founderID uuid.Nul
 			&i.Status,
 			&i.EventDate,
 			&i.CompletedAt,
+			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -834,7 +950,7 @@ SET title = COALESCE($2, title),
     sop_reference = COALESCE($6, sop_reference),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, founder_id, event_type, title, payload, meeting_date, action_items, sop_reference, created_at, updated_at
+RETURNING id, founder_id, event_type, title, payload, meeting_date, action_items, sop_reference, deleted_at, created_at, updated_at
 `
 
 type UpdateAdminEventParams struct {
@@ -865,6 +981,7 @@ func (q *Queries) UpdateAdminEvent(ctx context.Context, arg UpdateAdminEventPara
 		&i.MeetingDate,
 		&i.ActionItems,
 		&i.SopReference,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -881,7 +998,7 @@ SET status = $2,
     END,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, founder_id, task_type, payload, status, due_date, completed_at, created_at, updated_at
+RETURNING id, founder_id, task_type, payload, status, due_date, completed_at, deleted_at, created_at, updated_at
 `
 
 type UpdateFinanceOpStatusParams struct {
@@ -900,6 +1017,7 @@ func (q *Queries) UpdateFinanceOpStatus(ctx context.Context, arg UpdateFinanceOp
 		&i.Status,
 		&i.DueDate,
 		&i.CompletedAt,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -912,7 +1030,7 @@ SET status = $2,
     last_used_date = COALESCE($3, last_used_date),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, created_at, updated_at
+RETURNING id, founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status, deleted_at, created_at, updated_at
 `
 
 type UpdateITAssetStatusParams struct {
@@ -934,6 +1052,7 @@ func (q *Queries) UpdateITAssetStatus(ctx context.Context, arg UpdateITAssetStat
 		&i.RenewalDate,
 		&i.Payload,
 		&i.Status,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -946,7 +1065,7 @@ SET status = $2,
     esign_status = COALESCE($3, esign_status),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, created_at, updated_at
+RETURNING id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, deleted_at, created_at, updated_at
 `
 
 type UpdateLegalOpStatusParams struct {
@@ -967,6 +1086,7 @@ func (q *Queries) UpdateLegalOpStatus(ctx context.Context, arg UpdateLegalOpStat
 		&i.EsignStatus,
 		&i.Payload,
 		&i.Status,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -979,7 +1099,7 @@ SET status = $2,
     completed_at = CASE WHEN $2 = 'completed' THEN NOW() ELSE completed_at END,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, founder_id, event_type, employee_name, payload, status, event_date, completed_at, created_at, updated_at
+RETURNING id, founder_id, event_type, employee_name, payload, status, event_date, completed_at, deleted_at, created_at, updated_at
 `
 
 type UpdatePeopleOpStatusParams struct {
@@ -999,6 +1119,7 @@ func (q *Queries) UpdatePeopleOpStatus(ctx context.Context, arg UpdatePeopleOpSt
 		&i.Status,
 		&i.EventDate,
 		&i.CompletedAt,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

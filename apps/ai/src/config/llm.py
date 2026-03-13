@@ -90,11 +90,12 @@ def get_embedding_model() -> str:
 def reset_client() -> None:
     """
     Reset the cached client instance.
-    
+
     Useful for testing or reconfiguration.
     """
     global _client
-    _client = None
+    with _lock:
+        _client = None
 
 
 # Backward compatibility alias

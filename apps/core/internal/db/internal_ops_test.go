@@ -87,7 +87,10 @@ func createTestFounder(t *testing.T, db *sql.DB, ctx context.Context, slackUserI
 // cleanupFounder deletes a test founder (cascades to child tables)
 func cleanupFounder(t *testing.T, db *sql.DB, ctx context.Context, slackUserID string) {
 	t.Helper()
-	_, _ = db.ExecContext(ctx, "DELETE FROM founders WHERE slack_user_id = $1", slackUserID)
+	_, err := db.ExecContext(ctx, "DELETE FROM founders WHERE slack_user_id = $1", slackUserID)
+	if err != nil {
+		t.Fatalf("cleanupFounder: failed to delete founder %s: %v", slackUserID, err)
+	}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -112,11 +115,14 @@ func TestFinanceOpsCRUD(t *testing.T) {
 		"amount":     5000.00,
 		"vendor":     "AWS",
 	}
-	payloadJSON, _ := json.Marshal(payload)
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("json marshal payload: %v", err)
+	}
 
 	// CREATE: Insert a finance_ops row
 	var createdID uuid.UUID
-	err := db.QueryRowContext(ctx, `
+	err = db.QueryRowContext(ctx, `
 		INSERT INTO finance_ops (founder_id, task_type, payload, status, due_date)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id
@@ -241,11 +247,14 @@ func TestPeopleOpsCRUD(t *testing.T) {
 		"department": "Engineering",
 		"start_date": "2026-03-20",
 	}
-	payloadJSON, _ := json.Marshal(payload)
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("json marshal payload: %v", err)
+	}
 
 	// CREATE
 	var createdID uuid.UUID
-	err := db.QueryRowContext(ctx, `
+	err = db.QueryRowContext(ctx, `
 		INSERT INTO people_ops (founder_id, event_type, employee_name, payload, status, event_date)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
@@ -350,11 +359,14 @@ func TestLegalOpsCRUD(t *testing.T) {
 		"counterparty": "Acme Corp",
 		"value":        100000,
 	}
-	payloadJSON, _ := json.Marshal(payload)
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("json marshal payload: %v", err)
+	}
 
 	// CREATE
 	var createdID uuid.UUID
-	err := db.QueryRowContext(ctx, `
+	err = db.QueryRowContext(ctx, `
 		INSERT INTO legal_ops (founder_id, document_type, document_name, expiry_date, esign_status, payload, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id
@@ -471,11 +483,14 @@ func TestITAssetsCRUD(t *testing.T) {
 		"seats":  5,
 		"plan":   "Enterprise",
 	}
-	payloadJSON, _ := json.Marshal(payload)
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("json marshal payload: %v", err)
+	}
 
 	// CREATE
 	var createdID uuid.UUID
-	err := db.QueryRowContext(ctx, `
+	err = db.QueryRowContext(ctx, `
 		INSERT INTO it_assets (founder_id, asset_type, asset_name, monthly_cost, last_used_date, renewal_date, payload, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id
@@ -588,16 +603,22 @@ func TestAdminEventsCRUD(t *testing.T) {
 		"location":  "Zoom",
 		"organizer": "CEO",
 	}
-	payloadJSON, _ := json.Marshal(payload)
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("json marshal payload: %v", err)
+	}
 	actionItems := []map[string]interface{}{
 		{"task": "Review Q1 metrics", "assignee": "CFO"},
 		{"task": "Update hiring plan", "assignee": "CTO"},
 	}
-	actionItemsJSON, _ := json.Marshal(actionItems)
+	actionItemsJSON, err := json.Marshal(actionItems)
+	if err != nil {
+		t.Fatalf("json marshal action items: %v", err)
+	}
 
 	// CREATE
 	var createdID uuid.UUID
-	err := db.QueryRowContext(ctx, `
+	err = db.QueryRowContext(ctx, `
 		INSERT INTO admin_events (founder_id, event_type, title, payload, meeting_date, action_items, sop_reference)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id

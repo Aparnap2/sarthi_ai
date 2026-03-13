@@ -21,6 +21,7 @@ type AdminEvent struct {
 	MeetingDate  sql.NullTime          `json:"meeting_date"`
 	ActionItems  pqtype.NullRawMessage `json:"action_items"`
 	SopReference sql.NullString        `json:"sop_reference"`
+	DeletedAt    sql.NullTime          `json:"deleted_at"`
 	CreatedAt    sql.NullTime          `json:"created_at"`
 	UpdatedAt    sql.NullTime          `json:"updated_at"`
 }
@@ -58,6 +59,7 @@ type FinanceOp struct {
 	Status      sql.NullString  `json:"status"`
 	DueDate     sql.NullTime    `json:"due_date"`
 	CompletedAt sql.NullTime    `json:"completed_at"`
+	DeletedAt   sql.NullTime    `json:"deleted_at"`
 	CreatedAt   sql.NullTime    `json:"created_at"`
 	UpdatedAt   sql.NullTime    `json:"updated_at"`
 }
@@ -85,6 +87,7 @@ type ItAsset struct {
 	RenewalDate  sql.NullTime    `json:"renewal_date"`
 	Payload      json.RawMessage `json:"payload"`
 	Status       sql.NullString  `json:"status"`
+	DeletedAt    sql.NullTime    `json:"deleted_at"`
 	CreatedAt    sql.NullTime    `json:"created_at"`
 	UpdatedAt    sql.NullTime    `json:"updated_at"`
 }
@@ -98,6 +101,7 @@ type LegalOp struct {
 	EsignStatus  sql.NullString  `json:"esign_status"`
 	Payload      json.RawMessage `json:"payload"`
 	Status       sql.NullString  `json:"status"`
+	DeletedAt    sql.NullTime    `json:"deleted_at"`
 	CreatedAt    sql.NullTime    `json:"created_at"`
 	UpdatedAt    sql.NullTime    `json:"updated_at"`
 }
@@ -125,6 +129,7 @@ type PeopleOp struct {
 	Status       sql.NullString  `json:"status"`
 	EventDate    sql.NullTime    `json:"event_date"`
 	CompletedAt  sql.NullTime    `json:"completed_at"`
+	DeletedAt    sql.NullTime    `json:"deleted_at"`
 	CreatedAt    sql.NullTime    `json:"created_at"`
 	UpdatedAt    sql.NullTime    `json:"updated_at"`
 }
