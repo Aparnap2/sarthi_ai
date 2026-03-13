@@ -675,3 +675,417 @@ func (a *Activities) SendToDLQ(ctx context.Context, input SendToDLQInput) error 
 func SendToDLQ(ctx context.Context, input SendToDLQInput) error {
 	return globalActivities.SendToDLQ(ctx, input)
 }
+
+// =============================================================================
+// Internal Ops Desk Activities
+// =============================================================================
+
+// RouteInternalEventInput is input for routing internal events to desks.
+type RouteInternalEventInput struct {
+	EventType    string                 `json:"event_type"`
+	EventPayload map[string]interface{} `json:"event_payload"`
+}
+
+// RouteInternalEventOutput is output from event routing.
+type RouteInternalEventOutput struct {
+	DeskType  *DeskType          `json:"desk_type"`
+	HITLLevel *HITLClassification `json:"hitl_level"`
+}
+
+// RouteInternalEvent routes events to appropriate internal ops desk.
+// Uses deterministic routing based on event type.
+func (a *Activities) RouteInternalEvent(ctx context.Context, input RouteInternalEventInput) (*RouteInternalEventOutput, error) {
+	a.logger.Info("routing internal event", "event_type", input.EventType)
+
+	// Deterministic routing map (mirrors Python CoS agent)
+	routingMap := map[string]DeskType{
+		// Finance Desk events
+		"bank_statement":        DeskFinance,
+		"transaction_categorized": DeskFinance,
+		"invoice_overdue":       DeskFinance,
+		"payment_received":      DeskFinance,
+		"payroll_due":           DeskFinance,
+		"reconciliation_needed": DeskFinance,
+		"ar_reminder":           DeskFinance,
+		"ap_due":                DeskFinance,
+		"payroll_prep":          DeskFinance,
+
+		// People Desk events
+		"new_hire":            DeskPeople,
+		"employee_onboarding": DeskPeople,
+		"leave_request":       DeskPeople,
+		"appraisal_due":       DeskPeople,
+		"offboarding":         DeskPeople,
+		"hiring_request":      DeskPeople,
+		"interview_scheduled": DeskPeople,
+
+		// Legal Desk events
+		"contract_uploaded": DeskLegal,
+		"contract_expiry":   DeskLegal,
+		"compliance_due":    DeskLegal,
+		"regulatory_filing": DeskLegal,
+		"policy_update":     DeskLegal,
+
+		// Intelligence Desk events
+		"revenue_anomaly":        DeskIntelligence,
+		"churn_detected":         DeskIntelligence,
+		"unit_economics_review":  DeskIntelligence,
+		"ops_anomaly":            DeskIntelligence,
+		"policy_change_detected": DeskIntelligence,
+
+		// IT Desk events
+		"saas_subscription": DeskIT,
+		"tool_unused":       DeskIT,
+		"access_review_due": DeskIT,
+		"security_audit":    DeskIT,
+		"cost_optimization": DeskIT,
+
+		// Admin Desk events
+		"meeting_transcript":   DeskAdmin,
+		"calendar_management":  DeskAdmin,
+		"sop_extraction":       DeskAdmin,
+		"documentation_update": DeskAdmin,
+		"knowledge_capture":    DeskAdmin,
+	}
+
+	desk, exists := routingMap[input.EventType]
+	if !exists {
+		// Default to admin for unknown events
+		desk = DeskAdmin
+	}
+
+	// Determine HITL level based on event type and payload
+	hitlLevel := determineHITLLevel(input.EventType, input.EventPayload)
+
+	a.logger.Info("event routed", "desk", desk, "hitl_level", hitlLevel)
+
+	return &RouteInternalEventOutput{
+		DeskType:  &desk,
+		HITLLevel: &hitlLevel,
+	}, nil
+}
+
+// determineHITLLevel determines the human-in-the-loop classification level.
+func determineHITLLevel(eventType string, payload map[string]interface{}) HITLClassification {
+	// HIGH: Financial transactions > threshold, legal contracts, security issues
+	highEvents := map[string]bool{
+		"bank_statement":     true,
+		"contract_uploaded":  true,
+		"security_audit":     true,
+		"compliance_due":     true,
+		"regulatory_filing":  true,
+	}
+
+	// MEDIUM: Payroll, hiring, anomalies
+	mediumEvents := map[string]bool{
+		"payroll_due":           true,
+		"hiring_request":        true,
+		"revenue_anomaly":       true,
+		"churn_detected":        true,
+		"invoice_overdue":       true,
+		"contract_expiry":       true,
+	}
+
+	if highEvents[eventType] {
+		return HITLHigh
+	}
+
+	if mediumEvents[eventType] {
+		return HITLMedium
+	}
+
+	return HITLLow
+}
+
+// ProcessFinanceOpsInput is input for Finance Desk processing.
+type ProcessFinanceOpsInput struct {
+	FounderID    string                 `json:"founder_id"`
+	EventType    string                 `json:"event_type"`
+	EventPayload map[string]interface{} `json:"event_payload"`
+}
+
+// ProcessFinanceOpsOutput is output from Finance Desk processing.
+type ProcessFinanceOpsOutput struct {
+	Result       map[string]interface{} `json:"result"`
+	TasksCreated []string               `json:"tasks_created"`
+	AlertsSent   []string               `json:"alerts_sent"`
+}
+
+// ProcessFinanceOps processes events through Finance Desk (gRPC to Python).
+func (a *Activities) ProcessFinanceOps(ctx context.Context, input ProcessFinanceOpsInput) (*ProcessFinanceOpsOutput, error) {
+	a.logger.Info("processing finance ops",
+		"founder_id", input.FounderID,
+		"event_type", input.EventType,
+	)
+
+	// TODO: Call Python Finance Desk agent via gRPC when proto is updated
+	// For now, return stub result
+	return &ProcessFinanceOpsOutput{
+		Result: map[string]interface{}{
+			"status":  "processed",
+			"desk":    "finance",
+			"message": "Finance desk processing complete",
+		},
+		TasksCreated: []string{},
+		AlertsSent:   []string{},
+	}, nil
+}
+
+// ProcessPeopleOpsInput is input for People Desk processing.
+type ProcessPeopleOpsInput struct {
+	FounderID    string                 `json:"founder_id"`
+	EventType    string                 `json:"event_type"`
+	EventPayload map[string]interface{} `json:"event_payload"`
+}
+
+// ProcessPeopleOpsOutput is output from People Desk processing.
+type ProcessPeopleOpsOutput struct {
+	Result       map[string]interface{} `json:"result"`
+	TasksCreated []string               `json:"tasks_created"`
+	AlertsSent   []string               `json:"alerts_sent"`
+}
+
+// ProcessPeopleOps processes events through People Desk (gRPC to Python).
+func (a *Activities) ProcessPeopleOps(ctx context.Context, input ProcessPeopleOpsInput) (*ProcessPeopleOpsOutput, error) {
+	a.logger.Info("processing people ops",
+		"founder_id", input.FounderID,
+		"event_type", input.EventType,
+	)
+
+	// TODO: Call Python People Desk agent via gRPC when proto is updated
+	return &ProcessPeopleOpsOutput{
+		Result: map[string]interface{}{
+			"status":  "processed",
+			"desk":    "people",
+			"message": "People desk processing complete",
+		},
+		TasksCreated: []string{},
+		AlertsSent:   []string{},
+	}, nil
+}
+
+// ProcessLegalOps processes events through Legal Desk (gRPC to Python).
+func (a *Activities) ProcessLegalOps(ctx context.Context, input ProcessLegalOpsInput) (*ProcessLegalOpsOutput, error) {
+	a.logger.Info("processing legal ops",
+		"founder_id", input.FounderID,
+		"event_type", input.EventType,
+	)
+
+	// TODO: Call Python Legal Desk agent via gRPC when proto is updated
+	return &ProcessLegalOpsOutput{
+		Result: map[string]interface{}{
+			"status":  "processed",
+			"desk":    "legal",
+			"message": "Legal desk processing complete",
+		},
+		TasksCreated: []string{},
+		AlertsSent:   []string{},
+	}, nil
+}
+
+// ProcessLegalOpsInput is input for Legal Desk processing.
+type ProcessLegalOpsInput struct {
+	FounderID    string                 `json:"founder_id"`
+	EventType    string                 `json:"event_type"`
+	EventPayload map[string]interface{} `json:"event_payload"`
+}
+
+// ProcessLegalOpsOutput is output from Legal Desk processing.
+type ProcessLegalOpsOutput struct {
+	Result       map[string]interface{} `json:"result"`
+	TasksCreated []string               `json:"tasks_created"`
+	AlertsSent   []string               `json:"alerts_sent"`
+}
+
+// ProcessIntelligenceOps processes events through Intelligence Desk (gRPC to Python).
+func (a *Activities) ProcessIntelligenceOps(ctx context.Context, input ProcessIntelligenceOpsInput) (*ProcessIntelligenceOpsOutput, error) {
+	a.logger.Info("processing intelligence ops",
+		"founder_id", input.FounderID,
+		"event_type", input.EventType,
+	)
+
+	// TODO: Call Python Intelligence Desk agent via gRPC when proto is updated
+	return &ProcessIntelligenceOpsOutput{
+		Result: map[string]interface{}{
+			"status":  "processed",
+			"desk":    "intelligence",
+			"message": "Intelligence desk processing complete",
+		},
+		TasksCreated: []string{},
+		AlertsSent:   []string{},
+	}, nil
+}
+
+// ProcessIntelligenceOpsInput is input for Intelligence Desk processing.
+type ProcessIntelligenceOpsInput struct {
+	FounderID    string                 `json:"founder_id"`
+	EventType    string                 `json:"event_type"`
+	EventPayload map[string]interface{} `json:"event_payload"`
+}
+
+// ProcessIntelligenceOpsOutput is output from Intelligence Desk processing.
+type ProcessIntelligenceOpsOutput struct {
+	Result       map[string]interface{} `json:"result"`
+	TasksCreated []string               `json:"tasks_created"`
+	AlertsSent   []string               `json:"alerts_sent"`
+}
+
+// ProcessITOps processes events through IT Desk (gRPC to Python).
+func (a *Activities) ProcessITOps(ctx context.Context, input ProcessITOpsInput) (*ProcessITOpsOutput, error) {
+	a.logger.Info("processing IT ops",
+		"founder_id", input.FounderID,
+		"event_type", input.EventType,
+	)
+
+	// TODO: Call Python IT Desk agent via gRPC when proto is updated
+	return &ProcessITOpsOutput{
+		Result: map[string]interface{}{
+			"status":  "processed",
+			"desk":    "it",
+			"message": "IT desk processing complete",
+		},
+		TasksCreated: []string{},
+		AlertsSent:   []string{},
+	}, nil
+}
+
+// ProcessITOpsInput is input for IT Desk processing.
+type ProcessITOpsInput struct {
+	FounderID    string                 `json:"founder_id"`
+	EventType    string                 `json:"event_type"`
+	EventPayload map[string]interface{} `json:"event_payload"`
+}
+
+// ProcessITOpsOutput is output from IT Desk processing.
+type ProcessITOpsOutput struct {
+	Result       map[string]interface{} `json:"result"`
+	TasksCreated []string               `json:"tasks_created"`
+	AlertsSent   []string               `json:"alerts_sent"`
+}
+
+// ProcessAdminOps processes events through Admin Desk (gRPC to Python).
+func (a *Activities) ProcessAdminOps(ctx context.Context, input ProcessAdminOpsInput) (*ProcessAdminOpsOutput, error) {
+	a.logger.Info("processing admin ops",
+		"founder_id", input.FounderID,
+		"event_type", input.EventType,
+	)
+
+	// TODO: Call Python Admin Desk agent via gRPC when proto is updated
+	return &ProcessAdminOpsOutput{
+		Result: map[string]interface{}{
+			"status":  "processed",
+			"desk":    "admin",
+			"message": "Admin desk processing complete",
+		},
+		TasksCreated: []string{},
+		AlertsSent:   []string{},
+	}, nil
+}
+
+// ProcessAdminOpsInput is input for Admin Desk processing.
+type ProcessAdminOpsInput struct {
+	FounderID    string                 `json:"founder_id"`
+	EventType    string                 `json:"event_type"`
+	EventPayload map[string]interface{} `json:"event_payload"`
+}
+
+// ProcessAdminOpsOutput is output from Admin Desk processing.
+type ProcessAdminOpsOutput struct {
+	Result       map[string]interface{} `json:"result"`
+	TasksCreated []string               `json:"tasks_created"`
+	AlertsSent   []string               `json:"alerts_sent"`
+}
+
+// callPythonDeskAgent calls Python desk agent via gRPC.
+// TODO: Implement when proto is updated with ProcessDeskEvent method
+func (a *Activities) callPythonDeskAgent(ctx context.Context, deskType string, input interface{}) (map[string]interface{}, error) {
+	// Stub implementation - returns mock result
+	return map[string]interface{}{
+		"status":  "processed",
+		"desk":    deskType,
+		"message": "Desk processing complete (stub)",
+	}, nil
+}
+
+// PersistInternalOpsResultInput is input for persisting internal ops results.
+type PersistInternalOpsResultInput struct {
+	FounderID    string                 `json:"founder_id"`
+	EventType    string                 `json:"event_type"`
+	DeskType     string                 `json:"desk_type"`
+	Result       map[string]interface{} `json:"result"`
+	TasksCreated []string               `json:"tasks_created"`
+	HITLLevel    string                 `json:"hitl_level"`
+}
+
+// PersistInternalOpsResult persists internal ops results to database.
+func (a *Activities) PersistInternalOpsResult(ctx context.Context, input PersistInternalOpsResultInput) error {
+	a.logger.Info("persisting internal ops result",
+		"founder_id", input.FounderID,
+		"desk_type", input.DeskType,
+	)
+
+	// TODO: Implement database persistence
+	// This would insert into appropriate desk table based on desk_type
+	// - finance_ops, people_ops, legal_ops, it_assets, admin_events
+
+	return nil
+}
+
+// CreateHITLRecordInput is input for creating HITL records.
+type CreateHITLRecordInput struct {
+	FounderID  string                 `json:"founder_id"`
+	EventType  string                 `json:"event_type"`
+	DeskType   string                 `json:"desk_type"`
+	HITLLevel  string                 `json:"hitl_level"`
+	Result     map[string]interface{} `json:"result"`
+	ChannelID  string                 `json:"channel_id"`
+}
+
+// CreateHITLRecord creates a HITL approval record.
+func (a *Activities) CreateHITLRecord(ctx context.Context, input CreateHITLRecordInput) error {
+	a.logger.Info("creating HITL record",
+		"founder_id", input.FounderID,
+		"desk_type", input.DeskType,
+		"hitl_level", input.HITLLevel,
+	)
+
+	// TODO: Implement database insert for HITL record
+	return nil
+}
+
+// Standalone activity functions for Temporal registration
+func RouteInternalEvent(ctx context.Context, input RouteInternalEventInput) (*RouteInternalEventOutput, error) {
+	return globalActivities.RouteInternalEvent(ctx, input)
+}
+
+func ProcessFinanceOps(ctx context.Context, input ProcessFinanceOpsInput) (*ProcessFinanceOpsOutput, error) {
+	return globalActivities.ProcessFinanceOps(ctx, input)
+}
+
+func ProcessPeopleOps(ctx context.Context, input ProcessPeopleOpsInput) (*ProcessPeopleOpsOutput, error) {
+	return globalActivities.ProcessPeopleOps(ctx, input)
+}
+
+func ProcessLegalOps(ctx context.Context, input ProcessLegalOpsInput) (*ProcessLegalOpsOutput, error) {
+	return globalActivities.ProcessLegalOps(ctx, input)
+}
+
+func ProcessIntelligenceOps(ctx context.Context, input ProcessIntelligenceOpsInput) (*ProcessIntelligenceOpsOutput, error) {
+	return globalActivities.ProcessIntelligenceOps(ctx, input)
+}
+
+func ProcessITOps(ctx context.Context, input ProcessITOpsInput) (*ProcessITOpsOutput, error) {
+	return globalActivities.ProcessITOps(ctx, input)
+}
+
+func ProcessAdminOps(ctx context.Context, input ProcessAdminOpsInput) (*ProcessAdminOpsOutput, error) {
+	return globalActivities.ProcessAdminOps(ctx, input)
+}
+
+func PersistInternalOpsResult(ctx context.Context, input PersistInternalOpsResultInput) error {
+	return globalActivities.PersistInternalOpsResult(ctx, input)
+}
+
+func CreateHITLRecord(ctx context.Context, input CreateHITLRecordInput) error {
+	return globalActivities.CreateHITLRecord(ctx, input)
+}

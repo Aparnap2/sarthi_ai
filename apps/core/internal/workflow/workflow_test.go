@@ -68,16 +68,16 @@ func (s *WorkflowTestSuite) TestFeedbackWorkflow_HappyPath() {
 		Return(nil)
 
 	// Send approve signal after 1 second (simulated)
-	s.env.RegisterDelayedCallback(1*time.Second, func() {
+	s.env.RegisterDelayedCallback(func() {
 		s.env.SignalWorkflow("user-action", "approve")
-	})
+	}, 1*time.Second)
 
 	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
 		Text:      "DB pool exhausted in prod",
 		Source:    "discord",
 		UserID:    "test-user",
 		ChannelID: "test-channel",
-	})
+	}, 1*time.Second)
 
 	s.True(s.env.IsWorkflowCompleted())
 	s.NoError(s.env.GetWorkflowError())
@@ -91,7 +91,7 @@ func (s *WorkflowTestSuite) TestFeedbackWorkflow_DuplicateSkips() {
 
 	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
 		Text: "Same bug again", Source: "discord", UserID: "u1",
-	})
+	}, 1*time.Second)
 
 	s.True(s.env.IsWorkflowCompleted())
 	s.NoError(s.env.GetWorkflowError())
@@ -108,13 +108,13 @@ func (s *WorkflowTestSuite) TestFeedbackWorkflow_RejectSignal() {
 	s.env.OnActivity(workflow.SendDiscordApproval, mock.Anything, mock.Anything).
 		Return(nil)
 
-	s.env.RegisterDelayedCallback(1*time.Second, func() {
+	s.env.RegisterDelayedCallback(func() {
 		s.env.SignalWorkflow("user-action", "reject")
-	})
+	}, 1*time.Second)
 
 	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
 		Text: "Would be nice to have dark mode", Source: "discord", UserID: "u2",
-	})
+	}, 1*time.Second)
 
 	s.True(s.env.IsWorkflowCompleted())
 	s.NoError(s.env.GetWorkflowError())
@@ -131,13 +131,13 @@ func (s *WorkflowTestSuite) TestFeedbackWorkflow_ApproveSignal() {
 	s.env.OnActivity(workflow.SendDiscordApproval, mock.Anything, mock.Anything).
 		Return(nil)
 
-	s.env.RegisterDelayedCallback(1*time.Second, func() {
+	s.env.RegisterDelayedCallback(func() {
 		s.env.SignalWorkflow("user-action", "approve")
-	})
+	}, 1*time.Second)
 
 	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
 		Text: "App crashes on login", Source: "discord", UserID: "u3",
-	})
+	}, 1*time.Second)
 
 	s.True(s.env.IsWorkflowCompleted())
 	s.NoError(s.env.GetWorkflowError())
@@ -156,7 +156,7 @@ func (s *WorkflowTestSuite) TestFeedbackWorkflow_TimeoutPath() {
 
 	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
 		Text: "Minor alignment issue", Source: "discord", UserID: "u4",
-	})
+	}, 1*time.Second)
 
 	s.True(s.env.IsWorkflowCompleted())
 	s.NoError(s.env.GetWorkflowError())
@@ -173,18 +173,18 @@ func (s *WorkflowTestSuite) TestFeedbackWorkflow_ActivityRetry() {
 				return workflow.AnalyzeFeedbackOutput{}, errors.New("transient error")
 			}
 			return workflow.AnalyzeFeedbackOutput{IsDuplicate: false, Severity: "medium"}, nil
-		})
+		}, 1*time.Second)
 
 	s.env.OnActivity(workflow.SendDiscordApproval, mock.Anything, mock.Anything).
 		Return(nil)
 
-	s.env.RegisterDelayedCallback(1*time.Second, func() {
+	s.env.RegisterDelayedCallback(func() {
 		s.env.SignalWorkflow("user-action", "reject")
-	})
+	}, 1*time.Second)
 
 	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
 		Text: "Retry test", Source: "discord", UserID: "u5",
-	})
+	}, 1*time.Second)
 
 	s.True(s.env.IsWorkflowCompleted())
 	s.NoError(s.env.GetWorkflowError())
@@ -200,7 +200,7 @@ func (s *WorkflowTestSuite) TestFeedbackWorkflow_NonRetryableError() {
 
 	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
 		Text: "Auth error test", Source: "discord", UserID: "u6",
-	})
+	}, 1*time.Second)
 
 	s.True(s.env.IsWorkflowCompleted())
 	s.Error(s.env.GetWorkflowError())
@@ -271,9 +271,9 @@ func (s *WorkflowTestSuite) TestFeedbackWorkflow_SignalAfterTimeout() {
 
 	s.env.SetTestTimeout(10 * time.Minute)
 
-	s.env.RegisterDelayedCallback(6*time.Minute, func() {
+	s.env.RegisterDelayedCallback(func() {
 		s.env.SignalWorkflow("user-action", "approve")
-	})
+	}, 6*time.Minute)
 
 	s.env.ExecuteWorkflow(workflow.FeedbackWorkflow, workflow.FeedbackInput{
 		Text: "Late signal test", Source: "discord", UserID: "u7",

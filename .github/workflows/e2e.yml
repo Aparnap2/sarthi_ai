@@ -1,0 +1,136 @@
+name: E2E - Full Stack Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test (staging/production)'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-tests:
+    name: E2E Full Stack Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ github.event.inputs.environment }}
+    
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sarthi_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+      
+      temporal:
+        image: temporalio/auto-setup:latest
+        ports:
+          - 7233:7233
+        env:
+          DB: postgresql
+          DB_PORT: 5432
+          POSTGRES_USER: temporal
+          POSTGRES_PWD: temporal
+          POSTGRES_SEEDS: postgres
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      
+      - name: Install Python dependencies
+        working-directory: ./apps/ai
+        run: uv sync --dev
+      
+      - name: Install Go dependencies
+        working-directory: ./apps/core
+        run: go mod download
+      
+      - name: Start infrastructure
+        run: |
+          echo "Starting infrastructure services..."
+          docker ps
+      
+      - name: Run Python E2E tests
+        working-directory: ./apps/ai
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sarthi_e2e
+          QDRANT_URL: http://localhost:6333
+        run: |
+          uv run pytest tests/test_e2e_internal_ops.py \
+            -v \
+            --tb=long \
+            --timeout=120 \
+            -m "not skipif"
+      
+      - name: Run Go workflow tests
+        working-directory: ./apps/core
+        env:
+          TEMPORAL_HOST: localhost:7233
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sarthi_e2e
+        run: |
+          go test ./internal/workflow/... \
+            -v \
+            -timeout=5m \
+            -skip=TestFeedbackWorkflow_ConcurrentWorkflows
+      
+      - name: Generate test report
+        if: always()
+        working-directory: ./apps/ai
+        run: |
+          uv run pytest tests/test_e2e_internal_ops.py \
+            -v \
+            --tb=no \
+            --quiet \
+            --terminal-style=short \
+            > e2e_report.txt || true
+      
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-report
+          path: ./apps/ai/e2e_report.txt
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::E2E tests failed. Check the logs for details."
