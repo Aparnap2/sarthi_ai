@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -14,13 +15,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDB connection string - matches docker-compose.yml
-var testDBConn = "postgres://iterateswarm:iterateswarm@localhost:5433/iterateswarm?sslmode=disable"
-
-// getTestDB returns a test database connection
+// getTestDB returns a test database connection from environment variables.
+// Priority: TEST_DATABASE_URL > DATABASE_URL > default localhost:5432
 func getTestDB(t *testing.T) *sql.DB {
 	t.Helper()
-	db, err := sql.Open("postgres", testDBConn)
+
+	// Get connection string from environment
+	connStr := os.Getenv("TEST_DATABASE_URL")
+	if connStr == "" {
+		connStr = os.Getenv("DATABASE_URL")
+	}
+	if connStr == "" {
+		// Fallback default for local development
+		connStr = "postgres://iterateswarm:iterateswarm@localhost:5432/iterateswarm?sslmode=disable"
+	}
+
+	db, err := sql.Open("postgres", connStr)
 	require.NoError(t, err, "Failed to open database connection")
 
 	// Verify connection
@@ -30,9 +40,30 @@ func getTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
-// cleanupTable deletes all test data from a table
+// cleanupTable deletes all test data from a table (whitelist enforced)
 func cleanupTable(t *testing.T, db *sql.DB, table string) {
 	t.Helper()
+
+	// Whitelist of allowed tables for cleanup
+	allowedTables := map[string]bool{
+		"finance_ops":   true,
+		"people_ops":    true,
+		"legal_ops":     true,
+		"it_assets":     true,
+		"admin_events":  true,
+		"founders":      true,
+		"trigger_log":   true,
+		"memory_snapshot": true,
+		"weekly_reflection": true,
+		"company_context": true,
+		"commitment":    true,
+	}
+
+	if !allowedTables[table] {
+		t.Fatalf("Table %q not in allowed list - refusing to DELETE FROM unknown table", table)
+		return
+	}
+
 	_, err := db.Exec(fmt.Sprintf("DELETE FROM %s WHERE 1=1", table))
 	if err != nil {
 		t.Logf("Warning: Failed to cleanup table %s: %v", table, err)

@@ -138,8 +138,11 @@ ok      iterateswarm-core/internal/db   0.222s
 ## 🧪 TEST EXECUTION LOG
 
 ```bash
-# Run Phase 2 tests
-cd /home/aparna/Desktop/iterate_swarm/apps/core
+# Run Phase 2 tests (from project root)
+cd apps/core
+go test ./internal/db -run "TestFinanceOps|TestPeopleOps|TestLegalOps|TestITAssets|TestAdminEvents|TestInternalOps" -v
+
+# Or run from project root:
 go test ./internal/db -run "TestFinanceOps|TestPeopleOps|TestLegalOps|TestITAssets|TestAdminEvents|TestInternalOps" -v
 
 # Output:

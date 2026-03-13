@@ -321,7 +321,7 @@ docker compose ps
 ### Run Tests
 
 ```bash
-# All tests (~189 target)
+# All tests
 cd apps/ai
 uv run pytest tests/ -v --timeout=120
 
@@ -329,12 +329,15 @@ uv run pytest tests/ -v --timeout=120
 uv run pytest tests/test_sarthi_tdd.py -v           # TDD tests (~80)
 uv run pytest tests/test_e2e_saarathi.py -v         # E2E flows (20)
 uv run pytest tests/test_llm_eval.py -v             # LLM evals (15)
-uv run pytest tests/test_finance_desk.py -v         # Finance Desk (25)
-uv run pytest tests/test_people_desk.py -v          # People Desk (12)
-uv run pytest tests/test_legal_desk.py -v           # Legal Desk (12)
-uv run pytest tests/test_intelligence_desk.py -v    # Intelligence Desk (15)
-uv run pytest tests/test_it_desk.py -v              # IT Desk (10)
-uv run pytest tests/test_admin_desk.py -v           # Admin Desk (12)
+uv run pytest tests/test_llm_connectivity.py -v     # LLM connectivity (4)
+
+# Phase 3 Tests (TBD - Not Yet Available)
+# uv run pytest tests/test_finance_desk.py -v         # Finance Desk (25) - Phase 3
+# uv run pytest tests/test_people_desk.py -v          # People Desk (12) - Phase 3
+# uv run pytest tests/test_legal_desk.py -v           # Legal Desk (12) - Phase 3
+# uv run pytest tests/test_intelligence_desk.py -v    # Intelligence Desk (15) - Phase 3
+# uv run pytest tests/test_it_desk.py -v              # IT Desk (10) - Phase 3
+# uv run pytest tests/test_admin_desk.py -v           # Admin Desk (12) - Phase 3
 
 # With coverage
 uv run pytest tests/ --cov=src --cov-report=html
@@ -345,9 +348,9 @@ uv run pytest tests/ --cov=src --cov-report=html
 2. **Memory Agent** (22 tests) — Embeddings, Qdrant upsert, Neo4j graph, semantic search
 3. **Chief of Staff** (8 tests) — Plain language, correct routing, ToneFilter fidelity
 4. **Bank Parser** (8 tests) — HDFC/ICICI/SBI CSV, Docling accurate mode, multi-format
-5. **Finance Desk** (25 tests) — CFO, Bookkeeper, AR/AP, Payroll agents
-6. **People Desk** (12 tests) — HR Coordinator, Internal Recruiter
-7. **Legal Desk** (12 tests) — Contracts, Compliance Tracker
+5. **Finance Desk** (25 tests) — CFO, Bookkeeper, AR/AP, Payroll agents - Phase 3 TBD
+6. **People Desk** (12 tests) — HR Coordinator, Internal Recruiter - Phase 3 TBD
+7. **Legal Desk** (12 tests) — Contracts, Compliance Tracker - Phase 3 TBD
 8. **Intelligence Desk** (15 tests) — BI Analyst, Policy Watcher
 9. **IT & Tools Desk** (10 tests) — IT Admin
 10. **Admin Desk** (12 tests) — EA, Knowledge Manager

@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sqlc-dev/pqtype"
-	"json"
 )
 
 const deleteAdminEvent = `-- name: DeleteAdminEvent :exec
@@ -708,7 +707,7 @@ const listLegalOpsExpiringSoon = `-- name: ListLegalOpsExpiringSoon :many
 SELECT id, founder_id, document_type, document_name, expiry_date, esign_status, payload, status, created_at, updated_at FROM legal_ops
 WHERE expiry_date IS NOT NULL
   AND expiry_date <= NOW() + INTERVAL '30 days'
-  AND esign_status != 'expired'
+  AND esign_status IS DISTINCT FROM 'expired'
 ORDER BY expiry_date ASC
 `
 
@@ -875,7 +874,11 @@ func (q *Queries) UpdateAdminEvent(ctx context.Context, arg UpdateAdminEventPara
 const updateFinanceOpStatus = `-- name: UpdateFinanceOpStatus :one
 UPDATE finance_ops
 SET status = $2,
-    completed_at = CASE WHEN $2 IN ('completed', 'auto_executed') THEN NOW() ELSE completed_at END,
+    completed_at = CASE 
+        WHEN $2 IN ('completed', 'auto_executed') AND completed_at IS NULL THEN NOW()
+        WHEN $2 NOT IN ('completed', 'auto_executed') THEN NULL
+        ELSE completed_at
+    END,
     updated_at = NOW()
 WHERE id = $1
 RETURNING id, founder_id, task_type, payload, status, due_date, completed_at, created_at, updated_at

@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sqlc-dev/pqtype"
-	"json"
 )
 
 type AdminEvent struct {

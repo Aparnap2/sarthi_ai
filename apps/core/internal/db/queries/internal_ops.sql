@@ -20,7 +20,11 @@ ORDER BY due_date ASC;
 -- name: UpdateFinanceOpStatus :one
 UPDATE finance_ops
 SET status = $2,
-    completed_at = CASE WHEN $2 IN ('completed', 'auto_executed') THEN NOW() ELSE completed_at END,
+    completed_at = CASE 
+        WHEN $2 IN ('completed', 'auto_executed') AND completed_at IS NULL THEN NOW()
+        WHEN $2 NOT IN ('completed', 'auto_executed') THEN NULL
+        ELSE completed_at
+    END,
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;
@@ -76,7 +80,7 @@ ORDER BY created_at DESC;
 SELECT * FROM legal_ops
 WHERE expiry_date IS NOT NULL
   AND expiry_date <= NOW() + INTERVAL '30 days'
-  AND esign_status != 'expired'
+  AND esign_status IS DISTINCT FROM 'expired'
 ORDER BY expiry_date ASC;
 
 -- name: UpdateLegalOpStatus :one

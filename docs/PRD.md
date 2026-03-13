@@ -414,21 +414,22 @@ Not generic AI. Company-specific intelligence that compounds.
 # THE ONLY FILE WHERE THE LLM CLIENT IS CREATED.
 # Every agent imports from here. No exceptions. Ever.
 
-from openai import OpenAI   # ← ALWAYS. Never AzureOpenAI.
+from openai import AzureOpenAI   # ← ALWAYS for Azure. Use factory pattern.
 
-def get_llm_client() -> OpenAI:
-    return OpenAI(
-        base_url = os.environ["LLM_BASE_URL"],
-        api_key  = os.environ["LLM_API_KEY"],
+def get_llm_client() -> AzureOpenAI:
+    return AzureOpenAI(
+        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+        api_key=os.environ["AZURE_OPENAI_KEY"],
+        api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01"),
     )
 
-# Provider      LLM_BASE_URL
-# ──────────────────────────────────────────────────────
-# OpenRouter    https://openrouter.ai/api/v1   ← default
-# Azure OpenAI  https://{res}.openai.azure.com/openai/v1
-# OpenAI        https://api.openai.com/v1
-# Groq          https://api.groq.com/openai/v1
-# Ollama        http://localhost:11434/v1
+# Provider Configuration:
+# Set environment variables:
+#   - AZURE_OPENAI_ENDPOINT: https://{resource}.openai.azure.com/
+#   - AZURE_OPENAI_KEY: Your Azure OpenAI API key
+#   - AZURE_OPENAI_API_VERSION: API version (default: 2024-02-01)
+#   - AZURE_OPENAI_CHAT_DEPLOYMENT: Chat model deployment name
+#   - EMBEDDING_MODEL: Embedding model name (optional)
 ```
 
 ### Document Processing ($0 OSS)

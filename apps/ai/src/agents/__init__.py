@@ -11,6 +11,11 @@ V2 (dormant in actions/):
 - Triage Agent: Feedback classification
 """
 
+from src.config.llm_guard import scan_directory_for_violations
+
+# Run enforcement on import - let ImportError propagate
+scan_directory_for_violations("apps/ai/src/agents")
+
 from src.agents.memory_agent import MemoryAgent, FounderMemoryState, get_memory_agent
 from src.agents.trigger_agent import TriggerAgent, TriggerState, get_trigger_agent
 

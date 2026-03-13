@@ -10,45 +10,48 @@ Provider Configuration:
     - AZURE_OPENAI_KEY: Your Azure OpenAI API key
     - AZURE_OPENAI_API_VERSION: API version (default: 2024-02-01)
     - AZURE_OPENAI_CHAT_DEPLOYMENT: Chat model deployment name
-    - AZURE_OPENAI_EMBED_DEPLOYMENT: Embedding model deployment name
+    - EMBEDDING_MODEL: Embedding model name (optional, defaults to text-embedding-3-small)
 """
 import os
+import threading
 from openai import AzureOpenAI
 from typing import Optional
 
 
 # Cache for singleton client instance
 _client: Optional[AzureOpenAI] = None
+_lock = threading.Lock()
 
 
 def get_llm_client() -> AzureOpenAI:
     """
     Returns configured AzureOpenAI client.
-    
-    Uses singleton pattern to avoid recreating clients.
-    
+
+    Uses singleton pattern with thread-safe locking to avoid recreating clients.
+
     Environment variables required:
         - AZURE_OPENAI_ENDPOINT: Azure OpenAI endpoint URL
         - AZURE_OPENAI_KEY: Azure OpenAI API key
-    
+
     Environment variables optional:
         - AZURE_OPENAI_API_VERSION: API version (defaults to 2024-02-01)
-    
+
     Returns:
         AzureOpenAI: Configured client instance
-    
+
     Raises:
         KeyError: If required environment variables are missing
     """
     global _client
-    
-    if _client is None:
-        _client = AzureOpenAI(
-            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-            api_key=os.environ["AZURE_OPENAI_KEY"],
-            api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01"),
-        )
-    
+
+    with _lock:
+        if _client is None:
+            _client = AzureOpenAI(
+                azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+                api_key=os.environ["AZURE_OPENAI_KEY"],
+                api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01"),
+            )
+
     return _client
 
 
@@ -71,16 +74,16 @@ def get_chat_model() -> str:
 def get_embedding_model() -> str:
     """
     Returns embedding model name.
-    
+
     Environment variables:
-        - AZURE_OPENAI_EMBED_DEPLOYMENT: Embedding model deployment name (optional)
-    
+        - EMBEDDING_MODEL: Embedding model name (optional)
+
     Returns:
-        str: Embedding model deployment name (defaults to text-embedding-ada-002)
+        str: Embedding model name (defaults to text-embedding-3-small)
     """
     return os.environ.get(
-        "AZURE_OPENAI_EMBED_DEPLOYMENT",
-        "text-embedding-ada-002"
+        "EMBEDDING_MODEL",
+        "text-embedding-3-small"
     )
 
 
