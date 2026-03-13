@@ -1,38 +1,102 @@
 """
-Universal LLM client factory.
+Universal LLM client factory for Sarthi v4.2.
 
-Change LLM_BASE_URL in .env to swap provider. Zero code changes.
+ONE RULE: All LLM calls MUST go through this module.
+No direct AzureOpenAI instantiation in agents. Ever.
 
-Provider         LLM_BASE_URL
-────────────────────────────────────────────────────────────────
-OpenRouter       https://openrouter.ai/api/v1
-Azure OpenAI     https://{resource}.openai.azure.com/openai/v1
-OpenAI           https://api.openai.com/v1
-Groq             https://api.groq.com/openai/v1
-Ollama (local)   http://localhost:11434/v1
+Provider Configuration:
+    Set environment variables:
+    - AZURE_OPENAI_ENDPOINT: https://{resource}.openai.azure.com/
+    - AZURE_OPENAI_KEY: Your Azure OpenAI API key
+    - AZURE_OPENAI_API_VERSION: API version (default: 2024-02-01)
+    - AZURE_OPENAI_CHAT_DEPLOYMENT: Chat model deployment name
+    - EMBEDDING_MODEL: Embedding model name (optional, defaults to text-embedding-3-small)
 """
 import os
-from openai import OpenAI
+import threading
+from openai import AzureOpenAI
+from typing import Optional
 
 
-def get_llm_client() -> OpenAI:
+# Cache for singleton client instance
+_client: Optional[AzureOpenAI] = None
+_lock = threading.Lock()
+
+
+def get_llm_client() -> AzureOpenAI:
     """
-    Get a universal OpenAI-compatible LLM client.
+    Returns configured AzureOpenAI client.
+
+    Uses singleton pattern with thread-safe locking to avoid recreating clients.
+
+    Environment variables required:
+        - AZURE_OPENAI_ENDPOINT: Azure OpenAI endpoint URL
+        - AZURE_OPENAI_KEY: Azure OpenAI API key
+
+    Environment variables optional:
+        - AZURE_OPENAI_API_VERSION: API version (defaults to 2024-02-01)
 
     Returns:
-        OpenAI client configured with environment variables
+        AzureOpenAI: Configured client instance
+
+    Raises:
+        KeyError: If required environment variables are missing
     """
-    return OpenAI(
-        base_url=os.environ["LLM_BASE_URL"],
-        api_key=os.environ["LLM_API_KEY"],
+    global _client
+
+    with _lock:
+        if _client is None:
+            _client = AzureOpenAI(
+                azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+                api_key=os.environ["AZURE_OPENAI_KEY"],
+                api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01"),
+            )
+
+    return _client
+
+
+def get_chat_model() -> str:
+    """
+    Returns chat completion model name.
+    
+    Environment variables required:
+        - AZURE_OPENAI_CHAT_DEPLOYMENT: Chat model deployment name
+    
+    Returns:
+        str: Chat model deployment name
+    
+    Raises:
+        KeyError: If AZURE_OPENAI_CHAT_DEPLOYMENT is not set
+    """
+    return os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"]
+
+
+def get_embedding_model() -> str:
+    """
+    Returns embedding model name.
+
+    Environment variables:
+        - EMBEDDING_MODEL: Embedding model name (optional)
+
+    Returns:
+        str: Embedding model name (defaults to text-embedding-3-small)
+    """
+    return os.environ.get(
+        "EMBEDDING_MODEL",
+        "text-embedding-3-small"
     )
 
 
-def get_model() -> str:
+def reset_client() -> None:
     """
-    Get the configured LLM model name.
+    Reset the cached client instance.
 
-    Returns:
-        Model name from environment variables
+    Useful for testing or reconfiguration.
     """
-    return os.environ["LLM_MODEL"]
+    global _client
+    with _lock:
+        _client = None
+
+
+# Backward compatibility alias
+get_model = get_chat_model
