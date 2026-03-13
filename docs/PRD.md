@@ -1,7 +1,7 @@
-# Sarthi.ai — Canonical PRD v4.1
+# Sarthi.ai — Canonical PRD v4.2
 
-**Version:** 4.1  
-**Date:** March 2026  
+**Version:** 4.2
+**Date:** March 2026
 **Status:** Single Source of Truth
 
 ---
@@ -9,22 +9,54 @@
 ## 1. The One-Line Definition
 
 ```
-Sarthi is the autonomous back-office for any company that has
-outgrown spreadsheets but cannot yet afford a team of specialists.
+Sarthi is the internal operations virtual office for Seed to Series A startups.
 
-It does not advise. It works.
-It does not build dashboards. It acts on what it sees.
-It does not wait to be asked. It tells you what matters.
+It does not find you customers.
+It makes sure your company doesn't collapse while you do.
 
-Finance. Accounting. Bookkeeping. Legal. Compliance.
-Business Intelligence. Market Intelligence.
+13 virtual employees. 6 desks. Zero external-facing work.
+Finance. HR. Legal. Internal BI. IT & Tools. Admin.
 All of it. Running continuously. In the background.
 Delivered as a message — not a login.
 ```
 
 ---
 
-## 2. The Problem
+## 2. The One Design Rule
+
+**A virtual employee exists in Sarthi IF AND ONLY IF:**
+
+1. The work happens **INSIDE** the company
+2. It is repetitive, predictable, and operationally necessary
+3. Missing it causes real pain (money lost, team blocked, founder stressed)
+4. It does **NOT** require going outside the platform to generate, acquire, or influence external parties
+
+### What We DO (Internal Ops)
+
+✅ Finance (CFO, bookkeeping, AR/AP, payroll)
+✅ HR (onboarding, leave, internal recruiting)
+✅ Legal (contracts, compliance)
+✅ Internal BI (unit economics, churn signals)
+✅ IT & Tools (SaaS audits, cloud spend)
+✅ Admin (meeting prep, SOPs, knowledge management)
+
+### What We DO NOT Do (Forever Out of Scope)
+
+❌ RevOps / GTM / CRM outreach
+❌ Customer success / support
+❌ External market intelligence (competitors, pricing)
+❌ Content generation / marketing
+❌ Cap table management (too complex)
+❌ Tax filing (too jurisdiction-heavy)
+❌ Grant applications (external)
+
+**Why this boundary?**
+
+Internal ops is painful enough. We solve that completely. Internal data is structured and controllable. We replace ₹3.5L–₹7.5L/month in admin costs immediately. Enterprise tools ignore Seed startups. Startup tools ignore ops depth. That's our moat.
+
+---
+
+## 3. The Problem
 
 | What a Startup Needs | What They Actually Have |
 |---------------------|------------------------|
@@ -36,9 +68,11 @@ Delivered as a message — not a login.
 
 **The result:** 15–20 hours/week of founder time eaten by back-office work that doesn't require their unique judgment. That is ~3 months/year of product and growth time permanently lost.
 
+**The hidden cost:** ₹3.5L–₹7.5L/month in fractional admin services (CFO, bookkeeper, HR coordinator, legal retainer) that startups can't afford but desperately need.
+
 ---
 
-## 3. The ICP
+## 4. The ICP
 
 ### Who Sarthi Is For
 
@@ -48,16 +82,6 @@ Delivered as a message — not a login.
 | **Team size** | 1–25 people |
 | **Type** | Product/tech startup (B2B SaaS, D2C, marketplace, fintech, edtech) |
 | **Geography** | India (beachhead) → US → UK → EU → SEA |
-
-### Jurisdiction Awareness
-
-Sarthi detects which laws apply based on company incorporation profile at onboarding:
-
-- **India:** GST, TDS, PF, ESIC, PT, MCA, DPDP
-- **US:** Sales tax, SBIR/STTR grants, QSBS, 409A, SOC2
-- **UK:** VAT, Innovate UK grants, Companies House
-- **EU:** VAT OSS, GDPR, Horizon Europe grants
-- **SEA:** SST (Malaysia), GST (Singapore), BOI (Thailand)
 
 ### What Defines Them
 
@@ -81,18 +105,6 @@ Sarthi detects which laws apply based on company incorporation profile at onboar
 
 ---
 
-## 4. Global TAM
-
-| Market | Current | 2030 | CAGR |
-|--------|---------|------|------|
-| AI Agents | $7.8B | $52.6B | 46.3% |
-| AI Policy & Governance | $1.3B | $39.5B | 40.0% |
-| Accounting services startups | $8.2B | $14.1B | 14.5% |
-
-**Sarthi SAM:** ~135M companies globally with 1–100 employees, outgrown Excel, cannot afford specialists. At $50/month = **$81B/year addressable**.
-
----
-
 ## 5. The Interface
 
 ### Primary: Telegram Bot
@@ -105,7 +117,7 @@ Free, no per-message cost, async, file-capable, inline keyboards for HITL approv
 - **CSV/Excel files:** Bank statement export from net banking
 - **PDF files:** Contracts, notices, invoices
 - **Photos:** Tax notices, receipts, whiteboards
-- **/commands:** `/status` `/runway` `/pipeline` `/decisions` `/weekly`
+- **/commands:** `/status` `/runway` `/decisions` `/weekly`
 
 ### What Sarthi Sends Founders
 
@@ -117,197 +129,192 @@ Free, no per-message cost, async, file-capable, inline keyboards for HITL approv
 
 ---
 
-## 6. The BI Replacement Layer
+## 6. The Agent Architecture — 6 Desks, 13 Virtual Employees
 
-| Excel / Power BI | Sarthi |
-|-----------------|--------|
-| Founder opens tool | Sarthi watches 24/7 |
-| Refresh to see data | Sarthi pushes when it matters |
-| Founder spots anomaly | Sarthi spots it first |
-| Export for investor | Sarthi generates narrative |
-| Manual scenario math | "What if I hire in April?" answered against live data |
-| Rear-view snapshot | Rolling 13-week forward forecast |
-| Static chart | "At current trajectory: zero June 14" |
-
-**Every agent in Sarthi is a living BI query. Not a chart. A decision.**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  TIER 0 — KERNEL (Go + Temporal + Graphiti)                     │
+│  BusinessOSWorkflow: orchestrates all agents, manages state     │
+│  enforces HITL gates, temporal knowledge graph                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  TIER 1 — CHIEF OF STAFF (1 agent)                              │
+│  The only agent that talks to the founder.                      │
+│  Routes work to 6 desks. Synthesizes intelligence.              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  TIER 2 — 6 DESKS (13 Virtual Employees)                        │
+│                                                                  │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐               │
+│  │ Finance     │ │ People      │ │ Legal       │               │
+│  │ Desk        │ │ Desk        │ │ Desk        │               │
+│  │ • CFO       │ │ • HR Coord  │ │ • Contracts │               │
+│  │ • Bookkeeper│ │ • Recruiter │ │ • Compliance│               │
+│  │ • AR/AP     │ │             │ │             │               │
+│  │ • Payroll   │ │             │ │             │               │
+│  └─────────────┘ └─────────────┘ └─────────────┘               │
+│                                                                  │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐               │
+│  │ Intelligence│ │ IT & Tools  │ │ Admin       │               │
+│  │ Desk        │ │ Desk        │ │ Desk        │               │
+│  │ • BI Analyst│ │ • IT Admin  │ │ • EA        │               │
+│  │ • Policy    │ │             │ │ • Knowledge │               │
+│  │  Watcher    │ │             │ │  Manager    │               │
+│  └─────────────┘ └─────────────┘ └─────────────┘               │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  TIER 3 — DATA LAYER (ingest + memory, never surfaces)          │
+│  Ingestion | Memory (Qdrant + Neo4j) | Connector                │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 7. The Agent Architecture
+## 7. The Complete Desk Hierarchy (v4.2)
 
-### Tier Map
+### Tier 1: Chief of Staff Agent
 
-```
-TIER 0  ── KERNEL (Go + Temporal)
-           BusinessOSWorkflow: orchestrates all agents,
-           enforces HITL gates, maintains audit trail,
-           never crashes, never loses state.
+**Role:** The face of Sarthi. Routes work to 6 desks, synthesizes intelligence, manages the relationship.
 
-TIER 1  ── CHIEF OF STAFF (1 agent — Python/LangGraph)
-           The ONLY agent that talks to the founder.
-           Routes, translates, decides what to surface.
-           Holds the full company knowledge graph.
-
-TIER 2  ── INTELLIGENCE (observe + advise, NEVER talk to founder)
-           These agents produce typed findings → CoS decides.
-
-TIER 3  ── OPERATIONS (execute, not just advise)
-           Owner approves → agent executes autonomously.
-
-TIER 4  ── DATA LAYER (invisible — founder never interacts)
-           Normalizes inputs, manages memory,
-           crawls external intelligence.
-```
-
-### Tier 1: Chief of Staff
-
-- **LangGraph graph:** `chief_of_staff_agent.py`
-- **DSPy signatures:** ToneFilter, RouteClassifier
-- **Pydantic output:** `ChiefOfStaffOutput`
-- **Single entrypoint** for all founder communication
-- **Routes** inbound messages to Tier 2/3 agents
-- **Scores** all findings: fire now / queue / suppress
-- **Applies ToneFilter:** jargon → plain language
-- **Manages conversation memory** (Qdrant + Neo4j)
-- **Monday 9am weekly briefing** (Temporal cron)
-- **Enforces:** one message = one action only
+**Output:**
+- "Here's what I found + one action"
+- "I handled X — here's what I did"
+- "I need your decision on X — here's context"
+- "Weekly briefing: X handled, Y needs you"
 
 **HITL Gate:**
 - **LOW RISK** → auto-execute + notify after
 - **MEDIUM RISK** → 1-tap Telegram inline keyboard
 - **HIGH RISK** → explicit confirm with context
 
-### Tier 2: Intelligence Agents
+---
 
-#### CFO Agent
+### Tier 2: The 6 Desks (13 Virtual Employees)
+
+#### 📊 Finance Desk (4 employees)
+
+**CFO Agent**
 - 13-week rolling cash flow forecast
-- Burn rate + runway (alert < 90 days)
-- Burn spike detection (> 20% MoM)
-- Margin analysis per revenue line
+- Burn rate + runway calculation (alert < 90 days)
 - Unit economics: CAC, LTV, payback
-- Scenario modeling ("what if I hire?")
-- **Integrations:** Zoho Books, QuickBooks, Razorpay, Bank parser
+- Scenario modeling: "what if we hire in March?"
+- **Fires when:** Runway < 6 months, burn spikes >15%, margin goes negative
 
-#### BI Agent
-- Customer cohort analysis (retention/churn)
-- Revenue concentration risk (single customer > 30%)
-- Product usage vs revenue contribution
-- Operational efficiency anomalies
-- Growth lever identification
-- Cross-source pattern correlation
+**Bookkeeper Agent**
+- Expense categorization (auto)
+- Bank vs books reconciliation
+- Monthly P&L narrative generation
+- GST/VAT return data prep
+- **HITL:** Auto-categorize, manual review for uncategorized
 
-#### Risk & Compliance Agent
-- GST, TDS, Advance Tax deadlines
-- PF, ESIC, PT compliance calendar
-- Contract expiry tracking
-- DPDP Act compliance status
-- MCA annual filing deadlines
-- IP protection deadlines
-- Regulatory changes in sector
-- **Rule:** ANY deadline within 14 days fires. Hard.
+**AR/AP Clerk Agent**
+- Invoice generation + payment reminders
+- Accounts receivable aging report
+- Vendor payment timing optimization
+- **Fires when:** Invoice >30 days overdue, payment due in 7 days
 
-#### Market Intelligence Agent
-- **Tools:** Crawl4AI (Docker, $0) + Firecrawl (free tier)
-- **Watches:**
-  - **REGULATORY:** SEC/SEBI/FCA/MCA/GDPR/DPDP filings per jurisdiction
-  - **GRANTS:** SBIR, Innovate UK, DPIIT, Horizon Europe — detects money founder doesn't know exists
-  - **COMPETITORS:** Pricing page changes, feature launches, job postings, funding announcements, G2/Capterra pain points
-  - **NEW TOOLS:** "A free API launched that replaces your ₹12k/mo tool"
-  - **POLICY:** Tax law changes that affect THIS company specifically
-- **Output contract:** NOT a newsletter. NOT a summary. One signal. One opportunity or risk. One action. Fires ONLY when something is actionable.
+**Payroll Clerk Agent**
+- Payroll data preparation
+- PF/ESIC/pension filing reminders
+- Salary slip generation
+- **Fires when:** Payroll deadline <7 days, new hire onboarded
 
-#### Fundraise Readiness Agent [NEW — v4.1]
-- Data room scoring and gap detection
-- Investor-ready P&L narrative generation
-- Diligence question anticipation
-- Cap table cleanliness check
+---
 
-#### Tax Intelligence Agent [NEW — v4.1]
-- R&D credit eligibility detection (global)
-- QSBS status monitoring (US)
-- DPIIT Startup India recognition (India)
-- Jurisdiction-specific tax opportunity detection
+#### 👥 People Desk (2 employees)
 
-#### Grant & Credit Agent [NEW — v4.1]
-- SBIR/STTR eligibility (US)
-- Innovate UK eligibility
-- DPIIT Startup India recognition
-- Horizon Europe eligibility (EU)
-- Application drafting from company context
-
-### Tier 3: Operations Agents
-
-#### Finance Ops Agent
-- Auto-categorizes every bank transaction
-- Reconciles bank vs accounting books
-- Drafts and sends payment reminders (founder approval via Telegram)
-- Generates GST return summary data
-- Produces monthly P&L narrative
-- Optimizes vendor payment timing
-- Tracks accounts receivable aging
-
-#### Accounting Ops Agent [NEW — v4.1]
-- Revenue recognition (GAAP / Ind AS)
-- Deferred revenue tracking
-- Investor-ready P&L formatting
-- Month-end close checklist execution
-- Audit trail generation
-
-#### HR Ops Agent
-- Generates offer letters and contracts
-- Runs onboarding checklist per new hire
-- Tracks leave balances
-- Prepares payroll data (Razorpay Payroll)
-- PF/ESIC filing reminders + data prep
+**HR Coordinator Agent**
+- Onboarding checklist execution
+- Offer letter generation (templates)
+- Leave balance tracking
 - Performance review scheduling
-- Exit process checklist
+- **Fires when:** New hire start date, leave balance <5 days, review due
 
-#### Legal Ops Agent
-- Generates NDAs and service agreements
-- Summarizes any contract in plain language
-- Tracks all contract deadlines
-- Prepares MCA filing data
-- Manages eSign workflows (Leegality/Digio)
-- DPDP Act compliance checklist
+**Internal Recruiter Agent**
+- Job description drafting
+- Interview scheduling coordination
+- Candidate communication templates
+- Offer letter preparation
+- **Fires when:** Requisition approved, interview scheduled
 
-#### RevOps Agent
-- CRM hygiene (updates stale deals in HubSpot)
-- Pipeline stall detection + follow-up drafts
-- Proposal/quote generation
-- Subscription renewal reminders
-- Win/loss pattern analysis
-- Customer health scoring
+---
 
-#### Admin Ops Agent
+#### ⚖️ Legal Desk (2 employees)
+
+**Contracts Coordinator Agent**
+- NDA generation (templates)
+- Contract review summary (plain language)
+- Contract expiry tracking (90-day warning)
+- eSign workflow management
+- **Fires when:** Contract expires <30 days, new contract needs drafting
+
+**Compliance Tracker Agent**
+- GST, TDS, advance tax deadlines (India)
+- VAT, Corporation Tax, PAYE (UK)
+- PF, ESIC, PT compliance
+- DPDP Act / GDPR compliance checklist
+- MCA/Companies House filing reminders
+- **Fires when:** Deadline <14 days, regulatory change detected
+
+---
+
+#### 📈 Intelligence Desk (2 employees)
+
+**BI Analyst Agent (Internal-Only)**
+- Customer cohort analysis (retention, churn)
+- Revenue concentration risk (single customer >30%)
+- Anomaly detection across all data sources
+- Cross-source pattern correlation
+- Unit economics tracking
+- **Fires when:** Churn pattern detected, one customer >30% revenue, usage predicts churn
+
+**Policy Watcher Agent**
+- Regulatory change monitoring (jurisdiction-specific)
+- Tax law updates affecting THIS company
+- Compliance requirement changes
+- **Fires when:** New regulation affects company, deadline changes
+
+---
+
+#### 🖥️ IT & Tools Desk (1 employee)
+
+**IT Admin Agent**
+- SaaS subscription audit + optimization
+- Cloud spend analysis (AWS/GCP/Azure)
+- Tool access provisioning/deprovisioning
+- Software license tracking
+- Vendor contract renewal tracking
+- **Fires when:** Unused subscription detected, renewal due <60 days, spend anomaly
+
+---
+
+#### 📋 Admin Desk (2 employees)
+
+**Executive Assistant Agent**
 - Meeting prep (pulls context, agenda)
 - Action item extraction from meeting notes
-- SOP documentation from observed workflows
-- Tool stack + subscription audit
 - Internal announcement drafts
+- Calendar coordination
+- **Fires when:** Meeting scheduled, action items extracted
 
-#### Procurement Ops Agent [NEW — v4.1]
-- Vendor onboarding checklist
-- Invoice validation against PO
-- Payment timing optimization
-- Duplicate invoice detection
-- Vendor contract renewal tracking
+**Knowledge Manager Agent**
+- SOP documentation from observed workflows
+- Internal wiki organization
+- Process improvement suggestions
+- Company handbook maintenance
+- **Fires when:** New process observed, SOP outdated >90 days
 
-#### Cap Table Ops Agent [NEW — v4.1]
-- Option grant drafting
-- 409A valuation reminder (US)
-- ESOP trust compliance (India)
-- Shareholder update draft generation
-- Cap table cleanliness audit
+---
 
-#### Grant Ops Agent [NEW — v4.1]
-- Grant application drafting
-- Submission deadline tracking
-- Eligibility evidence compilation
-- Status tracking and follow-up
+### Tier 3: Data Layer (Invisible)
 
-### Tier 4: Data Layer
-
-#### Ingestion Agent
+**Ingestion Agent**
 - **CSV/Excel:** pandas + openpyxl (Bank detection: HDFC/ICICI/SBI/Axis/Kotak)
 - **PDF (digital):** pdfplumber
 - **PDF (scanned):** Docling accurate mode
@@ -316,7 +323,7 @@ TIER 4  ── DATA LAYER (invisible — founder never interacts)
 - All normalised → standard transaction schema
 - PostgreSQL write + Qdrant embed + Neo4j episode
 
-#### Memory Agent (Qdrant — semantic)
+**Memory Agent (Qdrant — semantic)**
 - Manages Qdrant collection: `sarthi-founder-memory`
 - Embeddings: text-embedding-3-small (1536d)
 - Founder isolation enforced at filter level
@@ -324,7 +331,7 @@ TIER 4  ── DATA LAYER (invisible — founder never interacts)
 - Stale memory compression after 90 days
 - Pattern detection: archetype classification
 
-#### Graph Memory Agent (Neo4j + Graphiti — relational)
+**Graph Memory Agent (Neo4j + Graphiti — relational)**
 - Temporal knowledge graph via Graphiti (Zep)
 - Every reflection, commitment, signal, decision is an episode
 - Answers questions Qdrant cannot:
@@ -332,28 +339,8 @@ TIER 4  ── DATA LAYER (invisible — founder never interacts)
   - "What happened to revenue AFTER missed customer calls?"
   - "Which interventions did this founder respond to?"
 - Hybrid search: semantic + graph traversal (RRF)
-- **Qdrant** = "what is this similar to?"
-- **Neo4j** = "what does this mean in context?"
 
-#### Crawler Agent [expanded v4.1]
-- **Crawl4AI** (Docker, $0) primary
-- **Firecrawl API** (free tier) fallback
-- **Scheduled crawls:**
-  - Competitor pricing pages (weekly)
-  - Competitor job postings (daily — roadmap signal)
-  - G2/Capterra reviews for competitors (weekly)
-  - Government grant databases per jurisdiction (daily)
-  - Policy tracker feeds per jurisdiction (daily)
-  - Competitor changelogs / product updates (weekly)
-- On-demand deep crawl when Market Intel fires
-
-#### Jurisdiction Agent [NEW — v4.1]
-- Detects applicable laws at onboarding based on company incorporation profile
-- Produces `JurisdictionProfile` → stored in PostgreSQL
-- Updates automatically when laws change (Crawler Agent feeds policy changes here)
-- All other agents query this at runtime: "Which compliance deadlines apply to THIS company?"
-
-#### Connector Agent
+**Connector Agent**
 - Manages OAuth token health for all integrations
 - Token refresh, sync schedule
 - Falls back to polling if webhook fails
@@ -364,18 +351,16 @@ TIER 4  ── DATA LAYER (invisible — founder never interacts)
 ## 8. The Self-Correcting Loop
 
 ```
-1. Agent acts      (e.g. sends payment reminder to Client X)
-2. Outcome seen    (Client X pays in 24 hours)
+1. Agent acts      (e.g. Bookkeeper categorizes AWS expense)
+2. Outcome seen    (Founder confirms category is correct)
 3. MemoryAgent writes to Qdrant:
-   "Client X: high responsiveness, 24hr payment"
+   "AWS expenses: categorized as 'Cloud Infrastructure'"
 4. GraphMemoryAgent writes episode to Neo4j:
-   Entity: Client X → RELATION: responds_within → 24h
-5. Future: warmer tone, earlier follow-up,
-   CoS knows not to escalate this client
+   Entity: AWS → RELATION: category → Cloud Infrastructure
+5. Future: Auto-categorize similar expenses, flag anomalies
 6. Context drift:  CoS detects macro pattern across
    all memory and surfaces unprompted:
-   "You've raised prices twice but win rate is unchanged
-    — your pricing has headroom."
+   "Cloud spend up 40% MoM. New deployment or pricing change?"
 
 The system gets smarter about THIS company specifically.
 Not generic AI. Company-specific intelligence that compounds.
@@ -395,7 +380,6 @@ Not generic AI. Company-specific intelligence that compounds.
 | Vector DB | Qdrant | 6333 | Semantic memory |
 | Graph DB | Neo4j | 7687 | Relational memory |
 | LLM observability | Langfuse | 3001 | Tracing + evals |
-| Web crawler | Crawl4AI | 11235 | Market intel |
 | Isolated exec | Sandbox (alpine) | 5001 | CFO charts/math |
 
 ### Go Core (`apps/core`)
@@ -421,7 +405,6 @@ Not generic AI. Company-specific intelligence that compounds.
 | Temporal Python | Activity worker |
 | Qdrant Client | Semantic memory read/write |
 | Graphiti (Zep) | Neo4j temporal knowledge graph |
-| graphiti-core | Graphiti Python library |
 | neo4j | Neo4j Python driver |
 
 ### THE ONE SDK RULE — ABSOLUTE
@@ -448,29 +431,6 @@ def get_llm_client() -> OpenAI:
 # Ollama        http://localhost:11434/v1
 ```
 
-### Graphiti uses the same factory
-
-```python
-from graphiti_core.llm_client.openai_client import OpenAIClient
-from graphiti_core.embedder.openai_embedder import OpenAIEmbedder
-from src.config.llm import get_llm_client, get_model
-
-graphiti = Graphiti(
-    neo4j_uri      = os.environ["NEO4J_URI"],
-    neo4j_user     = os.environ["NEO4J_USER"],
-    neo4j_password = os.environ["NEO4J_PASSWORD"],
-    llm_client     = OpenAIClient(
-        client = get_llm_client(),
-        model  = get_model(),
-    ),
-    embedder = OpenAIEmbedder(
-        client          = get_llm_client(),
-        embedding_model = os.environ.get(
-            "EMBEDDING_MODEL", "text-embedding-3-small"),
-    ),
-)
-```
-
 ### Document Processing ($0 OSS)
 
 | Tool | When Used |
@@ -489,7 +449,6 @@ graphiti = Graphiti(
 | QuickBooks Online | Sandbox API | $0 dev |
 | Razorpay | Webhooks + API | $0 setup |
 | HubSpot CRM | API | $0 free tier |
-| Firecrawl | Crawl API | $0 (500/mo) |
 | Leegality / Digio | eSign API | $0 sandbox |
 
 ---
@@ -535,9 +494,9 @@ actionable insights, KPIs, metrics, data-driven
 
 | Risk Level | Examples | Approval Flow |
 |------------|----------|--------------|
-| **LOW RISK** (auto-execute + notify after) | Categorize a transaction, Update a CRM record, Log a compliance deadline, Generate a draft document (not yet sent) | Auto |
+| **LOW RISK** (auto-execute + notify after) | Categorize a transaction, Update a record, Log a compliance deadline, Generate a draft document (not yet sent) | Auto |
 | **MEDIUM RISK** (1-tap Telegram inline keyboard) | Send a message to a client, Send a payment reminder, Book a meeting, Share a document externally | 1-tap |
-| **HIGH RISK** (explicit confirm + reason shown) | File a GST return, Send a legal document, Make a payment, Delete or archive data, Submit a grant application | Explicit confirm |
+| **HIGH RISK** (explicit confirm + reason shown) | File a GST return, Send a legal document, Make a payment, Delete or archive data | Explicit confirm |
 
 **PRINCIPLE:** Powerful but never autonomous where it matters. The founder always controls the wheel. They just don't have to steer on empty roads.
 
@@ -565,11 +524,10 @@ EVENT: Founder sends HDFC CSV to Telegram bot
          │    → Neo4j episode via Graphiti
          │    → Signals: "ingestion_complete"
          │
-         ├──▶ Parallel Tier 2 agents (all fire):
-         │    CFOAgent.analyze(new_data)
-         │    RiskAgent.check_deadlines()
-         │    BIAgent.detect_patterns()
-         │    MarketIntelAgent.check_relevant_signals()
+         ├──▶ Finance Desk agents fire:
+         │    BookkeeperAgent.categorize(new_transactions)
+         │    CFOAgent.analyze(cash_position)
+         │    AR APAgent.check_receivables()
          │
          ├──▶ Each agent → typed Pydantic finding
          │    (validated at output boundary)
@@ -655,36 +613,33 @@ class RiskAlert(BaseModel):
     days_until:  int
     hitl_risk:   HitlRisk = HitlRisk.HIGH
 
-class AgentFinding(BaseModel):  # Market Intel
-    source:      str
-    headline:    str
-    relevance:   float  # 0.0–1.0
-    summary:     str
-    do_this:     Optional[str]
-    hitl_risk:   HitlRisk = HitlRisk.LOW
+class FinanceFinding(BaseModel):
+    category:      str
+    amount:        float
+    anomaly:       bool
+    do_this:       Optional[str]
+    hitl_risk:     HitlRisk = HitlRisk.LOW
 
-class FundraiseFinding(BaseModel):  # NEW v4.1
-    data_room_score:     float  # 0.0–1.0
-    gaps:                list[str]
-    narrative:           str    # investor-ready P&L narrative
-    do_this:             str
-    hitl_risk:           HitlRisk
+class HRFinding(BaseModel):
+    action_type:   str    # "onboarding" | "leave" | "payroll"
+    employee:      str
+    deadline:      Optional[str]
+    do_this:       str
+    hitl_risk:     HitlRisk
 
-class TaxFinding(BaseModel):  # NEW v4.1
-    opportunity:         str
-    jurisdiction:        str
-    estimated_saving:    Optional[int]  # ₹ or $
-    do_this:             str
-    hitl_risk:           HitlRisk
+class LegalFinding(BaseModel):
+    document_type: str
+    deadline:      Optional[str]
+    risk_level:    str    # "low" | "medium" | "high"
+    do_this:       str
+    hitl_risk:     HitlRisk
 
-class GrantFinding(BaseModel):  # NEW v4.1
-    grant_name:          str
-    jurisdiction:        str
-    eligibility_score:   float
-    deadline:            Optional[str]
-    estimated_amount:    Optional[str]
-    do_this:             str
-    hitl_risk:           HitlRisk = HitlRisk.MEDIUM
+class ITFinding(BaseModel):
+    category:      str    # "unused_subscription" | "renewal" | "spike"
+    vendor:        str
+    amount:        Optional[float]
+    do_this:       str
+    hitl_risk:     HitlRisk
 ```
 
 ---
@@ -711,223 +666,126 @@ class GrantFinding(BaseModel):  # NEW v4.1
 | Graph memory agent (Neo4j) | 12 | episodes/search/patterns |
 | Chief of Staff | 8 | routing + tone |
 | Bank parser | 8 | HDFC/ICICI/SBI/scanned PDF |
-| CFO agent | 10 | LangGraph E2E + Pydantic |
-| BI agent | 8 | pattern detection |
-| Risk agent | 10 | deadline engine |
-| Finance ops agent | 10 | HITL gates + execution |
-| Ingestion agent | 10 | CSV/PDF/photo normalization |
+| Finance Desk (4 agents) | 25 | LangGraph E2E + Pydantic |
+| People Desk (2 agents) | 12 | onboarding + HR flows |
+| Legal Desk (2 agents) | 12 | contracts + compliance |
+| Intelligence Desk (2 agents) | 15 | BI + policy watching |
+| IT & Tools Desk (1 agent) | 10 | SaaS audit + spend |
+| Admin Desk (2 agents) | 12 | EA + knowledge mgmt |
 | Tone filter | 14 | jargon + DSPy + Hindi |
 | Sandbox client | 10 | isolated exec + charts |
 | E2E flows | 20 | full stack Telegram → output |
 | LLM evals (DSPy) | 15 | scoring + LLM-as-judge |
-| **Total** | **151+** | **Real LLM, real Docker** |
+| **Total** | **~189** | **Real LLM, real Docker** |
 
 ---
 
 ## 15. Infrastructure — All Containers
 
 ```yaml
-# docker-compose additions (append to existing — never touch base)
-
-  saarathi-neo4j:
-    image: neo4j:5.18-community
-    container_name: saarathi-neo4j
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    environment:
-      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-sarthi}
-      - NEO4J_PLUGINS=["apoc"]
-      - NEO4J_dbms_memory_heap_initial__size=512m
-      - NEO4J_dbms_memory_heap_max__size=1G
-    volumes:
-      - neo4j_data:/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD","cypher-shell","-u","neo4j",
-             "-p","${NEO4J_PASSWORD:-sarthi}","RETURN 1"]
-      interval: 30s
-      retries: 5
-
-  saarathi-langfuse:
-    image: langfuse/langfuse:latest
-    container_name: saarathi-langfuse
-    ports:
-      - "3001:3000"
-    environment:
-      - DATABASE_URL=postgresql://sarthi:${POSTGRES_PASSWORD}@saarathi-postgres:5432/langfuse
-      - NEXTAUTH_SECRET=${LANGFUSE_SECRET:-langfuse-secret}
-      - NEXTAUTH_URL=http://localhost:3001
-      - SALT=${LANGFUSE_SALT:-langfuse-salt}
-    depends_on:
-      - saarathi-postgres
-    restart: unless-stopped
-
-  saarathi-sandbox:
-    build: ./apps/sandbox
-    container_name: saarathi-sandbox
-    ports:
-      - "5001:5000"
-    environment:
-      - SANDBOX_SECRET=${SANDBOX_SECRET:-sarthi-local}
-    user: "1001"
-    restart: unless-stopped
+# docker-compose.yml — 12 containers total
+services:
+  # Core Infrastructure
+  temporal:          # Workflow orchestration
+  postgres:          # Primary database
+  redpanda:          # Event streaming
+  
+  # Memory Layer
+  qdrant:            # Vector embeddings
+  neo4j:             # Knowledge graph
+  
+  # Observability
+  langfuse:          # LLM tracing
+  
+  # Application
+  sarthi-core:       # Go service (Fiber + Temporal worker)
+  sarthi-ai:         # Python AI worker (LangGraph agents)
+  
+  # Utilities
+  sandbox:           # Isolated code execution
 ```
 
 ---
 
-## 16. Complete Phase Execution Order
+## 16. ROI & Pricing
 
-```
-PHASE 0  ✅  IterateSwarm base infra — done
-PHASE 1  ✅  Sarthi pivot: schemas, agents v1, workflows — done
+### What Sarthi Replaces
 
-PHASE 2  🔨  NOW — LLM unification + graph memory
-  □ apps/ai/src/config/llm.py             universal client
-  □ apps/ai/src/config/langfuse.py        observability
-  □ Grep-replace AzureOpenAI everywhere → get_llm_client()
-  □ graph_memory_agent.py → OpenAIClient (not AzureOpenAIClient)
-  □ docker-compose: neo4j + langfuse + sandbox appended
-  □ make up → make health → all 12 containers green
-  □ migration 007 applied
-  □ make test-unit → 125 green
-  □ git tag v2.0.0
+| Role | Fractional Cost (₹/month) | Sarthi Desk |
+|------|--------------------------|-------------|
+| Fractional CFO | ₹75,000–₹1,50,000 | Finance Desk |
+| Bookkeeper | ₹25,000–₹40,000 | Finance Desk |
+| HR Coordinator | ₹30,000–₹50,000 | People Desk |
+| Legal Retainer | ₹50,000–₹1,00,000 | Legal Desk |
+| EA/Admin | ₹20,000–₹35,000 | Admin Desk |
+| **Total** | **₹2,00,000–₹3,75,000** | **6 Desks** |
 
-PHASE 3  🔲  Tier 1 + Core Services
-  □ tone_filter.py           DSPy-compiled, jargon validator
-  □ dspy_signatures/         all 4 signatures
-  □ dspy_compiled/           compiled weights, git-tracked
-  □ telegram_notifier.py     inline keyboard HITL
-  □ apps/core telegram.go    webhook + sendDM
-  □ schemas/findings.py      all Pydantic contracts v4.1
-  □ chief_of_staff_agent.py
-  □ ingestion_agent.py
-  □ bank_statement_parser.py
-  □ apps/sandbox/            Dockerfile + server.py
-  □ make test-unit → 160 green
-  □ git tag v2.3.0
+### Sarthi Pricing
 
-PHASE 4  🔲  Tier 2 Intelligence
-  □ cfo_agent.py
-  □ risk_agent.py            + compliance_calendar seeded (India 2026)
-  □ bi_agent.py
-  □ market_intel_agent.py    + crawler_agent expanded
-  □ jurisdiction_agent.py    [new v4.1]
-  □ fundraise_readiness_agent.py [new v4.1]
-  □ tax_intelligence_agent.py    [new v4.1]
-  □ grant_credit_agent.py        [new v4.1]
-  □ make test-unit → 195 green
-  □ git tag v3.0.0
+| Tier | Price (₹/month) | Desks Included |
+|------|-----------------|----------------|
+| Starter | ₹5,000 | Finance + Admin |
+| Growth | ₹10,000 | All 6 Desks |
+| Scale | ₹15,000 | All 6 Desks + Priority |
 
-PHASE 5  🔲  Tier 3 Operations + HITL
-  □ finance_ops_agent.py
-  □ accounting_ops_agent.py    [new v4.1]
-  □ legal_ops_agent.py
-  □ hr_ops_agent.py
-  □ revops_agent.py
-  □ admin_ops_agent.py
-  □ procurement_ops_agent.py   [new v4.1]
-  □ cap_table_ops_agent.py     [new v4.1]
-  □ grant_ops_agent.py         [new v4.1]
-  □ business_os_workflow.go    full, with Continue-As-New
-  □ onboarding_workflow.go
-  □ weekly_checkin_workflow.go
-  □ HITL gate tested end-to-end Telegram → approve → execute
-  □ make test-e2e → 20/20 green
-  □ git tag v3.5.0
+**ROI:** 20x–50x return. Replace ₹3.5L–₹7.5L/month in fractional admin costs with ₹5K–₹15K/month.
 
-PHASE 6  🔲  Production Hardening + Evals
-  □ DSPy eval suite           15 evals, ≥13/15 must pass
-  □ Circuit breaker           all external calls
-  □ Rate limiter              Telegram, Razorpay, Zoho, Crawl4AI
-  □ .github/workflows/ci.yml  unit + lint (no LLM)
-  □ .github/workflows/e2e.yml manual trigger, full stack
-  □ All Langfuse traces       < 8s p95 latency
-  □ make test-llm → ≥13/15 green
-  □ git tag v4.0-alpha
+### The Moat
 
-PHASE 7  🔲  v4.0.0 — THE REAL MILESTONE
-  □ One real founder signs up via Telegram
-  □ Completes onboarding (6 questions, < 10 minutes)
-  □ Uploads a real bank statement (any Indian bank)
-  □ Receives a real CFO finding (no jargon, ₹ amounts)
-  □ Approves one action via Telegram inline keyboard
-  □ Reports: "This saved me time"
-  THAT is v4.0.0. Not before.
+After 6 months with a founder:
+- We know their approval patterns
+- We know their vendor relationships
+- We know their team dynamics
+- We have institutional memory in Neo4j
 
-PHASE 8  🔲  v4.1.0 — Global Expansion
-  □ Jurisdiction agent live for US + UK + EU
-  □ Grant agent: SBIR, Innovate UK, Horizon Europe
-  □ Tax intelligence: QSBS, R&D credits
-  □ Fundraise readiness agent live
-  □ First non-India founder onboarded
-```
+A competitor starting fresh cannot replicate this.
 
 ---
 
-## 17. What Does Not Change (v4.0 → v4.1)
+## 17. v4.2 Roadmap
 
-```
-Telegram as primary interface          ✅ correct globally
-HITL gate model                        ✅ required everywhere
-OSS bootstrapped stack ($0/mo)         ✅ structural cost advantage
-ToneFilter jargon-free output          ✅ universal
-Real Docker + Real LLM test rule       ✅ non-negotiable
-Agent hierarchy Tier 0–4               ✅ correct architecture
-Pydantic output contracts              ✅ type safety is not geography
-DSPy prompt optimization               ✅ works globally
-Langfuse observability                 ✅ works globally
-Universal OpenAI SDK (no AzureOpenAI)  ✅ enforced
-Neo4j + Graphiti memory layer          ✅ locked in
-v4.0.0 tag condition                   ✅ first real founder, not code
-```
+### Phase 1 (IN PROGRESS)
+- [ ] LLM unification (`get_llm_client` everywhere)
+- [ ] Graphiti + Neo4j full integration
+- [ ] 125 tests passing
 
----
+### Phase 2
+- [ ] Finance Desk (CFO + Bookkeeper + AR/AP + Payroll)
+- [ ] People Desk (HR + Internal Recruiter)
+- [ ] Legal Desk (Contracts + Compliance)
+- [ ] 150 tests passing
 
-## 18. The Moat
+### Phase 3
+- [ ] Intelligence Desk (BI + Policy Watcher)
+- [ ] IT & Tools Desk (IT Admin)
+- [ ] Admin Desk (EA + Knowledge Manager)
+- [ ] 175 tests passing
 
-1. **INDIA-FIRST COMPLIANCE DEPTH**
-   GST/TDS/PF/ESIC/PT/DPDP/MCA — no US tool will build this. No enterprise vendor will price it for pre-seed founders.
+### Phase 4
+- [ ] Chief of Staff routing (internal-only)
+- [ ] BusinessOS workflow (Go + Temporal)
+- [ ] HITL gate E2E test
+- [ ] 20/20 E2E tests green
 
-2. **COMPANY-SPECIFIC MEMORY (Qdrant + Neo4j)**
-   After 6 months: "You've done this exact stall pattern 3 times. Here's what broke it last time." Graphiti makes this possible. A competitor starting fresh has to rebuild from zero.
-
-3. **$0/MONTH INFRASTRUCTURE**
-   Docker OSS stack. 85%+ gross margins at scale. Competitors on managed cloud can't price this low.
-
-4. **THE RELATIONSHIP COMPOUNDS**
-   Trust between founder and Sarthi grows every week. Every intervention, rating, and outcome improves the model for this specific company. Not transferable.
-
-5. **BRAND POSITIONING ENTERPRISE CAN'T COPY**
-   No enterprise vendor can say "don't worry, I've got this" to a scared 26-year-old founder at 11pm. Their legal team, brand, and sales motion won't allow it.
-
-6. **GRANT DETECTION = FOUND MONEY**
-   "There's a ₹40 lakh DPIIT grant you qualify for." No other tool watches this continuously per company. First time Sarthi finds a grant the founder didn't know about — that's lifetime retention.
+### Phase 5: v4.2.0
+- [ ] One real founder onboards
+- [ ] Uses at least 2 desks
+- [ ] Reports "This saved me admin time"
+- → **TAG v4.2.0**
 
 ---
 
-## 19. Success Metrics
+## 18. Documentation
 
-### Week 1 with real founder:
-- Onboarding completed < 10 minutes
-- First bank statement processed < 30 seconds
-- First CFO finding delivered, zero jargon
-- At least one action approved via Telegram inline key
-
-### Month 1:
-- 5+ hours/week saved (founder-reported)
-- Zero compliance deadlines missed
-- ≥ 3 Finance Ops tasks executed autonomously
-- DSPy eval score ≥ 0.75 maintained
-- All Langfuse traces < 8s p95
-
-### The real metric:
-**"Would you recommend Sarthi to another founder?"**
-
-**Target:** 8/10 by founder #5.
+| Doc | Purpose |
+|-----|---------|
+| [PRD](./PRD.md) | Complete product requirements, agent specs (v4.2) |
+| [INTERNAL_OPS_SCOPE](./INTERNAL_OPS_SCOPE.md) | What we do / don't do boundary |
+| [TESTING](./TESTING_ARCHITECTURE.md) | Testing strategy, ~189 test targets |
+| [Architecture](./architecture/) | System design, data flow |
+| [API Docs](./api/) | All endpoints, request/response schemas |
 
 ---
 
-**Document Version:** 4.1  
-**Last Updated:** March 2026  
-**Status:** ✅ CANONICAL — Single Source of Truth
+**Last Updated:** 2026-03-13
+**Version:** 4.2.0-alpha — Internal Ops Virtual Office Only
