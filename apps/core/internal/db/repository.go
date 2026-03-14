@@ -7,13 +7,24 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
 )
+
+// DBTX is an interface for database operations, implemented by both *sql.DB and *pgxpool.Pool
+type DBTX interface {
+	QueryRow(ctx context.Context, query string, args ...interface{}) pgx.Row
+	Exec(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error)
+	Query(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error)
+}
 
 // Repository provides database operations using PostgreSQL
 // Replaces Redis functionality for production deployment on Azure
 type Repository struct {
-	db *sql.DB
+	db   *sql.DB
+	pool *pgxpool.Pool
 }
 
 // NewRepository creates a new Repository with PostgreSQL connection
@@ -21,8 +32,16 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// NewRepositoryFromPool creates a new Repository with a pgxpool.Pool
+func NewRepositoryFromPool(pool *pgxpool.Pool) *Repository {
+	return &Repository{pool: pool}
+}
+
 // Close closes the database connection
 func (r *Repository) Close() error {
+	if r.pool != nil {
+		r.pool.Close()
+	}
 	if r.db != nil {
 		return r.db.Close()
 	}
@@ -371,3 +390,100 @@ func (r *Repository) ListIssues(ctx context.Context, params ListIssuesParams) ([
 	// TODO: Implement with actual issues table
 	return nil, nil
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Raw Event Operations (SOP Runtime)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// RawEvent represents a raw event from an external source
+type RawEvent struct {
+	ID             string
+	FounderID      string
+	Source         string
+	EventName      string
+	Topic          string
+	SOPName        string
+	PayloadHash    string
+	PayloadBody    []byte
+	IdempotencyKey string
+}
+
+// RawEventStore provides operations for raw event storage
+type RawEventStore interface {
+	InsertRawEvent(ctx context.Context, event RawEvent) (string, error)
+	InsertDLQ(ctx context.Context, eventName, reason string, payload []byte) error
+}
+
+// InsertRawEvent inserts a raw event into the database
+func (r *Repository) InsertRawEvent(ctx context.Context, event RawEvent) (string, error) {
+	query := `
+		INSERT INTO raw_events
+			(founder_id, source, event_name, topic, sop_name,
+			 payload_hash, payload_body, idempotency_key)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id
+	`
+	
+	var id string
+	if r.pool != nil {
+		err := r.pool.QueryRow(ctx, query,
+			event.FounderID,
+			event.Source,
+			event.EventName,
+			event.Topic,
+			event.SOPName,
+			event.PayloadHash,
+			event.PayloadBody,
+			event.IdempotencyKey,
+		).Scan(&id)
+		if err != nil {
+			return "", fmt.Errorf("failed to insert raw event: %w", err)
+		}
+	} else if r.db != nil {
+		err := r.db.QueryRowContext(ctx, query,
+			event.FounderID,
+			event.Source,
+			event.EventName,
+			event.Topic,
+			event.SOPName,
+			event.PayloadHash,
+			event.PayloadBody,
+			event.IdempotencyKey,
+		).Scan(&id)
+		if err != nil {
+			return "", fmt.Errorf("failed to insert raw event: %w", err)
+		}
+	} else {
+		return "", fmt.Errorf("no database connection configured")
+	}
+	
+	return id, nil
+}
+
+// InsertDLQ inserts an event into the dead letter queue
+func (r *Repository) InsertDLQ(ctx context.Context, eventName, reason string, payload []byte) error {
+	query := `
+		INSERT INTO dead_letter_events
+			(source, event_name, failure_reason, raw_payload)
+		VALUES ($1, $2, $3, $4)
+	`
+	
+	if r.pool != nil {
+		_, err := r.pool.Exec(ctx, query, "razorpay", eventName, reason, payload)
+		if err != nil {
+			return fmt.Errorf("failed to insert DLQ event: %w", err)
+		}
+	} else if r.db != nil {
+		_, err := r.db.ExecContext(ctx, query, "razorpay", eventName, reason, payload)
+		if err != nil {
+			return fmt.Errorf("failed to insert DLQ event: %w", err)
+		}
+	} else {
+		return fmt.Errorf("no database connection configured")
+	}
+	
+	return nil
+}
+
+// Ensure Repository implements RawEventStore
+var _ RawEventStore = (*Repository)(nil)

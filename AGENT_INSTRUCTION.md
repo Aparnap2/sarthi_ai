@@ -175,12 +175,24 @@ class EventEnvelope(BaseModel):
     @field_validator("payload_ref")
     @classmethod
     def payload_ref_is_reference(cls, v: str) -> str:
-        # Must start with a known storage prefix
+        """
+        payload_ref must be a storage reference, not raw JSON.
+        
+        Valid prefixes: raw_events:, files:, s3:, pg:
+        
+        Raises:
+            ValueError: If payload_ref contains raw JSON or has invalid prefix
+        """
         VALID_PREFIXES = ("raw_events:", "files:", "s3:", "pg:")
         if v.startswith("{") or v.startswith("["):
             raise ValueError(
                 "payload_ref must be a storage reference, not raw JSON. "
                 "Store in PostgreSQL first, pass the row ID."
+            )
+        if not any(v.startswith(p) for p in VALID_PREFIXES):
+            raise ValueError(
+                f"payload_ref must start with one of {VALID_PREFIXES}. "
+                f"Got: {v!r}. Store raw JSON in PostgreSQL and pass the row ID."
             )
         return v
 ```
@@ -681,10 +693,18 @@ func (h *RazorpayHandler) Handle(c *fiber.Ctx) error {
         return c.Status(401).JSON(fiber.Map{"error": "invalid signature"})
     }
 
-    // 2. Parse event name from body
+    // 2. Parse event name from body — handle JSON parse errors
     var raw map[string]interface{}
-    json.Unmarshal(c.Body(), &raw)
-    eventName, _ := raw["event"].(string)
+    if err := json.Unmarshal(c.Body(), &raw); err != nil {
+        // Log error and return 400 — invalid JSON payload
+        return c.Status(400).JSON(fiber.Map{"error": "invalid_json", "details": err.Error()})
+    }
+    eventName, ok := raw["event"].(string)
+    if !ok || eventName == "" {
+        // Missing or invalid event name — DLQ for investigation
+        h.store.InsertDLQ(c.Context(), "unknown", "missing_event_name", c.Body())
+        return c.Status(200).JSON(fiber.Map{"status": "dlq_missing_event_name"})
+    }
 
     // 3. Resolve via event dictionary
     entry, err := h.dict.Resolve(events.SourceRazorpay, eventName)
@@ -712,7 +732,7 @@ func (h *RazorpayHandler) Handle(c *fiber.Ctx) error {
         return c.Status(500).JSON(fiber.Map{"error": "storage_failed"})
     }
 
-    // 5. Publish envelope (ref only, not raw payload)
+    // 5. Publish envelope (ref only, not raw payload) — handle publish errors
     envelope := events.EventEnvelope{
         Source:     events.SourceRazorpay,
         EventName:  eventName,
@@ -721,7 +741,11 @@ func (h *RazorpayHandler) Handle(c *fiber.Ctx) error {
         PayloadRef: "raw_events:" + rawEventID,
         // ... other fields
     }
-    h.producer.Publish(entry.Topic, envelope)
+    if err := h.producer.Publish(entry.Topic, envelope); err != nil {
+        // Publish failed — DLQ the event for retry, return 500
+        h.store.InsertDLQ(c.Context(), eventName, "publish_failed", c.Body())
+        return c.Status(500).JSON(fiber.Map{"error": "publish_failed", "details": err.Error()})
+    }
 
     return c.Status(200).JSON(fiber.Map{"status": "accepted"})
 }

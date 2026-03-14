@@ -206,10 +206,10 @@ func (h *Handler) APIConfigBudget(c *fiber.Ctx) error {
 // API: Get telemetry stats
 func (h *Handler) APITelemetryStats(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
-		"error_rate":    "0.1%",
-		"avg_response":  "245ms",
-		"traces_min":    "120",
-		"log_volume":    "5.2K/min",
+		"error_rate":   "0.1%",
+		"avg_response": "245ms",
+		"traces_min":   "120",
+		"log_volume":   "5.2K/min",
 	})
 }
 

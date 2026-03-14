@@ -95,11 +95,11 @@
 **Target:** Same handlers but with envelope + raw_events persistence pattern
 
 **Files to Modify:**
-- `apps/core/internal/api/razorpay.go` (add envelope, raw_events insert)
-- `apps/core/internal/api/telegram.go` (add file persistence pattern)
+- `apps/core/internal/web/razorpay.go` (add envelope, raw_events insert)
+- `apps/core/internal/web/telegram.go` (add file persistence pattern)
 
 **Files to Create:**
-- `apps/core/internal/api/razorpay_test.go` (4 new tests)
+- `apps/core/internal/web/razorpay_test.go` (4 new tests)
 
 **Effort:** 6 hours
 

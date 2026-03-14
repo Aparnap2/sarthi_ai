@@ -683,6 +683,253 @@ func (x *IssueSpec) GetLabels() []string {
 	return nil
 }
 
+// EventEnvelope is the ONLY shape that flows through Redpanda and Temporal.
+type EventEnvelope struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	EventId        string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	FounderId      string                 `protobuf:"bytes,2,opt,name=founder_id,json=founderId,proto3" json:"founder_id,omitempty"`
+	Source         string                 `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	EventName      string                 `protobuf:"bytes,4,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
+	Topic          string                 `protobuf:"bytes,5,opt,name=topic,proto3" json:"topic,omitempty"`
+	SopName        string                 `protobuf:"bytes,6,opt,name=sop_name,json=sopName,proto3" json:"sop_name,omitempty"`
+	PayloadRef     string                 `protobuf:"bytes,7,opt,name=payload_ref,json=payloadRef,proto3" json:"payload_ref,omitempty"`
+	PayloadHash    string                 `protobuf:"bytes,8,opt,name=payload_hash,json=payloadHash,proto3" json:"payload_hash,omitempty"`
+	OccurredAt     int64                  `protobuf:"varint,9,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	ReceivedAt     int64                  `protobuf:"varint,10,opt,name=received_at,json=receivedAt,proto3" json:"received_at,omitempty"`
+	TraceId        string                 `protobuf:"bytes,11,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+	IdempotencyKey string                 `protobuf:"bytes,12,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	Version        string                 `protobuf:"bytes,13,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *EventEnvelope) Reset() {
+	*x = EventEnvelope{}
+	mi := &file_ai_v1_agent_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EventEnvelope) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EventEnvelope) ProtoMessage() {}
+
+func (x *EventEnvelope) ProtoReflect() protoreflect.Message {
+	mi := &file_ai_v1_agent_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EventEnvelope.ProtoReflect.Descriptor instead.
+func (*EventEnvelope) Descriptor() ([]byte, []int) {
+	return file_ai_v1_agent_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *EventEnvelope) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
+func (x *EventEnvelope) GetFounderId() string {
+	if x != nil {
+		return x.FounderId
+	}
+	return ""
+}
+
+func (x *EventEnvelope) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *EventEnvelope) GetEventName() string {
+	if x != nil {
+		return x.EventName
+	}
+	return ""
+}
+
+func (x *EventEnvelope) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *EventEnvelope) GetSopName() string {
+	if x != nil {
+		return x.SopName
+	}
+	return ""
+}
+
+func (x *EventEnvelope) GetPayloadRef() string {
+	if x != nil {
+		return x.PayloadRef
+	}
+	return ""
+}
+
+func (x *EventEnvelope) GetPayloadHash() string {
+	if x != nil {
+		return x.PayloadHash
+	}
+	return ""
+}
+
+func (x *EventEnvelope) GetOccurredAt() int64 {
+	if x != nil {
+		return x.OccurredAt
+	}
+	return 0
+}
+
+func (x *EventEnvelope) GetReceivedAt() int64 {
+	if x != nil {
+		return x.ReceivedAt
+	}
+	return 0
+}
+
+func (x *EventEnvelope) GetTraceId() string {
+	if x != nil {
+		return x.TraceId
+	}
+	return ""
+}
+
+func (x *EventEnvelope) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *EventEnvelope) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+// ExecuteSOPRequest is the request for executing an SOP.
+type ExecuteSOPRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Envelope      *EventEnvelope         `protobuf:"bytes,1,opt,name=envelope,proto3" json:"envelope,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExecuteSOPRequest) Reset() {
+	*x = ExecuteSOPRequest{}
+	mi := &file_ai_v1_agent_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecuteSOPRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecuteSOPRequest) ProtoMessage() {}
+
+func (x *ExecuteSOPRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_ai_v1_agent_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecuteSOPRequest.ProtoReflect.Descriptor instead.
+func (*ExecuteSOPRequest) Descriptor() ([]byte, []int) {
+	return file_ai_v1_agent_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ExecuteSOPRequest) GetEnvelope() *EventEnvelope {
+	if x != nil {
+		return x.Envelope
+	}
+	return nil
+}
+
+// ExecuteSOPResponse is the response from SOP execution.
+type ExecuteSOPResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	FireAlert     bool                   `protobuf:"varint,3,opt,name=fire_alert,json=fireAlert,proto3" json:"fire_alert,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExecuteSOPResponse) Reset() {
+	*x = ExecuteSOPResponse{}
+	mi := &file_ai_v1_agent_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecuteSOPResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecuteSOPResponse) ProtoMessage() {}
+
+func (x *ExecuteSOPResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_ai_v1_agent_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecuteSOPResponse.ProtoReflect.Descriptor instead.
+func (*ExecuteSOPResponse) Descriptor() ([]byte, []int) {
+	return file_ai_v1_agent_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ExecuteSOPResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *ExecuteSOPResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *ExecuteSOPResponse) GetFireAlert() bool {
+	if x != nil {
+		return x.FireAlert
+	}
+	return false
+}
+
 var File_ai_v1_agent_proto protoreflect.FileDescriptor
 
 const file_ai_v1_agent_proto_rawDesc = "" +
@@ -729,7 +976,34 @@ const file_ai_v1_agent_proto_rawDesc = "" +
 	"\bseverity\x18\x02 \x01(\x0e2\x0f.ai.v1.SeverityR\bseverity\x12$\n" +
 	"\x04type\x18\x03 \x01(\x0e2\x10.ai.v1.IssueTypeR\x04type\x12 \n" +
 	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x16\n" +
-	"\x06labels\x18\x05 \x03(\tR\x06labels*\xb2\x01\n" +
+	"\x06labels\x18\x05 \x03(\tR\x06labels\"\x95\x03\n" +
+	"\rEventEnvelope\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1d\n" +
+	"\n" +
+	"founder_id\x18\x02 \x01(\tR\tfounderId\x12\x16\n" +
+	"\x06source\x18\x03 \x01(\tR\x06source\x12\x1d\n" +
+	"\n" +
+	"event_name\x18\x04 \x01(\tR\teventName\x12\x14\n" +
+	"\x05topic\x18\x05 \x01(\tR\x05topic\x12\x19\n" +
+	"\bsop_name\x18\x06 \x01(\tR\asopName\x12\x1f\n" +
+	"\vpayload_ref\x18\a \x01(\tR\n" +
+	"payloadRef\x12!\n" +
+	"\fpayload_hash\x18\b \x01(\tR\vpayloadHash\x12\x1f\n" +
+	"\voccurred_at\x18\t \x01(\x03R\n" +
+	"occurredAt\x12\x1f\n" +
+	"\vreceived_at\x18\n" +
+	" \x01(\x03R\n" +
+	"receivedAt\x12\x19\n" +
+	"\btrace_id\x18\v \x01(\tR\atraceId\x12'\n" +
+	"\x0fidempotency_key\x18\f \x01(\tR\x0eidempotencyKey\x12\x18\n" +
+	"\aversion\x18\r \x01(\tR\aversion\"E\n" +
+	"\x11ExecuteSOPRequest\x120\n" +
+	"\benvelope\x18\x01 \x01(\v2\x14.ai.v1.EventEnvelopeR\benvelope\"g\n" +
+	"\x12ExecuteSOPResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1d\n" +
+	"\n" +
+	"fire_alert\x18\x03 \x01(\bR\tfireAlert*\xb2\x01\n" +
 	"\vSwarmStatus\x12\x1c\n" +
 	"\x18SWARM_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14SWARM_STATUS_PENDING\x10\x01\x12\x18\n" +
@@ -751,7 +1025,10 @@ const file_ai_v1_agent_proto_rawDesc = "" +
 	"\fAgentService\x12P\n" +
 	"\x0fAnalyzeFeedback\x12\x1d.ai.v1.AnalyzeFeedbackRequest\x1a\x1e.ai.v1.AnalyzeFeedbackResponse\x12A\n" +
 	"\n" +
-	"StartSwarm\x12\x18.ai.v1.StartSwarmRequest\x1a\x19.ai.v1.StartSwarmResponseB\x81\x01\n" +
+	"StartSwarm\x12\x18.ai.v1.StartSwarmRequest\x1a\x19.ai.v1.StartSwarmResponse2P\n" +
+	"\vSOPExecutor\x12A\n" +
+	"\n" +
+	"ExecuteSOP\x12\x18.ai.v1.ExecuteSOPRequest\x1a\x19.ai.v1.ExecuteSOPResponseB\x81\x01\n" +
 	"\tcom.ai.v1B\n" +
 	"AgentProtoP\x01Z3github.com/Aparnap2/iterate_swarm/gen/go/ai/v1;aiv1\xa2\x02\x03AXX\xaa\x02\x05Ai.V1\xca\x02\x05Ai\\V1\xe2\x02\x11Ai\\V1\\GPBMetadata\xea\x02\x06Ai::V1b\x06proto3"
 
@@ -768,7 +1045,7 @@ func file_ai_v1_agent_proto_rawDescGZIP() []byte {
 }
 
 var file_ai_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_ai_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_ai_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_ai_v1_agent_proto_goTypes = []any{
 	(SwarmStatus)(0),                // 0: ai.v1.SwarmStatus
 	(Severity)(0),                   // 1: ai.v1.Severity
@@ -780,23 +1057,29 @@ var file_ai_v1_agent_proto_goTypes = []any{
 	(*StartSwarmResponse)(nil),      // 7: ai.v1.StartSwarmResponse
 	(*AgentResult)(nil),             // 8: ai.v1.AgentResult
 	(*IssueSpec)(nil),               // 9: ai.v1.IssueSpec
+	(*EventEnvelope)(nil),           // 10: ai.v1.EventEnvelope
+	(*ExecuteSOPRequest)(nil),       // 11: ai.v1.ExecuteSOPRequest
+	(*ExecuteSOPResponse)(nil),      // 12: ai.v1.ExecuteSOPResponse
 }
 var file_ai_v1_agent_proto_depIdxs = []int32{
-	9, // 0: ai.v1.AnalyzeFeedbackResponse.spec:type_name -> ai.v1.IssueSpec
-	6, // 1: ai.v1.StartSwarmRequest.config:type_name -> ai.v1.SwarmConfig
-	0, // 2: ai.v1.StartSwarmResponse.status:type_name -> ai.v1.SwarmStatus
-	8, // 3: ai.v1.StartSwarmResponse.results:type_name -> ai.v1.AgentResult
-	1, // 4: ai.v1.IssueSpec.severity:type_name -> ai.v1.Severity
-	2, // 5: ai.v1.IssueSpec.type:type_name -> ai.v1.IssueType
-	3, // 6: ai.v1.AgentService.AnalyzeFeedback:input_type -> ai.v1.AnalyzeFeedbackRequest
-	5, // 7: ai.v1.AgentService.StartSwarm:input_type -> ai.v1.StartSwarmRequest
-	4, // 8: ai.v1.AgentService.AnalyzeFeedback:output_type -> ai.v1.AnalyzeFeedbackResponse
-	7, // 9: ai.v1.AgentService.StartSwarm:output_type -> ai.v1.StartSwarmResponse
-	8, // [8:10] is the sub-list for method output_type
-	6, // [6:8] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	9,  // 0: ai.v1.AnalyzeFeedbackResponse.spec:type_name -> ai.v1.IssueSpec
+	6,  // 1: ai.v1.StartSwarmRequest.config:type_name -> ai.v1.SwarmConfig
+	0,  // 2: ai.v1.StartSwarmResponse.status:type_name -> ai.v1.SwarmStatus
+	8,  // 3: ai.v1.StartSwarmResponse.results:type_name -> ai.v1.AgentResult
+	1,  // 4: ai.v1.IssueSpec.severity:type_name -> ai.v1.Severity
+	2,  // 5: ai.v1.IssueSpec.type:type_name -> ai.v1.IssueType
+	10, // 6: ai.v1.ExecuteSOPRequest.envelope:type_name -> ai.v1.EventEnvelope
+	3,  // 7: ai.v1.AgentService.AnalyzeFeedback:input_type -> ai.v1.AnalyzeFeedbackRequest
+	5,  // 8: ai.v1.AgentService.StartSwarm:input_type -> ai.v1.StartSwarmRequest
+	11, // 9: ai.v1.SOPExecutor.ExecuteSOP:input_type -> ai.v1.ExecuteSOPRequest
+	4,  // 10: ai.v1.AgentService.AnalyzeFeedback:output_type -> ai.v1.AnalyzeFeedbackResponse
+	7,  // 11: ai.v1.AgentService.StartSwarm:output_type -> ai.v1.StartSwarmResponse
+	12, // 12: ai.v1.SOPExecutor.ExecuteSOP:output_type -> ai.v1.ExecuteSOPResponse
+	10, // [10:13] is the sub-list for method output_type
+	7,  // [7:10] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_ai_v1_agent_proto_init() }
@@ -810,9 +1093,9 @@ func file_ai_v1_agent_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_ai_v1_agent_proto_rawDesc), len(file_ai_v1_agent_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   7,
+			NumMessages:   10,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_ai_v1_agent_proto_goTypes,
 		DependencyIndexes: file_ai_v1_agent_proto_depIdxs,

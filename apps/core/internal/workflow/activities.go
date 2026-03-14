@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"iterateswarm-core/internal/agents"
+	"iterateswarm-core/internal/events"
 	"iterateswarm-core/internal/logging"
 	"iterateswarm-core/internal/memory"
 	"iterateswarm-core/internal/retry"
@@ -1088,4 +1089,68 @@ func PersistInternalOpsResult(ctx context.Context, input PersistInternalOpsResul
 
 func CreateHITLRecord(ctx context.Context, input CreateHITLRecordInput) error {
 	return globalActivities.CreateHITLRecord(ctx, input)
+}
+
+// =============================================================================
+// SOP Executor Activity
+// =============================================================================
+
+// ExecuteSOPActivity calls Python SOP executor via gRPC
+func ExecuteSOPActivity(ctx context.Context, envelope events.EventEnvelope) (*SOPActivityResult, error) {
+	// Get gRPC client from context
+	client, ok := ctx.Value("grpc_client").(aiv1.SOPExecutorClient)
+	if !ok {
+		// Try to create a new client
+		grpcAddr := "localhost:50051" // Default address
+		conn, err := grpc.NewClient(
+			grpcAddr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if err != nil {
+			return &SOPActivityResult{
+				Success: false,
+				Message: "gRPC client not available: " + err.Error(),
+			}, nil
+		}
+		defer conn.Close()
+		client = aiv1.NewSOPExecutorClient(conn)
+	}
+
+	// Convert envelope to protobuf
+	protoEnv := &aiv1.EventEnvelope{
+		EventId:        envelope.EventID,
+		FounderId:      envelope.FounderID,
+		Source:         string(envelope.Source),
+		EventName:      envelope.EventName,
+		Topic:          envelope.Topic,
+		SopName:        envelope.SOPName,
+		PayloadRef:     envelope.PayloadRef,
+		PayloadHash:    envelope.PayloadHash,
+		OccurredAt:     envelope.OccurredAt.Unix(),
+		ReceivedAt:     envelope.ReceivedAt.Unix(),
+		TraceId:        envelope.TraceID,
+		IdempotencyKey: envelope.IdempotencyKey,
+		Version:        envelope.Version,
+	}
+
+	// Call Python SOP executor with timeout
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	resp, err := client.ExecuteSOP(callCtx, &aiv1.ExecuteSOPRequest{
+		Envelope: protoEnv,
+	})
+
+	if err != nil {
+		return &SOPActivityResult{
+			Success: false,
+			Message: err.Error(),
+		}, err
+	}
+
+	return &SOPActivityResult{
+		Success:   resp.Success,
+		Message:   resp.Message,
+		FireAlert: resp.FireAlert,
+	}, nil
 }

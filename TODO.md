@@ -119,7 +119,7 @@
   - [ ] 12+ indexes
 - [ ] Create `apps/core/internal/db/raw_events_test.go`
   - [ ] TestRawEventInsertAndFetch
-- [ ] Apply migration: `psql $DATABASE_URL -f migrations/009_sarthi_sop_runtime.sql`
+- [ ] Apply migration: `psql $DATABASE_URL -f apps/core/internal/db/migrations/001_sarthi_sop_runtime.sql`
 - [ ] Run tests: `go test ./internal/db -run TestRawEvent -v` → expect PASS
 
 **Exit Criteria:**
@@ -135,21 +135,21 @@
 
 ### Tasks
 
-- [ ] Update `apps/core/internal/api/razorpay.go`
+- [ ] Update `apps/core/internal/web/razorpay.go`
   - [ ] HMAC-SHA256 verification
   - [ ] Event dictionary resolution
   - [ ] raw_events persistence
   - [ ] Envelope publishing to Redpanda
   - [ ] DLQ for unknown events
-- [ ] Update `apps/core/internal/api/telegram.go`
+- [ ] Update `apps/core/internal/web/telegram.go`
   - [ ] File persistence pattern
   - [ ] Intent classification routing
-- [ ] Create `apps/core/internal/api/razorpay_test.go`
+- [ ] Create `apps/core/internal/web/razorpay_test.go`
   - [ ] TestRazorpaySignatureValid
   - [ ] TestRazorpaySignatureInvalid
   - [ ] TestRazorpayUnknownEventSentToDLQ
   - [ ] TestRazorpayPaymentCapturedPublishesToRedpanda
-- [ ] Run tests: `go test ./internal/api -run TestRazorpay -v` → expect PASS
+- [ ] Run tests: `go test ./internal/web -run TestRazorpay -v` → expect PASS
 
 **Exit Criteria:**
 - Razorpay webhook validated, persisted, routed

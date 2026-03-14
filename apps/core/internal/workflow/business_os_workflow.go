@@ -1,10 +1,13 @@
 package workflow
 
 import (
+	"fmt"
 	"time"
 
+	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+	"iterateswarm-core/internal/events"
 )
 
 // InternalOpsInput is the input to the InternalOpsWorkflow.
@@ -316,4 +319,127 @@ func applyHITLGate(ctx workflow.Context, input InternalOpsInput, result *Interna
 
 	workflow.GetLogger(ctx).Info("HITL approval received")
 	return nil
+}
+
+// =============================================================================
+// BusinessOS Workflow — Parent Router for SOP Execution
+// =============================================================================
+
+const (
+	// ContinueAsNewThreshold — fire CAN before hitting Temporal's 51,200 hard limit
+	ContinueAsNewThreshold = 5000
+
+	// Default task queue for AI activities
+	AITaskQueue = "AI_TASK_QUEUE"
+)
+
+// BusinessOSState tracks workflow state across Continue-As-New cycles
+type BusinessOSState struct {
+	FounderID       string            `json:"founder_id"`
+	EventsProcessed int               `json:"events_processed"`
+	SeenKeys        map[string]bool   `json:"seen_keys"`
+}
+
+// BusinessOSWorkflow is the parent router — spawns child workflows, never executes SOP logic
+// It receives events via signals and spawns SOPExecutorWorkflow for each unique event.
+func BusinessOSWorkflow(ctx workflow.Context, founderID string) error {
+	state := BusinessOSState{
+		FounderID:       founderID,
+		EventsProcessed: 0,
+		SeenKeys:        make(map[string]bool),
+	}
+
+	// Get signal channel for incoming events
+	signalChan := workflow.GetSignalChannel(ctx, "sarthi.events")
+
+	for {
+		// ── Guard: Continue-As-New before hitting Temporal history limits
+		if state.EventsProcessed >= ContinueAsNewThreshold {
+			workflow.GetLogger(ctx).Info(
+				"Triggering Continue-As-New",
+				"events_processed", state.EventsProcessed,
+				"founder_id", state.FounderID,
+			)
+			return workflow.NewContinueAsNewError(ctx, BusinessOSWorkflow, state.FounderID)
+		}
+
+		// ── Receive next event
+		var envelope events.EventEnvelope
+		if !signalChan.ReceiveAsync(&envelope) {
+			// No events pending — wait for next signal
+			signalChan.Receive(ctx, &envelope)
+		}
+
+		// ── Idempotency: skip duplicates
+		if state.SeenKeys[envelope.IdempotencyKey] {
+			workflow.GetLogger(ctx).Info(
+				"Skipping duplicate event",
+				"idempotency_key", envelope.IdempotencyKey,
+				"event_id", envelope.EventID,
+			)
+			continue
+		}
+		state.SeenKeys[envelope.IdempotencyKey] = true
+		state.EventsProcessed++
+
+		// ── Spawn child workflow: parent NEVER executes SOP logic
+		childCtx := workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
+			WorkflowID:        fmt.Sprintf("sop:%s:%s", envelope.SOPName, envelope.EventID),
+			TaskQueue:         AITaskQueue,
+			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON, // Child continues if parent dies
+		})
+
+		// Fire-and-forget: don't wait for SOP completion
+		_ = workflow.ExecuteChildWorkflow(childCtx, SOPExecutorWorkflow, envelope)
+
+		workflow.GetLogger(ctx).Info(
+			"Spawned SOP child workflow",
+			"sop_name", envelope.SOPName,
+			"event_id", envelope.EventID,
+		)
+	}
+}
+
+// SOPExecutorWorkflow executes a single SOP via Python gRPC activity
+func SOPExecutorWorkflow(ctx workflow.Context, envelope events.EventEnvelope) error {
+	logger := workflow.GetLogger(ctx)
+	logger.Info("Starting SOP execution", "sop_name", envelope.SOPName)
+
+	// Set activity options with retry policy
+	ao := workflow.ActivityOptions{
+		StartToCloseTimeout: 30 * time.Second,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    time.Second,
+			BackoffCoefficient: 2.0,
+			MaximumInterval:    10 * time.Second,
+			MaximumAttempts:    3,
+		},
+	}
+	ctx = workflow.WithActivityOptions(ctx, ao)
+
+	// Execute Python activity via gRPC
+	var result SOPActivityResult
+	err := workflow.ExecuteActivity(ctx, ExecuteSOPActivity, envelope).Get(ctx, &result)
+
+	if err != nil {
+		logger.Error("SOP execution failed", "error", err)
+		return err
+	}
+
+	logger.Info("SOP execution completed", "success", result.Success)
+
+	// Fire alert if needed
+	if result.FireAlert {
+		logger.Info("Alert should be fired", "message", result.Message)
+		// TODO: Implement alert firing activity
+	}
+
+	return nil
+}
+
+// SOPActivityResult is the result from Python SOP execution
+type SOPActivityResult struct {
+	Success   bool   `json:"success"`
+	Message   string `json:"message"`
+	FireAlert bool   `json:"fire_alert"`
 }

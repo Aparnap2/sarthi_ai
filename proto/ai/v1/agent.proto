@@ -10,6 +10,11 @@ service AgentService {
   rpc StartSwarm(StartSwarmRequest) returns (StartSwarmResponse);
 }
 
+// SOPExecutor service handles SOP execution for BusinessOS
+service SOPExecutor {
+  rpc ExecuteSOP(ExecuteSOPRequest) returns (ExecuteSOPResponse);
+}
+
 message AnalyzeFeedbackRequest {
   string text = 1;
   string source = 2;  // e.g., "discord", "slack"
@@ -88,4 +93,37 @@ enum IssueType {
   ISSUE_TYPE_BUG = 1;
   ISSUE_TYPE_FEATURE = 2;
   ISSUE_TYPE_QUESTION = 3;
+}
+
+// =============================================================================
+// SOP Executor Messages
+// =============================================================================
+
+// EventEnvelope is the ONLY shape that flows through Redpanda and Temporal.
+message EventEnvelope {
+  string event_id = 1;
+  string founder_id = 2;
+  string source = 3;
+  string event_name = 4;
+  string topic = 5;
+  string sop_name = 6;
+  string payload_ref = 7;
+  string payload_hash = 8;
+  int64 occurred_at = 9;
+  int64 received_at = 10;
+  string trace_id = 11;
+  string idempotency_key = 12;
+  string version = 13;
+}
+
+// ExecuteSOPRequest is the request for executing an SOP.
+message ExecuteSOPRequest {
+  EventEnvelope envelope = 1;
+}
+
+// ExecuteSOPResponse is the response from SOP execution.
+message ExecuteSOPResponse {
+  bool success = 1;
+  string message = 2;
+  bool fire_alert = 3;
 }

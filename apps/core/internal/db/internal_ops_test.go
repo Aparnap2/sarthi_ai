@@ -75,11 +75,11 @@ func createTestFounder(t *testing.T, db *sql.DB, ctx context.Context, slackUserI
 	t.Helper()
 	var founderID uuid.UUID
 	err := db.QueryRowContext(ctx, `
-		INSERT INTO founders (slack_user_id, name, stage)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (slack_user_id) DO UPDATE SET name = $2
+		INSERT INTO founders (slack_user_id, slack_team_id, name, stage)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (slack_user_id) DO UPDATE SET name = $3
 		RETURNING id
-	`, slackUserID, "Test User", "building").Scan(&founderID)
+	`, slackUserID, "test-team-id", "Test User", "building").Scan(&founderID)
 	require.NoError(t, err, "Failed to create test founder")
 	return founderID
 }

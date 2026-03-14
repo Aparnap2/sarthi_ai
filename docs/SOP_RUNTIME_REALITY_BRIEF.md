@@ -285,6 +285,10 @@ _REGISTRY: List[DictionaryEntry] = [
     # Example: "market_intel" events → Researcher agent
 ]
 
+class UnknownEventError(Exception):
+    """Raised when event is not in dictionary."""
+    pass
+
 class EventDictionary:
     def __init__(self):
         self._index = {(e.source, e.event_name): e for e in _REGISTRY}

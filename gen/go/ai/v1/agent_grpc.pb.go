@@ -161,3 +161,109 @@ var AgentService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "ai/v1/agent.proto",
 }
+
+const (
+	SOPExecutor_ExecuteSOP_FullMethodName = "/ai.v1.SOPExecutor/ExecuteSOP"
+)
+
+// SOPExecutorClient is the client API for SOPExecutor service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// SOPExecutor service handles SOP execution for BusinessOS
+type SOPExecutorClient interface {
+	ExecuteSOP(ctx context.Context, in *ExecuteSOPRequest, opts ...grpc.CallOption) (*ExecuteSOPResponse, error)
+}
+
+type sOPExecutorClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewSOPExecutorClient(cc grpc.ClientConnInterface) SOPExecutorClient {
+	return &sOPExecutorClient{cc}
+}
+
+func (c *sOPExecutorClient) ExecuteSOP(ctx context.Context, in *ExecuteSOPRequest, opts ...grpc.CallOption) (*ExecuteSOPResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExecuteSOPResponse)
+	err := c.cc.Invoke(ctx, SOPExecutor_ExecuteSOP_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SOPExecutorServer is the server API for SOPExecutor service.
+// All implementations must embed UnimplementedSOPExecutorServer
+// for forward compatibility.
+//
+// SOPExecutor service handles SOP execution for BusinessOS
+type SOPExecutorServer interface {
+	ExecuteSOP(context.Context, *ExecuteSOPRequest) (*ExecuteSOPResponse, error)
+	mustEmbedUnimplementedSOPExecutorServer()
+}
+
+// UnimplementedSOPExecutorServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedSOPExecutorServer struct{}
+
+func (UnimplementedSOPExecutorServer) ExecuteSOP(context.Context, *ExecuteSOPRequest) (*ExecuteSOPResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExecuteSOP not implemented")
+}
+func (UnimplementedSOPExecutorServer) mustEmbedUnimplementedSOPExecutorServer() {}
+func (UnimplementedSOPExecutorServer) testEmbeddedByValue()                     {}
+
+// UnsafeSOPExecutorServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to SOPExecutorServer will
+// result in compilation errors.
+type UnsafeSOPExecutorServer interface {
+	mustEmbedUnimplementedSOPExecutorServer()
+}
+
+func RegisterSOPExecutorServer(s grpc.ServiceRegistrar, srv SOPExecutorServer) {
+	// If the following call panics, it indicates UnimplementedSOPExecutorServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&SOPExecutor_ServiceDesc, srv)
+}
+
+func _SOPExecutor_ExecuteSOP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExecuteSOPRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SOPExecutorServer).ExecuteSOP(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SOPExecutor_ExecuteSOP_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SOPExecutorServer).ExecuteSOP(ctx, req.(*ExecuteSOPRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// SOPExecutor_ServiceDesc is the grpc.ServiceDesc for SOPExecutor service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var SOPExecutor_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "ai.v1.SOPExecutor",
+	HandlerType: (*SOPExecutorServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ExecuteSOP",
+			Handler:    _SOPExecutor_ExecuteSOP_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "ai/v1/agent.proto",
+}
