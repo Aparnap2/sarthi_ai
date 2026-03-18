@@ -1,16 +1,14 @@
-# Sarthi.ai — Your Internal Ops Virtual Office
+# Sarthi.ai — Your Virtual Back-Office for Software Startups
 
 <div align="center">
 
-**13 virtual employees. 6 desks. Zero external-facing work.**
+**5-Agent Ops Automation System | Telegram Interface | Real Docker + Real Azure LLM**
 
-[![Tests](https://img.shields.io/badge/tests-~189%20target-brightgreen)](./apps/ai/tests/)
-[![Employees](https://img.shields.io/badge/employees-13%20virtual-blue)](./docs/PRD.md)
-[![Desks](https://img.shields.io/badge/desks-6%20internal-purple)](./docs/PRD.md)
-[![ROI](https://img.shields.io/badge/ROI-20x%E2%80%9350x-green)](./docs/PRD.md)
-[![Version](https://img.shields.io/badge/version-v4.2.0--alpha-purple)](./docs/PRD.md)
+[![Tests](https://img.shields.io/badge/tests-255%2B%20baseline-brightgreen)](./apps/ai/tests/)
+[![Agents](https://img.shields.io/badge/agents-5%20vertical-blue)](./docs/PRD.md)
+[![Version](https://img.shields.io/badge/version-v1.0--alpha-purple)](./docs/PRD.md)
 
-[Live Demo (Coming Soon)](.) • [Architecture](#architecture) • [6 Desks](#the-6-desks--13-virtual-employees) • [API Docs](./docs/api/) • [PRD](./docs/PRD.md) • [Scope](./docs/INTERNAL_OPS_SCOPE.md)
+[Architecture](#architecture) • [Agents](#five-agents) • [PRD](./docs/PRD.md) • [Testing](#testing)
 
 </div>
 
@@ -18,27 +16,24 @@
 
 ## The Problem
 
-Early-stage startups drown in operational chaos:
+Solo technical founders drown in operational chaos:
 
 | Metric | Impact |
 |--------|--------|
-| **Tools fragmentation** | Average startup uses **15 different tools** across payroll, finance, HR, compliance |
-| **Founder time waste** | **15–20 hours/week** on back-office = **₹90,000–₹2,25,000/month** hidden cost |
-| **Fractional admin cost** | **₹3.5L–₹7.5L/month** for CFO, bookkeeper, HR, legal retainer, EA |
-| **Roadmap delay** | Back-office drag delays product roadmaps by **~3 months per year** |
+| **Tools fragmentation** | 10+ tools (Razorpay, Zoho, Intercom, Keka) with no intelligence layer |
+| **Founder as bus** | You manually relay info between payment → CRM → support → HR → finance |
+| **Time waste** | 15–20 hours/week on back-office = $9,000–$22,500/month hidden cost |
+| **Roadmap delay** | ~3 months/year lost to ops work that doesn't require your judgment |
 
-**The gap:** Not "startups don't have tools" — it's **15 disconnected tools with no intelligence layer connecting them**.
+**The gap:** Not "founders don't have tools" — it's **no system watches all tools and acts silently**.
 
 ---
 
 ## The Solution
 
-**Sarthi** is the internal operations virtual office for Seed to Series A startups.
+**Sarthi** is the intelligence layer that sits above all your existing tools and runs the ops *between* them.
 
 ```
-We don't find you customers.
-We make sure your company doesn't collapse while you do.
-
 Every operational task that doesn't require your
 unique human judgment — Sarthi handles.
 Everything that does — Sarthi prepares perfectly
@@ -48,227 +43,161 @@ and puts in front of you in 30 seconds, not 3 hours.
 ### What Sarthi Does (Real Examples)
 
 > "Sarthi saved me 18 hours this week:
-> - Prepared my GST + VAT filing data automatically (India + UK)
-> - Sent payment reminders to 5 overdue clients
-> - Told me my runway dropped from 9 to 7 months and showed me exactly why
-> - Drafted the offer letter for my new UK hire (compliant with UK law)
-> - Found ₹23k/month in unused SaaS subscriptions
-> - Tracked all contract renewals and flagged 2 expiring soon"
+> - Detected AWS spike (2.3× usual) before I noticed
+> - Sent payment reminders to 3 stale deals (closed 2)
+> - Generated Priya's onboarding checklist (eng role)
+> - Drafted Monday brief: 3 items, no jargon
+> - Flagged Arjun as high churn risk (8 days no login)
+> - Prepared investor update: revenue, burn, runway"
 
-**That's not a feature list. That's a Wednesday.**
-
-### What Sarthi Does NOT Do
-
-❌ RevOps / GTM / CRM outreach
-❌ Customer success / support
-❌ External market intelligence (competitors, pricing)
-❌ Content generation / marketing
-❌ Cap table management
-❌ Tax filing
-❌ Grant applications
-
-**Why?** Internal ops is painful enough. We solve that completely.
+**That's not a feature list. That's a Monday.**
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 0 — KERNEL (Go + Temporal + Graphiti)                     │
-│  BusinessOSWorkflow: orchestrates all agents, manages state     │
-│  enforces HITL gates, temporal knowledge graph                  │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  CONNECTORS (Go API Gateway)                                │
+│  Razorpay • Stripe • Zoho • Intercom • Keka • Bank          │
+│  HMAC verified → raw_events → Redpanda                      │
+└─────────────────────────────────────────────────────────────┘
                               │
                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 1 — CHIEF OF STAFF (1 agent)                              │
-│  The only agent that talks to the founder.                      │
-│  Routes work to 6 desks.                                        │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  TEMPORAL WORKFLOWS (Go)                                    │
+│  RevenueWorkflow • CSWorkflow • PeopleWorkflow              │
+│  FinanceWorkflow • ChiefOfStaffWorkflow                     │
+│  Continue-As-New at 1,000 events                            │
+└─────────────────────────────────────────────────────────────┘
                               │
                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 2 — 6 DESKS (13 Virtual Employees)                        │
-│                                                                  │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐               │
-│  │ Finance     │ │ People      │ │ Legal       │               │
-│  │ Desk (4)    │ │ Desk (2)    │ │ Desk (2)    │               │
-│  └─────────────┘ └─────────────┘ └─────────────┘               │
-│                                                                  │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐               │
-│  │ Intelligence│ │ IT & Tools  │ │ Admin       │               │
-│  │ Desk (2)    │ │ Desk (1)    │ │ Desk (2)    │               │
-│  └─────────────┘ └─────────────┘ └─────────────┘               │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  PYTHON AGENTS (LangGraph)                                  │
+│  Revenue Tracker • CS Agent • People Coordinator            │
+│  Finance Monitor • Chief of Staff                           │
+│  Reason → Act → Write Memory                                │
+└─────────────────────────────────────────────────────────────┘
                               │
                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 3 — DATA LAYER (ingest + memory, never surfaces)          │
-│  Ingestion | Memory (Qdrant + Neo4j) | Connector                │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  OUTPUTS                                                    │
+│  PostgreSQL (structured) • Qdrant (episodic)                │
+│  Telegram (HITL only)                                       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Infrastructure Stack ($0/month)
+### Data Flow
 
-| Layer | Tool | Cost |
-|-------|------|------|
-| **Interface** | Telegram Bot API | $0 forever |
-| **LLM** | Azure OpenAI | $0 (existing) |
-| **Orchestration** | Temporal (self-hosted) | $0 |
-| **Message Queue** | Redpanda (self-hosted) | $0 |
-| **Databases** | PostgreSQL + Qdrant + Neo4j | $0 |
-| **Graph** | Graphiti (Neo4j plugin) | $0 OSS |
-| **Bank Parsing** | Docling + pdfplumber (OSS) | $0 |
+```mermaid
+graph TD
+  subgraph Connectors
+    A[Razorpay/Stripe] --> GW[Go API Gateway]
+    B[Zoho/Tally] --> GW
+    C[Support webhook] --> GW
+    D[HR webhook] --> GW
+    E[Bank webhook] --> GW
+    F[gws CLI cron] --> GW
+  end
 
-**Total monthly cost for MVP: $0**
+  subgraph Event Bus
+    GW -->|HMAC verified + normalized| RP[Redpanda: sarthi.events.raw]
+  end
 
----
+  subgraph Temporal Workflows
+    RP --> RW[RevenueWorkflow]
+    RP --> CW[CSWorkflow]
+    RP --> PW[PeopleWorkflow]
+    RP --> FW[FinanceWorkflow]
+    RP --> CoSW[ChiefOfStaffWorkflow]
+  end
 
-## The 6 Desks — 13 Virtual Employees
+  subgraph Python Agents — LangGraph
+    RW --> RA[Revenue Tracker]
+    CW --> CA[CS Agent]
+    PW --> PA[People Coordinator]
+    FW --> FA[Finance Monitor]
+    CoSW --> CoS[Chief of Staff]
+  end
 
-### Tier 1: Chief of Staff Agent
-
-**Role:** The face of Sarthi. Routes work to 6 desks, synthesizes intelligence, manages the relationship.
-
-**Output:**
-- "Here's what I found + one action"
-- "I handled X — here's what I did"
-- "I need your decision on X — here's context"
-- "Weekly briefing: X handled, Y needs you"
-
----
-
-### Tier 2: The 6 Desks
-
-#### 📊 Finance Desk (4 employees)
-
-**CFO Agent**
-- 13-week rolling cash flow forecast
-- Burn rate + runway calculation
-- Unit economics: CAC, LTV, payback
-- Scenario modeling: "what if we hire in March?"
-
-**Bookkeeper Agent**
-- Expense categorization (auto)
-- Bank vs books reconciliation
-- Monthly P&L narrative generation
-
-**AR/AP Clerk Agent**
-- Invoice generation + payment reminders
-- Accounts receivable aging report
-
-**Payroll Clerk Agent**
-- Payroll data preparation
-- PF/ESIC/pension filing reminders
+  subgraph Outputs
+    RA & CA & PA & FA & CoS --> PG[PostgreSQL]
+    RA & CA & PA & FA & CoS --> QD[Qdrant]
+    CoS & FA & PA --> TG[Telegram HITL]
+  end
+```
 
 ---
 
-#### 👥 People Desk (2 employees)
+## Five Agents
 
-**HR Coordinator Agent**
-- Onboarding checklist execution
-- Offer letter generation
-- Leave balance tracking
+### 1. Revenue Tracker
 
-**Internal Recruiter Agent**
-- Job description drafting
-- Interview scheduling coordination
+**Watches:** Razorpay, Stripe, CRM deals  
+**Acts:** MRR snapshots, stale deal nudges  
+**Telegram:** Stale deals (>7 days), MRR milestones
 
----
-
-#### ⚖️ Legal Desk (2 employees)
-
-**Contracts Coordinator Agent**
-- NDA generation (templates)
-- Contract review summary
-- Contract expiry tracking
-
-**Compliance Tracker Agent**
-- GST, TDS, advance tax deadlines
-- PF, ESIC, PT compliance
-- DPDP Act / GDPR compliance checklist
+| Threshold | Action |
+|-----------|--------|
+| MRR crosses ₹1L/₹5L/₹10L | Celebratory alert |
+| Deal idle >7 days | "Still live? [Nudge] [Mark Lost]" |
+| Single customer >30% | Concentration risk warning |
 
 ---
 
-#### 📈 Intelligence Desk (2 employees)
+### 2. CS Agent
 
-**BI Analyst Agent (Internal-Only)**
-- Customer cohort analysis (retention, churn)
-- Revenue concentration risk
-- Anomaly detection across all data sources
+**Watches:** Signup events, support tickets, login activity  
+**Acts:** D1/D3/D7 onboarding sequence, churn risk detection  
+**Telegram:** High churn risk founders only (risk_score > 0.7)
 
-**Policy Watcher Agent**
-- Regulatory change monitoring
-- Tax law updates affecting THIS company
-
----
-
-#### 🖥️ IT & Tools Desk (1 employee)
-
-**IT Admin Agent**
-- SaaS subscription audit + optimization
-- Cloud spend analysis
-- Tool access provisioning/deprovisioning
+| Trigger | Action |
+|---------|--------|
+| USER_SIGNED_UP | Day 1 message queued |
+| last_seen_at >7 days | Churn risk alert to founder |
+| ticket_count >2 in 48h | Escalation draft |
 
 ---
 
-#### 📋 Admin Desk (2 employees)
+### 3. People Coordinator
 
-**Executive Assistant Agent**
-- Meeting prep (pulls context, agenda)
-- Action item extraction from meeting notes
+**Watches:** Hire/exit events, checklist confirmations  
+**Acts:** Role-based checklists, provisioning/revocation  
+**Telegram:** New hire checklist, offboard revoke list
 
-**Knowledge Manager Agent**
-- SOP documentation from observed workflows
-- Internal wiki organization
-
----
-
-### Tier 3: Data Layer (Invisible)
-
-- **IngestionAgent:** Normalizes all data (bank PDF, accounting, Notion, Slack, Stripe)
-- **MemoryAgent:** Qdrant + Neo4j + Graphiti — company's long-term brain (vector + temporal)
-- **ConnectorAgent:** OAuth + API connections to all tools
+| Role | Checklist |
+|------|-----------|
+| Eng | GitHub, Notion, Slack, GWorkspace, Linear |
+| Ops | Notion, Slack, GWorkspace |
+| Sales | Notion, Slack, GWorkspace, CRM |
 
 ---
 
-## The Self-Correcting System
+### 4. Finance Monitor
 
-**How Sarthi gets smarter about YOUR company over time:**
+**Watches:** Payments, expenses, bank feeds, time ticks  
+**Acts:** Burn/runway, spend anomaly detection (2σ threshold)  
+**Telegram:** Spend anomalies, runway <90 days
 
-1. **AGENT ACTS** → Bookkeeper categorizes AWS expense
-2. **OUTCOME OBSERVED** → Founder confirms category is correct
-3. **MEMORY UPDATED** → "AWS expenses: categorized as 'Cloud Infrastructure'" (Qdrant + Neo4j)
-4. **FUTURE ADJUSTED** → Auto-categorize similar expenses, flag anomalies
-5. **CONTEXT DRIFT DETECTED** → "Cloud spend up 40% MoM. New deployment or pricing change?"
-
-**Not generic AI. Company-specific intelligence.**
+| Threshold | Action |
+|-----------|--------|
+| Spend > baseline + 2σ | "AWS bill ₹42,000 — 2.3× usual. [Investigate] [Expected]" |
+| Runway <3 months | Critical alert |
+| Runway <6 months | Warning |
 
 ---
 
-## ROI & Pricing
+### 5. Chief of Staff
 
-### What Sarthi Replaces
+**Watches:** All agent outputs + weekly/monthly cron  
+**Acts:** Monday briefing, monthly investor draft  
+**Telegram:** Weekly brief (max 5 items, jargon-free, 1 positive)
 
-| Role | Fractional Cost (₹/month) | Sarthi Desk |
-|------|--------------------------|-------------|
-| Fractional CFO | ₹75,000–₹1,50,000 | Finance Desk |
-| Bookkeeper | ₹25,000–₹40,000 | Finance Desk |
-| HR Coordinator | ₹30,000–₹50,000 | People Desk |
-| Legal Retainer | ₹50,000–₹1,00,000 | Legal Desk |
-| EA/Admin | ₹20,000–₹35,000 | Admin Desk |
-| **Total** | **₹2,00,000–₹3,75,000** | **6 Desks** |
-
-### Sarthi Pricing
-
-| Tier | Price (₹/month) | Desks Included | ROI |
-|------|-----------------|----------------|-----|
-| Starter | ₹5,000 | Finance + Admin | 20x |
-| Growth | ₹10,000 | All 6 Desks | 35x |
-| Scale | ₹15,000 | All 6 Desks + Priority | 50x |
-
-**Replace ₹2.0L–₹3.75L/month in admin costs with ₹5K–₹15K/month.**
+**Briefing rules:**
+- Max 5 items
+- Always 1 positive if data supports
+- Banned jargon: `leverage, synergy, utilize, streamline, paradigm`
+- Each item: headline + `[Action]` button
 
 ---
 
@@ -276,18 +205,26 @@ and puts in front of you in 30 seconds, not 3 hours.
 
 ### Prerequisites
 
-- Docker & Docker Compose
-- Azure OpenAI account (or OpenRouter)
-- Telegram Bot Token (from @BotFather, free)
+```bash
+# Docker & Docker Compose
+docker --version
+docker compose version
 
-### Start All Services
+# Go 1.24+
+go version
+
+# Python 3.11+ with uv
+uv --version
+```
+
+### Start Infrastructure
 
 ```bash
 # Clone
 git clone https://github.com/Aparnap2/IterateSwarm.git
 cd iterate_swarm
 
-# Start infrastructure
+# Start Docker services
 docker compose up -d
 
 # Wait for services
@@ -301,18 +238,10 @@ docker compose ps
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| **Telegram Bot** | @YourBotName | Primary interface |
 | **Temporal UI** | http://localhost:8088 | Workflow tracing |
-| **Neo4j Browser** | http://localhost:7474 | Knowledge graph |
-| **Qdrant Dashboard** | http://localhost:6333 | Vector search |
 | **Redpanda Console** | http://localhost:9644 | Event streaming |
-
-### First Run
-
-1. Message your Telegram bot: `/start`
-2. Complete 6-question onboarding
-3. Upload first bank statement (CSV/Excel/PDF)
-4. Receive first insight: "Here's your cash position + one action"
+| **Qdrant Dashboard** | http://localhost:6333 | Vector search |
+| **Langfuse** | http://localhost:3001 | LLM observability |
 
 ---
 
@@ -321,125 +250,138 @@ docker compose ps
 ### Run Tests
 
 ```bash
-# All tests
+# Full test suite (real Docker + real Azure LLM)
+bash scripts/test_sarthi.sh
+
+# Python tests only
 cd apps/ai
-uv run pytest tests/ -v --timeout=120
+uv run pytest tests/ -v --timeout=90
 
-# Specific groups
-uv run pytest tests/test_sarthi_tdd.py -v           # TDD tests (~80)
-uv run pytest tests/test_e2e_saarathi.py -v         # E2E flows (20)
-uv run pytest tests/test_llm_eval.py -v             # LLM evals (15)
-uv run pytest tests/test_llm_connectivity.py -v     # LLM connectivity (4)
+# Go tests only
+cd apps/core
+go test ./... -v -timeout=60s
 
-# Phase 3 Tests (TBD - Not Yet Available)
-# uv run pytest tests/test_finance_desk.py -v         # Finance Desk (25) - Phase 3
-# uv run pytest tests/test_people_desk.py -v          # People Desk (12) - Phase 3
-# uv run pytest tests/test_legal_desk.py -v           # Legal Desk (12) - Phase 3
-# uv run pytest tests/test_intelligence_desk.py -v    # Intelligence Desk (15) - Phase 3
-# uv run pytest tests/test_it_desk.py -v              # IT Desk (10) - Phase 3
-# uv run pytest tests/test_admin_desk.py -v           # Admin Desk (12) - Phase 3
-
-# With coverage
-uv run pytest tests/ --cov=src --cov-report=html
+# E2E tests only
+cd apps/ai
+uv run pytest tests/test_e2e_sarthi.py -v --timeout=120
 ```
 
-**Test Categories:**
-1. **Infrastructure Health** (6 tests) — Azure LLM, Qdrant, Neo4j, PostgreSQL reachable
-2. **Memory Agent** (22 tests) — Embeddings, Qdrant upsert, Neo4j graph, semantic search
-3. **Chief of Staff** (8 tests) — Plain language, correct routing, ToneFilter fidelity
-4. **Bank Parser** (8 tests) — HDFC/ICICI/SBI CSV, Docling accurate mode, multi-format
-5. **Finance Desk** (25 tests) — CFO, Bookkeeper, AR/AP, Payroll agents - Phase 3 TBD
-6. **People Desk** (12 tests) — HR Coordinator, Internal Recruiter - Phase 3 TBD
-7. **Legal Desk** (12 tests) — Contracts, Compliance Tracker - Phase 3 TBD
-8. **Intelligence Desk** (15 tests) — BI Analyst, Policy Watcher
-9. **IT & Tools Desk** (10 tests) — IT Admin
-10. **Admin Desk** (12 tests) — EA, Knowledge Manager
-11. **E2E Flows** (20 tests) — Full stack: onboarding, bank ingestion, HITL approval
-12. **LLM Evals** (15 evals) — LLM-as-judge for tone, jargon, actionability
+### Test Categories
 
-**Test Status Target:** ~189 tests passing (165 current + 24 Phase 3 TBD)
+| Category | Count | Description |
+|----------|-------|-------------|
+| **Baseline** | 255 | Existing IterateSwarm tests |
+| **Event Envelope** | 4 | Valid/invalid envelope tests |
+| **Event Normalizer** | 10 | Source → EventType mapping |
+| **Webhook Handlers** | 20 | HMAC, DLQ, idempotency (5 handlers × 4 tests) |
+| **Workflow Routing** | 5 | Parent workflow + CAN |
+| **Agent Unit Tests** | 90 | 5 agents × 6 nodes × 3 tests |
+| **E2E Flows** | 5 | Full stack: finance, revenue, onboarding, CS, investor |
+| **LLM Evals** | 40 | 4 agents × 10 scenarios |
 
-**v4.2.0 Status:** v4.2.0-alpha — Internal Ops Virtual Office Only.
+**Target:** 429+ tests passing for v1.0.0
 
-See [`docs/TESTING_ARCHITECTURE.md`](./docs/TESTING_ARCHITECTURE.md) for complete testing docs.
+### Add a New Agent
 
-### Add a New Desk Employee
-
-1. Create `apps/ai/src/agents/desks/your_agent.py`
-2. Define role, tools, APIs, output format (Pydantic)
-3. Register in Chief of Staff routing
+1. Create `apps/ai/src/agents/your_agent.py`
+2. Define LangGraph state + nodes
+3. Register in Temporal workflow
 4. Add tests in `apps/ai/tests/test_your_agent.py`
 5. Run: `uv run pytest tests/test_your_agent.py -v`
 
 ### Environment Variables
 
 ```bash
-# LLM (swap provider by changing these 3 lines)
-LLM_BASE_URL=https://openrouter.ai/api/v1
-LLM_API_KEY=sk-or-v1-...
-LLM_MODEL=openai/gpt-4o-mini
-
-# Azure OpenAI (Alternative)
-AZURE_OPENAI_API_KEY=your-key
+# LLM (Azure OpenAI)
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o-mini
+AZURE_OPENAI_KEY=your-key
+AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-4o-mini
 AZURE_OPENAI_API_VERSION=2024-02-01
-# Set these instead of LLM_BASE_URL/LLM_API_KEY/LLM_MODEL when using Azure.
 
 # Telegram
 TELEGRAM_BOT_TOKEN=...
-
-# Neo4j / Graphiti
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=...
 
 # PostgreSQL
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_DB=sarthi
+POSTGRES_USER=sarthi
+POSTGRES_PASSWORD=...
 
 # Qdrant
 QDRANT_HOST=localhost
 QDRANT_PORT=6333
 
-# Sandbox
-SANDBOX_URL=http://localhost:5001
-SANDBOX_SECRET=...
+# Redpanda
+REDPANDA_BROKERS=localhost:9094
+
+# Temporal
+TEMPORAL_ADDRESS=localhost:7233
+TEMPORAL_NAMESPACE=default
 ```
 
 ---
 
-## v4.2 Roadmap
+## Testing
 
-### Phase 1 (IN PROGRESS)
-- [ ] LLM unification (`get_llm_client` everywhere)
-- [ ] Graphiti + Neo4j full integration
-- [ ] 125 tests passing
+### Philosophy
 
-### Phase 2
-- [ ] Finance Desk (CFO + Bookkeeper + AR/AP + Payroll)
-- [ ] People Desk (HR + Internal Recruiter)
-- [ ] Legal Desk (Contracts + Compliance)
-- [ ] 150 tests passing
+**Real Docker. Real Azure LLM. Zero mocks on external infra.**
 
-### Phase 3
-- [ ] Intelligence Desk (BI + Policy Watcher)
-- [ ] IT & Tools Desk (IT Admin)
-- [ ] Admin Desk (EA + Knowledge Manager)
-- [ ] 175 tests passing
+```python
+# Pattern: fixed state + fixed event → assert decisions
+class TestRevenueTracker:
+    def test_stale_deal_detected():
+        state = RevenueState(pipeline_deals=[
+            {"deal_id": "D1", "amount": 50000,
+             "stage": "NEGOTIATION", "last_contact_at": 9_days_ago}
+        ])
+        actions = revenue_graph.invoke(state, TICK_WEEKLY_EVENT)
+        assert any(a["type"] == "SEND_TELEGRAM" for a in actions)
+        assert "D1" in actions[0]["message"]
+```
 
-### Phase 4
-- [ ] Chief of Staff routing (internal-only)
-- [ ] BusinessOS workflow (Go + Temporal)
-- [ ] HITL gate E2E test
-- [ ] 20/20 E2E tests green
+### Invariants (Enforced Before Every Commit)
 
-### Phase 5: v4.2.0
-- [ ] One real founder onboards
-- [ ] Uses at least 2 desks
-- [ ] Reports "This saved me admin time"
-- → **TAG v4.2.0**
+```bash
+# I-1: No raw JSON in Temporal signals
+grep -rn "json.Marshal" apps/core/internal/workflow/ \
+  | grep -v "_test.go" && exit 1
+
+# I-2: No AzureOpenAI() outside config/llm.py
+grep -rn "AzureOpenAI(" apps/ai/src/ | grep -v "config/llm.py" && exit 1
+
+# I-3: All baseline tests still pass
+uv run pytest tests/ -x -q --timeout=90
+
+# I-4: No jargon in agent output
+grep -rn "leverage\|synergy\|utilize" apps/ai/src/agents/ && exit 1
+```
+
+---
+
+## Roadmap
+
+### v1.0.0-alpha (Current)
+
+- [x] Database schema (9 tables)
+- [x] Event envelope (Go + Python)
+- [x] Event normalization (10 mappings)
+- [ ] 5 webhook handlers (HMAC, DLQ, idempotency)
+- [ ] Temporal workflow routing (CAN at 1,000)
+- [ ] 5 LangGraph agents
+- [ ] Telegram HITL handling
+- [ ] 5 E2E tests
+- [ ] Test runner script
+
+### v1.0.0 (Production)
+
+- [ ] All 429+ tests passing
+- [ ] Langfuse tracing for all agents
+- [ ] LLM eval suite (40 scenarios)
+- [ ] Deployment SOP
+- [ ] Incident response SOP
+- [ ] First real founder onboarded
 
 ---
 
@@ -447,11 +389,10 @@ SANDBOX_SECRET=...
 
 | Doc | Purpose |
 |-----|---------|
-| [PRD](./docs/PRD.md) | Complete product requirements, agent specs (v4.2) |
-| [INTERNAL_OPS_SCOPE](./docs/INTERNAL_OPS_SCOPE.md) | What we do / don't do boundary |
-| [TESTING](./docs/TESTING_ARCHITECTURE.md) | Testing strategy, ~189 test targets |
-| [Architecture](./docs/architecture/) | System design, data flow |
-| [API Docs](./docs/api/) | All endpoints, request/response schemas |
+| [PRD](./docs/PRD.md) | Complete product requirements, agent specs, database schema |
+| [ARCHITECTURE](./docs/ARCHITECTURE.md) | System design, data flow |
+| [TESTING](./docs/TESTING_ARCHITECTURE.md) | Testing strategy, 429+ test targets |
+| [PHASES](./docs/PHASES.md) | Phase execution order (12 commits) |
 
 ---
 
@@ -473,6 +414,6 @@ MIT License — see [LICENSE](LICENSE) file.
 
 ---
 
-**Built with:** Go 1.24 • Python 3.13 • Temporal • Redpanda • PostgreSQL • Qdrant • Neo4j • Graphiti • Azure OpenAI • LangGraph • DSPy • Pydantic v2
+**Built with:** Go 1.24 • Python 3.11 • Temporal • Redpanda • PostgreSQL • Qdrant • Azure OpenAI • LangGraph
 
-**Status:** ✅ v4.2.0-alpha — Internal Ops Virtual Office Only
+**Status:** ✅ v1.0.0-alpha — 5-Agent Ops Automation System

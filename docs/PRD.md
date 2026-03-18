@@ -1,792 +1,957 @@
-# Sarthi.ai — Canonical PRD v4.2
+# Sarthi — Product Requirements Document
+## v1.0 | 5-Agent Ops Automation System for Software Startups
 
-**Version:** 4.2
-**Date:** March 2026
-**Status:** Single Source of Truth
+***
 
----
+## 1. Executive Summary
 
-## 1. The One-Line Definition
-
-```text
-Sarthi is the internal operations virtual office for Seed to Series A startups.
-
-It does not find you customers.
-It makes sure your company doesn't collapse while you do.
-
-13 virtual employees. 6 desks. Zero external-facing work.
-Finance. HR. Legal. Internal BI. IT & Tools. Admin.
-All of it. Running continuously. In the background.
-Delivered as a message — not a login.
-```
-
----
-
-## 2. The One Design Rule
-
-**A virtual employee exists in Sarthi IF AND ONLY IF:**
-
-1. The work happens **INSIDE** the company
-2. It is repetitive, predictable, and operationally necessary
-3. Missing it causes real pain (money lost, team blocked, founder stressed)
-4. It does **NOT** require going outside the platform to generate, acquire, or influence external parties
-
-### What We DO (Internal Ops)
-
-✅ Finance (CFO, bookkeeping, AR/AP, payroll)
-✅ HR (onboarding, leave, internal recruiting)
-✅ Legal (contracts, compliance)
-✅ Internal BI (unit economics, churn signals)
-✅ IT & Tools (SaaS audits, cloud spend)
-✅ Admin (meeting prep, SOPs, knowledge management)
-
-### What We DO NOT Do (Forever Out of Scope)
-
-❌ RevOps / GTM / CRM outreach
-❌ Customer success / support
-❌ External market intelligence (competitors, pricing)
-❌ Content generation / marketing
-❌ Cap table management (too complex)
-❌ Tax filing (too jurisdiction-heavy)
-❌ Grant applications (external)
-
-**Why this boundary?**
-
-Internal ops is painful enough. We solve that completely. Internal data is structured and controllable. We replace ₹3.5L–₹7.5L/month in admin costs immediately. Enterprise tools ignore Seed startups. Startup tools ignore ops depth. That's our moat.
-
----
-
-## 3. The Problem
-
-| What a Startup Needs | What They Actually Have |
-|---------------------|------------------------|
-| CFO | Founder checking a spreadsheet at 11pm |
-| Head of HR | Founder copying an offer letter template |
-| Legal counsel | Founder ignoring the contract renewal email |
-| BI analyst | Founder not knowing what they don't know |
-| COO | Founder doing everything manually |
-
-**The result:** 15–20 hours/week of founder time eaten by back-office work that doesn't require their unique judgment. That is ~3 months/year of product and growth time permanently lost.
-
-**The hidden cost:** ₹3.5L–₹7.5L/month in fractional admin services (CFO, bookkeeper, HR coordinator, legal retainer) that startups can't afford but desperately need.
-
----
-
-## 4. The ICP
-
-### Who Sarthi Is For
+Sarthi is a multi-agent back-office automation system for software startup founders. It watches payment providers, CRM, support channels, HR events, bank feeds, and the founder's calendar — then acts silently on routine tasks and sends a single Telegram message only when genuine judgment is required. It integrates with tools founders already use. It replaces nothing. It eliminates the founder as the manual communication bus between all of them.
 
 | Attribute | Value |
-|-----------|-------|
-| **Stage** | Pre-seed → Series A |
-| **Team size** | 1–25 people |
-| **Type** | Product/tech startup (B2B SaaS, D2C, marketplace, fintech, edtech) |
-| **Geography** | India (beachhead) → US → UK → EU → SEA |
+|---|---|
+| Interface | Telegram (only surface the founder ever sees) |
+| Foundation | IterateSwarm v4.2.0-alpha (255 tests passing) |
+| Language stack | Go (gateway) + Python (agents) |
+| Orchestration | Temporal (durable workflows) |
+| Event bus | Redpanda |
+| Memory | Qdrant (episodic) + PostgreSQL (structured) |
+| Target | Solo technical founders, B2B SaaS, India |
 
-### What Defines Them
+***
 
-- Tech-literate — they know what an API is
-- Already using tools (Notion, Linear, Razorpay, Google Workspace, Zoho Books/QuickBooks)
-- Do NOT have dedicated ops/finance/HR/legal hires
-- The founder IS the back-office right now
+## 2. System Architecture
 
-### What They Feel
+### 2.1 Core Data Flow
 
-- "I'm spending all my time on admin, not product"
-- "I don't know if my numbers are okay"
-- "I almost missed a GST deadline last month"
-- "I have to write the same follow-up emails every single week"
-
-### What They Need
-
-- Not the best financial firm
-- Not another dashboard
-- Someone (something) to hold their hand, handle the grunt work, and tell them the one thing that matters right now
-
----
-
-## 5. The Interface
-
-### Primary: Telegram Bot
-
-Free, no per-message cost, async, file-capable, inline keyboards for HITL approvals. Works globally.
-
-### What Founders Send Sarthi
-
-- **Text questions:** "What's my runway?"
-- **CSV/Excel files:** Bank statement export from net banking
-- **PDF files:** Contracts, notices, invoices
-- **Photos:** Tax notices, receipts, whiteboards
-- **/commands:** `/status` `/runway` `/decisions` `/weekly`
-
-### What Sarthi Sends Founders
-
-- **Proactive alerts** (unprompted, when score > threshold)
-- **Task reports:** "Done: sent 3 payment reminders"
-- **HITL requests:** "Send this to Raju? [Yes / Edit / No]"
-- **Weekly briefing:** Every Monday 9am local time
-- **Deadline alerts:** 14-day advance warning on all compliance
-
----
-
-## 6. The Agent Architecture — 6 Desks, 13 Virtual Employees
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 0 — KERNEL (Go + Temporal + Graphiti)                     │
-│  BusinessOSWorkflow: orchestrates all agents, manages state     │
-│  enforces HITL gates, temporal knowledge graph                  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 1 — CHIEF OF STAFF (1 agent)                              │
-│  The only agent that talks to the founder.                      │
-│  Routes work to 6 desks. Synthesizes intelligence.              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 2 — 6 DESKS (13 Virtual Employees)                        │
-│                                                                  │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐               │
-│  │ Finance     │ │ People      │ │ Legal       │               │
-│  │ Desk        │ │ Desk        │ │ Desk        │               │
-│  │ • CFO       │ │ • HR Coord  │ │ • Contracts │               │
-│  │ • Bookkeeper│ │ • Recruiter │ │ • Compliance│               │
-│  │ • AR/AP     │ │             │ │             │               │
-│  │ • Payroll   │ │             │ │             │               │
-│  └─────────────┘ └─────────────┘ └─────────────┘               │
-│                                                                  │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐               │
-│  │ Intelligence│ │ IT & Tools  │ │ Admin       │               │
-│  │ Desk        │ │ Desk        │ │ Desk        │               │
-│  │ • BI Analyst│ │ • IT Admin  │ │ • EA        │               │
-│  │ • Policy    │ │             │ │ • Knowledge │               │
-│  │  Watcher    │ │             │ │  Manager    │               │
-│  └─────────────┘ └─────────────┘ └─────────────┘               │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 3 — DATA LAYER (ingest + memory, never surfaces)          │
-│  Ingestion | Memory (Qdrant + Neo4j) | Connector                │
-└─────────────────────────────────────────────────────────────────┘
+```
+External event
+  → Go webhook handler (validate HMAC, normalize, store raw)
+  → Redpanda: sarthi.events.raw
+  → Temporal: route to correct workflow
+  → LangGraph agent: reason, act, write memory
+  → Outputs: PostgreSQL row + Qdrant memory + Telegram (only if HITL needed)
 ```
 
----
+```mermaid
+graph TD
+  subgraph Connectors
+    A[Razorpay/Stripe] --> GW[Go API Gateway]
+    B[Zoho/Tally] --> GW
+    C[Support webhook] --> GW
+    D[HR webhook] --> GW
+    E[Bank webhook] --> GW
+    F[gws CLI cron] --> GW
+  end
 
-## 7. The Complete Desk Hierarchy (v4.2)
+  subgraph Event Bus
+    GW -->|HMAC verified + normalized| RP[Redpanda: sarthi.events.raw]
+  end
 
-### Tier 1: Chief of Staff Agent
+  subgraph Temporal Workflows
+    RP --> RW[RevenueWorkflow]
+    RP --> CW[CSWorkflow]
+    RP --> PW[PeopleWorkflow]
+    RP --> FW[FinanceWorkflow]
+    RP --> CoSW[ChiefOfStaffWorkflow]
+  end
 
-**Role:** The face of Sarthi. Routes work to 6 desks, synthesizes intelligence, manages the relationship.
+  subgraph Python Agents — LangGraph
+    RW --> RA[Revenue Tracker]
+    CW --> CA[CS Agent]
+    PW --> PA[People Coordinator]
+    FW --> FA[Finance Monitor]
+    CoSW --> CoS[Chief of Staff]
+  end
 
-**Output:**
-- "Here's what I found + one action"
-- "I handled X — here's what I did"
-- "I need your decision on X — here's context"
-- "Weekly briefing: X handled, Y needs you"
-
-**HITL Gate:**
-- **LOW RISK** → auto-execute + notify after
-- **MEDIUM RISK** → 1-tap Telegram inline keyboard
-- **HIGH RISK** → explicit confirm with context
-
----
-
-### Tier 2: The 6 Desks (13 Virtual Employees)
-
-#### 📊 Finance Desk (4 employees)
-
-**CFO Agent**
-- 13-week rolling cash flow forecast
-- Burn rate + runway calculation (alert < 90 days)
-- Unit economics: CAC, LTV, payback
-- Scenario modeling: "what if we hire in March?"
-- **Fires when:** Runway < 6 months, burn spikes >15%, margin goes negative
-
-**Bookkeeper Agent**
-- Expense categorization (auto)
-- Bank vs books reconciliation
-- Monthly P&L narrative generation
-- GST/VAT return data prep
-- **HITL:** Auto-categorize, manual review for uncategorized
-
-**AR/AP Clerk Agent**
-- Invoice generation + payment reminders
-- Accounts receivable aging report
-- Vendor payment timing optimization
-- **Fires when:** Invoice >30 days overdue, payment due in 7 days
-
-**Payroll Clerk Agent**
-- Payroll data preparation
-- PF/ESIC/pension filing reminders
-- Salary slip generation
-- **Fires when:** Payroll deadline <7 days, new hire onboarded
-
----
-
-#### 👥 People Desk (2 employees)
-
-**HR Coordinator Agent**
-- Onboarding checklist execution
-- Offer letter generation (templates)
-- Leave balance tracking
-- Performance review scheduling
-- **Fires when:** New hire start date, leave balance <5 days, review due
-
-**Internal Recruiter Agent**
-- Job description drafting
-- Interview scheduling coordination
-- Candidate communication templates
-- Offer letter preparation
-- **Fires when:** Requisition approved, interview scheduled
-
----
-
-#### ⚖️ Legal Desk (2 employees)
-
-**Contracts Coordinator Agent**
-- NDA generation (templates)
-- Contract review summary (plain language)
-- Contract expiry tracking (90-day warning)
-- eSign workflow management
-- **Fires when:** Contract expires <30 days, new contract needs drafting
-
-**Compliance Tracker Agent**
-- GST, TDS, advance tax deadlines (India)
-- VAT, Corporation Tax, PAYE (UK)
-- PF, ESIC, PT compliance
-- DPDP Act / GDPR compliance checklist
-- MCA/Companies House filing reminders
-- **Fires when:** Deadline <14 days, regulatory change detected
-
----
-
-#### 📈 Intelligence Desk (2 employees)
-
-**BI Analyst Agent (Internal-Only)**
-- Customer cohort analysis (retention, churn)
-- Revenue concentration risk (single customer >30%)
-- Anomaly detection across all data sources
-- Cross-source pattern correlation
-- Unit economics tracking
-- **Fires when:** Churn pattern detected, one customer >30% revenue, usage predicts churn
-
-**Policy Watcher Agent**
-- Regulatory change monitoring (jurisdiction-specific)
-- Tax law updates affecting THIS company
-- Compliance requirement changes
-- **Fires when:** New regulation affects company, deadline changes
-
----
-
-#### 🖥️ IT & Tools Desk (1 employee)
-
-**IT Admin Agent**
-- SaaS subscription audit + optimization
-- Cloud spend analysis (AWS/GCP/Azure)
-- Tool access provisioning/deprovisioning
-- Software license tracking
-- Vendor contract renewal tracking
-- **Fires when:** Unused subscription detected, renewal due <60 days, spend anomaly
-
----
-
-#### 📋 Admin Desk (2 employees)
-
-**Executive Assistant Agent**
-- Meeting prep (pulls context, agenda)
-- Action item extraction from meeting notes
-- Internal announcement drafts
-- Calendar coordination
-- **Fires when:** Meeting scheduled, action items extracted
-
-**Knowledge Manager Agent**
-- SOP documentation from observed workflows
-- Internal wiki organization
-- Process improvement suggestions
-- Company handbook maintenance
-- **Fires when:** New process observed, SOP outdated >90 days
-
----
-
-### Tier 3: Data Layer (Invisible)
-
-**Ingestion Agent**
-- **CSV/Excel:** pandas + openpyxl (Bank detection: HDFC/ICICI/SBI/Axis/Kotak)
-- **PDF (digital):** pdfplumber
-- **PDF (scanned):** Docling accurate mode
-- **PDF (fallback):** Azure Document Intelligence (500 pages/mo free tier)
-- **Photos:** Docling vision mode
-- All normalised → standard transaction schema
-- PostgreSQL write + Qdrant embed + Neo4j episode
-
-**Memory Agent (Qdrant — semantic)**
-- Manages Qdrant collection: `sarthi-founder-memory`
-- Embeddings: text-embedding-3-small (1536d)
-- Founder isolation enforced at filter level
-- Conflict detection on contradicting writes
-- Stale memory compression after 90 days
-- Pattern detection: archetype classification
-
-**Graph Memory Agent (Neo4j + Graphiti — relational)**
-- Temporal knowledge graph via Graphiti (Zep)
-- Every reflection, commitment, signal, decision is an episode
-- Answers questions Qdrant cannot:
-  - "Has this founder broken this commitment 3 weeks running?"
-  - "What happened to revenue AFTER missed customer calls?"
-  - "Which interventions did this founder respond to?"
-- Hybrid search: semantic + graph traversal (RRF)
-
-**Connector Agent**
-- Manages OAuth token health for all integrations
-- Token refresh, sync schedule
-- Falls back to polling if webhook fails
-- Alerts CoS if integration goes dark
-
----
-
-## 8. The Self-Correcting Loop
-
-```text
-1. Agent acts      (e.g. Bookkeeper categorizes AWS expense)
-2. Outcome seen    (Founder confirms category is correct)
-3. MemoryAgent writes to Qdrant:
-   "AWS expenses: categorized as 'Cloud Infrastructure'"
-4. GraphMemoryAgent writes episode to Neo4j:
-   Entity: AWS → RELATION: category → Cloud Infrastructure
-5. Future: Auto-categorize similar expenses, flag anomalies
-6. Context drift:  CoS detects macro pattern across
-   all memory and surfaces unprompted:
-   "Cloud spend up 40% MoM. New deployment or pricing change?"
-
-The system gets smarter about THIS company specifically.
-Not generic AI. Company-specific intelligence that compounds.
+  subgraph Outputs
+    RA & CA & PA & FA & CoS --> PG[PostgreSQL]
+    RA & CA & PA & FA & CoS --> QD[Qdrant]
+    CoS & FA & PA --> TG[Telegram HITL]
+  end
 ```
 
----
+### 2.2 Five Agents — Responsibilities
 
-## 9. The Technology Stack
+| Agent | Primary Input | Primary Output | Telegram? |
+|---|---|---|---|
+| **Revenue Tracker** | Payment events, CRM updates | MRR snapshot, stale deal nudges | Stale deals, MRR milestones |
+| **CS Agent** | Signup events, support tickets, time ticks | Onboarding sequences, churn risk | High-churn risk founders only |
+| **People Coordinator** | Hire/exit events, checklist confirmations | Provisioning/revocation checklist | New hire checklist, offboard list |
+| **Finance Monitor** | Payment + expense events, bank feed, time ticks | Burn/runway, anomaly alerts | Spend anomalies, runway < 90 days |
+| **Chief of Staff** | All agent outputs + cron | Weekly briefing, investor draft | Weekly brief, monthly investor update |
 
-### Infrastructure ($0 — Docker, self-hosted)
+### 2.3 Shared Infrastructure (built once, reused by all)
 
-| Component | Technology | Port | Purpose |
-|-----------|------------|------|---------|
-| Workflow engine | Temporal | 7233/8088 | Durable execution |
-| Message queue | Redpanda | 19092 | Event bus |
-| Primary DB | PostgreSQL | 5432 | State, founders |
-| Vector DB | Qdrant | 6333 | Semantic memory |
-| Graph DB | Neo4j | 7687 | Relational memory |
-| LLM observability | Langfuse | 3001 | Tracing + evals |
-| Isolated exec | Sandbox (alpine) | 5001 | CFO charts/math |
+**Go API routes:**
+```
+POST /webhooks/payments     → sarthi.events.raw
+POST /webhooks/crm          → sarthi.events.raw
+POST /webhooks/support      → sarthi.events.raw
+POST /webhooks/hr           → sarthi.events.raw
+POST /webhooks/bank         → sarthi.events.raw
+GET  /health
+```
 
-### Go Core (`apps/core`)
+**Redpanda topics:**
+```
+sarthi.events.raw           — all normalized inbound events
+sarthi.events.normalized    — post-routing classified events
+sarthi.agent.outputs        — agent action results (consumed by CoS)
+```
 
-| Technology | Purpose |
-|------------|---------|
-| Go 1.24 + Fiber | API gateway, webhook hub |
-| Temporal Go SDK | BusinessOSWorkflow definition |
-| franz-go | Redpanda producer/consumer |
-| sqlc | Type-safe PostgreSQL queries |
-| htmx + Go tmpl | Ops dashboard (internal) |
-| go-telegram-bot | Telegram webhook + send DM |
+**Temporal activities (shared):**
+```
+CallLangGraph(agent, event)
+SendTelegram(tenant, message, buttons)
+QueryPostgres(query, params)
+QueryQdrant(collection, query)
+UpsertQdrant(collection, vector, payload)
+EmitEvent(topic, payload)
+```
 
-### Python AI Worker (`apps/ai`)
+**Python AI service:**
+```
+POST /agent/:name/run
+Input:  { state, event }
+Output: { actions, new_state, memories_to_write }
+```
 
-| Technology | Purpose |
-|------------|---------|
-| Python 3.11 + uv | Package management |
-| LangGraph | Agent state machines (all tiers) |
-| DSPy | Prompt optimization per agent node |
-| Pydantic v2 | Output contracts + jargon validator |
-| Langfuse SDK | Auto-trace every LangGraph node |
-| Temporal Python | Activity worker |
-| Qdrant Client | Semantic memory read/write |
-| Graphiti (Zep) | Neo4j temporal knowledge graph |
-| neo4j | Neo4j Python driver |
+***
 
-### THE ONE SDK RULE — ABSOLUTE
+## 3. Agent LLD
+
+### 3.1 Revenue Tracker
+
+**State:**
+```python
+@dataclass
+class RevenueState:
+    tenant_id: str
+    last_7d_revenue: float
+    last_30d_mrr: float
+    pipeline_deals: list[dict]   # {deal_id, amount, stage, last_contact_at}
+    alerts_sent: list[dict]      # {alert_type, target_id, sent_at}
+```
+
+**Trigger events:**
+```
+PAYMENT_SUCCESS
+SUBSCRIPTION_CREATED | UPDATED | CANCELED
+CRM_DEAL_CREATED | UPDATED
+TIME_TICK_WEEKLY
+```
+
+**LangGraph nodes:**
+```
+IngestEvent     → classify event type, extract amount + customer
+UpdateMetrics   → recompute MRR + 7d/30d windows from PostgreSQL
+DetectStaleDeals → deals with last_contact_at > 7 days
+DecideAlerts    → which founders to ping + why (milestone / stale / anomaly)
+WriteMemory     → write weekly summary to Qdrant
+EmitActions     → queue Telegram messages + emit WEEKLY_REVENUE_SUMMARY
+```
+
+**Key thresholds:**
+- MRR milestones: ₹1L, ₹5L, ₹10L, ₹50L, ₹1Cr
+- Stale deal: `last_contact_at > 7 days AND stage != CLOSED`
+- Concentration risk: single customer > 30% of last 90d revenue
+
+**Actions:**
+```python
+SendTelegram("Deal with Acme idle 9 days. Still live? [Nudge] [Mark Lost]")
+EmitEvent("WEEKLY_REVENUE_SUMMARY", {mrr, deals, anomalies})
+UpsertQdrant("revenue_summary", weekly_text_embedding)
+```
+
+***
+
+### 3.2 Customer Success Agent
+
+**State:**
+```python
+@dataclass
+class CSState:
+    tenant_id: str
+    customer_id: str
+    signup_at: datetime
+    last_seen_at: datetime
+    onboarding_stage: Literal["WELCOME", "CHECKIN", "ACTIVATION", "DONE"]
+    risk_score: float   # 0–1
+```
+
+**Trigger events:**
+```
+USER_SIGNED_UP
+USER_LOGGED_IN
+SUPPORT_TICKET_CREATED
+TIME_TICK_D1 | D3 | D7
+```
+
+**LangGraph nodes:**
+```
+OnSignup          → initialize CSState, queue D1 message
+OnTimeTick        → check stage, decide next touchpoint
+OnSupportTicket   → classify (FAQ vs real issue), draft reply
+RiskAssessment    → infer churn risk from inactivity + ticket count
+EmitActions       → user messages + founder alert if risk_score > 0.7
+```
+
+**Key thresholds:**
+- High churn risk: `last_seen_at > 7 days` AND `onboarding_stage != DONE`
+- Ticket escalation: `ticket_count > 2 in 48h`
+
+**Actions:**
+```python
+SendTelegram(user_telegram, "Day 1: Quick tip to get your first win in 10 min →")
+SendTelegram(founder_telegram, "User Arjun hasn't logged in for 8 days. High churn risk. [Send Nudge] [Mark OK]")
+UpsertQdrant("cs_case", conversation_summary_embedding)
+```
+
+***
+
+### 3.3 People Coordinator
+
+**State:**
+```python
+@dataclass
+class PeopleState:
+    employee_id: str
+    tenant_id: str
+    status: Literal["ONBOARDING", "ACTIVE", "OFFBOARDING"]
+    checklist: dict   # {slack_invited, notion_added, github_added,
+                      #  gworkspace_created, license_provisioned}
+    role_function: Literal["eng", "ops", "sales", "design"]
+```
+
+**Trigger events:**
+```
+EMPLOYEE_CREATED
+EMPLOYEE_TERMINATED
+CHECKLIST_ITEM_CONFIRMED
+TIME_TICK_D1 | D3
+```
+
+**LangGraph nodes:**
+```
+OnHireEvent        → create checklist based on role_function
+GenerateChecklist  → eng checklist ≠ ops checklist ≠ sales checklist
+ProgressTracking   → track confirmed items, compute % complete
+NagLoop            → send reminder if item incomplete after 24h
+Offboarding        → mirror of onboarding, generate revoke list
+```
+
+**Role-based checklists:**
+
+| Tool | Eng | Ops | Sales |
+|---|---|---|---|
+| GitHub | ✅ | — | — |
+| Notion | ✅ | ✅ | ✅ |
+| Slack | ✅ | ✅ | ✅ |
+| Google Workspace | ✅ | ✅ | ✅ |
+| Linear/Jira | ✅ | — | — |
+| CRM | — | — | ✅ |
+
+**Actions:**
+```python
+SendTelegram("Priya (Eng) joins Monday. Checklist: [GitHub] [Notion] [Slack] [GWorkspace] [Linear]. [Mark Done]")
+SendTelegram("Offboard Rahul today. Revoke: GitHub, Notion, Slack, GWorkspace, Linear. [Confirm Done]")
+UpsertQdrant("onboarding_run", narrative_of_issues_embedding)
+```
+
+***
+
+### 3.4 Finance Monitor
+
+**State:**
+```python
+@dataclass
+class FinanceState:
+    tenant_id: str
+    monthly_revenue: float
+    monthly_expense: float
+    burn_rate: float
+    runway_months: float
+    known_vendors: list[dict]    # {vendor, avg_monthly_spend, stddev}
+    last_anomalies: list[dict]
+```
+
+**Trigger events:**
+```
+PAYMENT_SUCCESS
+EXPENSE_RECORDED
+BANK_WEBHOOK
+TIME_TICK_DAILY | WEEKLY
+```
+
+**LangGraph nodes:**
+```
+UpdateSnapshot    → recompute burn + runway from PostgreSQL
+VendorBaseline    → load typical spend per vendor (avg ± 2σ)
+DetectAnomaly     → compare current tx to baseline
+ExplainAnomaly    → query Qdrant: did this pattern appear before?
+DecideAlert       → severity (info/warn/critical) + who to ping
+EmitActions       → anomaly alert, runway update, emit RUNWAY_UPDATED
+```
+
+**Key thresholds:**
+- Anomaly: `current_spend > vendor_baseline + 2σ`
+- Runway critical: `runway_months < 3`
+- Runway warning: `runway_months < 6`
+
+**Actions:**
+```python
+SendTelegram("AWS bill ₹42,000 — 2.3× usual. First spike. [Investigate] [Expected]")
+EmitEvent("RUNWAY_UPDATED", {runway_months, burn_rate, snapshot_at})
+UpsertQdrant("anomaly", event_plus_explanation_embedding)
+```
+
+***
+
+### 3.5 Chief of Staff
+
+**State:**
+```python
+@dataclass
+class CoSState:
+    tenant_id: str
+    last_briefing_at: datetime
+    last_investor_update_at: datetime
+```
+
+**Trigger events:**
+```
+TIME_TICK_WEEKLY
+TIME_TICK_MONTHLY
+AGENT_OUTPUT events from all 4 agents (via sarthi.agent.outputs)
+```
+
+**LangGraph nodes:**
+```
+CollectSignals     → pull last N agent outputs from PostgreSQL + Qdrant
+Prioritize         → rank by urgency × impact score
+ComposeBriefing    → LLM: 3–5 bullets, plain English, no jargon
+ComposeInvestorDraft → optional, monthly, from finance + revenue data
+EmitActions        → Telegram briefing + investor draft to Drive (via gws)
+```
+
+**Briefing rules:**
+- Max 5 items
+- Always include one positive item if data supports it
+- No jargon: banned terms list enforced (`leverage, synergy, utilize, streamline, paradigm`)
+- Each item: one headline + one `[Action]` button
+
+**Actions:**
+```python
+SendTelegram("""
+Monday Brief. 3 things need you today.
+
+🔴 TDS due tomorrow: ₹47,230. Challan ready. [Pay Now] [Remind 5PM]
+🟡 Priya's offer unsigned 6 days. Joins Monday. [Send Reminder]
+🟢 Runway: 14.2 months. AWS spike under review.
+
+Everything else: handled.
+""")
+WriteQdrant("briefing", summary_embedding)
+```
+
+***
+
+## 4. Database Schema
+
+```sql
+-- ── Tenant / Founder ──────────────────────────────────────────────
+CREATE TABLE founders (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       VARCHAR(50) UNIQUE NOT NULL,
+    telegram_chat_id VARCHAR(50) NOT NULL,
+    name            VARCHAR(100),
+    stage           VARCHAR(30) DEFAULT 'prerevenue',
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Raw events archive ────────────────────────────────────────────
+CREATE TABLE raw_events (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       VARCHAR(50) NOT NULL,
+    source          VARCHAR(50) NOT NULL,
+    event_type      VARCHAR(100) NOT NULL,
+    payload_hash    VARCHAR(100) NOT NULL,
+    payload_body    JSONB NOT NULL,
+    idempotency_key VARCHAR(200) UNIQUE,
+    received_at     TIMESTAMPTZ DEFAULT NOW(),
+    processed_at    TIMESTAMPTZ
+);
+
+-- ── Revenue ───────────────────────────────────────────────────────
+CREATE TABLE transactions (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       VARCHAR(50) NOT NULL,
+    raw_event_id    UUID REFERENCES raw_events(id),
+    txn_date        DATE NOT NULL,
+    description     TEXT NOT NULL,
+    debit           NUMERIC(18,2) DEFAULT 0,
+    credit          NUMERIC(18,2) DEFAULT 0,
+    category        VARCHAR(50),
+    confidence      FLOAT,
+    source          VARCHAR(50),
+    external_id     VARCHAR(200),
+    UNIQUE(tenant_id, external_id)
+);
+
+CREATE TABLE pipeline_deals (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       VARCHAR(50) NOT NULL,
+    deal_id         VARCHAR(100) NOT NULL,
+    name            VARCHAR(200),
+    amount          NUMERIC(18,2),
+    stage           VARCHAR(50),
+    last_contact_at TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(tenant_id, deal_id)
+);
+
+-- ── Customer Success ──────────────────────────────────────────────
+CREATE TABLE cs_customers (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       VARCHAR(50) NOT NULL,
+    customer_id     VARCHAR(100) NOT NULL,
+    telegram_id     VARCHAR(50),
+    signup_at       TIMESTAMPTZ,
+    last_seen_at    TIMESTAMPTZ,
+    onboarding_stage VARCHAR(20) DEFAULT 'WELCOME',
+    risk_score      FLOAT DEFAULT 0,
+    UNIQUE(tenant_id, customer_id)
+);
+
+-- ── People ────────────────────────────────────────────────────────
+CREATE TABLE employees (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       VARCHAR(50) NOT NULL,
+    employee_id     VARCHAR(100) NOT NULL,
+    name            VARCHAR(100),
+    role_function   VARCHAR(20),
+    status          VARCHAR(20) DEFAULT 'ONBOARDING',
+    checklist       JSONB DEFAULT '{}',
+    hired_at        TIMESTAMPTZ,
+    terminated_at   TIMESTAMPTZ,
+    UNIQUE(tenant_id, employee_id)
+);
+
+-- ── Finance ───────────────────────────────────────────────────────
+CREATE TABLE finance_snapshots (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       VARCHAR(50) NOT NULL,
+    snapshot_date   DATE NOT NULL,
+    monthly_revenue NUMERIC(18,2),
+    monthly_expense NUMERIC(18,2),
+    burn_rate       NUMERIC(18,2),
+    runway_months   FLOAT,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE vendor_baselines (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       VARCHAR(50) NOT NULL,
+    vendor_name     VARCHAR(200) NOT NULL,
+    avg_monthly     NUMERIC(18,2),
+    stddev_monthly  NUMERIC(18,2),
+    sample_count    INT DEFAULT 0,
+    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(tenant_id, vendor_name)
+);
+
+-- ── Agent output log (consumed by Chief of Staff) ─────────────────
+CREATE TABLE agent_outputs (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       VARCHAR(50) NOT NULL,
+    agent_name      VARCHAR(50) NOT NULL,
+    output_type     VARCHAR(50),
+    headline        TEXT,
+    urgency         VARCHAR(10) DEFAULT 'low',
+    hitl_sent       BOOLEAN DEFAULT FALSE,
+    output_json     JSONB,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Telegram HITL log ─────────────────────────────────────────────
+CREATE TABLE hitl_actions (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       VARCHAR(50) NOT NULL,
+    agent_name      VARCHAR(50),
+    message_sent    TEXT,
+    buttons         JSONB,
+    founder_response VARCHAR(50),
+    responded_at    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+***
+
+## 5. Webhook Normalization Contract
+
+Every source normalizes to this envelope before hitting Redpanda. Raw payload stored in PostgreSQL first; only the ref flows forward.
+
+```go
+// apps/core/internal/events/envelope.go
+type EventEnvelope struct {
+    TenantID       string    `json:"tenant_id"`
+    EventType      string    `json:"event_type"`
+    // e.g. PAYMENT_SUCCESS, USER_SIGNED_UP, EMPLOYEE_CREATED
+    Source         string    `json:"source"`
+    // e.g. razorpay, stripe, intercom, keka, bank
+    PayloadRef     string    `json:"payload_ref"`
+    // "raw_events:<uuid>" — NEVER raw JSON
+    PayloadHash    string    `json:"payload_hash"`
+    IdempotencyKey string    `json:"idempotency_key"`
+    OccurredAt     time.Time `json:"occurred_at"`
+    ReceivedAt     time.Time `json:"received_at"`
+    TraceID        string    `json:"trace_id"`
+}
+```
+
+**Event type map:**
+
+| Source | Raw event | Normalized EventType |
+|---|---|---|
+| Razorpay | `payment.captured` | `PAYMENT_SUCCESS` |
+| Razorpay | `subscription.cancelled` | `SUBSCRIPTION_CANCELED` |
+| Stripe | `invoice.paid` | `PAYMENT_SUCCESS` |
+| Intercom/Crisp | `user.created` | `USER_SIGNED_UP` |
+| Intercom | `conversation.created` | `SUPPORT_TICKET_CREATED` |
+| Keka/Darwinbox | `employee.created` | `EMPLOYEE_CREATED` |
+| Keka | `employee.terminated` | `EMPLOYEE_TERMINATED` |
+| Bank webhook/gws | `bank.transaction` | `BANK_WEBHOOK` |
+| Cron | `cron.weekly` | `TIME_TICK_WEEKLY` |
+| Cron | `cron.daily` | `TIME_TICK_DAILY` |
+
+***
+
+## 6. Testing Strategy
+
+### 6.1 Unit Tests — Python (per LangGraph node, no mocks except LLM)
 
 ```python
-# apps/ai/src/config/llm.py
-# THE ONLY FILE WHERE THE LLM CLIENT IS CREATED.
-# Every agent imports from here. No exceptions. Ever.
+# Pattern: fixed state + fixed event → assert decisions
+class TestRevenueTracker:
+    def test_stale_deal_detected():
+        state = RevenueState(pipeline_deals=[
+            {"deal_id": "D1", "amount": 50000,
+             "stage": "NEGOTIATION", "last_contact_at": 9_days_ago}
+        ])
+        actions = revenue_graph.invoke(state, TICK_WEEKLY_EVENT)
+        assert any(a["type"] == "SEND_TELEGRAM" for a in actions)
+        assert "D1" in actions[0]["message"]
 
-from openai import AzureOpenAI   # ← ALWAYS for Azure. Use factory pattern.
+    def test_mrr_milestone_fires():
+        # mrr crosses ₹5L threshold
+        ...
 
-def get_llm_client() -> AzureOpenAI:
-    return AzureOpenAI(
-        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-        api_key=os.environ["AZURE_OPENAI_KEY"],
-        api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01"),
-    )
+    def test_normal_payment_silent():
+        # routine payment, no anomaly, no telegram
+        ...
 
-# Provider Configuration:
-# Set environment variables:
-#   - AZURE_OPENAI_ENDPOINT: https://{resource}.openai.azure.com/
-#   - AZURE_OPENAI_KEY: Your Azure OpenAI API key
-#   - AZURE_OPENAI_API_VERSION: API version (default: 2024-02-01)
-#   - AZURE_OPENAI_CHAT_DEPLOYMENT: Chat model deployment name
-#   - EMBEDDING_MODEL: Embedding model name (optional)
-```python
+class TestFinanceMonitor:
+    def test_spend_anomaly_2sigma():
+        baseline = VendorBaseline(vendor="AWS", avg=18000, stddev=2000)
+        tx = Transaction(vendor="AWS", amount=42000)
+        actions = finance_graph.invoke(state, tx)
+        assert actions[0]["type"] == "SEND_TELEGRAM"
+        assert "2.3×" in actions[0]["message"]
 
-### Document Processing ($0 OSS)
+    def test_runway_critical_fires():
+        # runway drops below 3 months
+        ...
 
-| Tool | When Used |
-|------|-----------|
-| pandas + openpyxl | CSV/Excel bank statements |
-| pdfplumber | Digital PDFs (text-selectable) |
-| Docling (IBM OSS, accurate) | Scanned PDFs (image-based OCR) |
-| Azure Document Intelligence | Fallback only (500 pages/mo free) |
-
-### External Integrations (all free for dev)
-
-| Service | API | Cost |
-|---------|-----|------|
-| Telegram Bot | python-telegram-bot | $0 forever |
-| Zoho Books | REST API | $0 free tier |
-| QuickBooks Online | Sandbox API | $0 dev |
-| Razorpay | Webhooks + API | $0 setup |
-| HubSpot CRM | API | $0 free tier |
-| Leegality / Digio | eSign API | $0 sandbox |
-
----
-
-## 10. The Tone Contract
-
-### BANNED IN ALL OUTPUT (every agent, every message)
-
-```text
-EBITDA, DSO, bps, YoY, MoM, liquidity,
-working capital, CAGR, accounts receivable,
-burn multiple, runway compression, NWC,
-cash conversion cycle, churn cohort delta,
-basis points, net margin, gross margin,
-accounts payable, amortization, depreciation,
-optimize, leverage, synergy, streamline,
-actionable insights, KPIs, metrics, data-driven
+    def test_normal_expense_silent():
+        # AWS bill within 1σ — no telegram
+        ...
 ```
 
-### REQUIRED IN ALL OUTPUT
+**Minimum per agent:** 3 unit tests per LangGraph node, covering normal / edge / failure.
 
-- Lead with human reality, not the metric
-- Max 3 sentences of explanation
-- End with exactly ONE action
-- Warm, direct — trusted friend, not consultant
-- If bad news: acknowledge before data
-- If good news: celebrate explicitly first
-
-### Example
-
-**BAD:** "Your EBITDA margin compressed 340bps MoM due to elevated SG&A spend."
-
-**GOOD:** "You kept less money from every rupee you earned this month — costs grew faster than revenue. The main culprit is [specific line]. This week: cut or pause [specific item]."
-
-**Enforced via:**
-1. Pydantic validator on every output model
-2. DSPy-compiled ToneFilter (compiled weights in git)
-3. Langfuse scores every output — <0.7 is flagged
-
----
-
-## 11. The HITL Gate Model
-
-| Risk Level | Examples | Approval Flow |
-|------------|----------|--------------|
-| **LOW RISK** (auto-execute + notify after) | Categorize a transaction, Update a record, Log a compliance deadline, Generate a draft document (not yet sent) | Auto |
-| **MEDIUM RISK** (1-tap Telegram inline keyboard) | Send a message to a client, Send a payment reminder, Book a meeting, Share a document externally | 1-tap |
-| **HIGH RISK** (explicit confirm + reason shown) | File a GST return, Send a legal document, Make a payment, Delete or archive data | Explicit confirm |
-
-**PRINCIPLE:** Powerful but never autonomous where it matters. The founder always controls the wheel. They just don't have to steer on empty roads.
-
----
-
-## 12. The Data Flow
-
-```text
-EVENT: Founder sends HDFC CSV to Telegram bot
-         │
-         ▼
-[Go Fiber] TelegramWebhookHandler
-  → Validates, authenticates founder
-  → Produces to Redpanda: "sarthi.business.events"
-         │
-         ▼
-[Temporal] BusinessOSWorkflow (long-running, never stops)
-  → Classifies event: "bank_statement_upload"
-  → Spawns: IngestionAgent
-         │
-         ├──▶ IngestionAgent: detects HDFC format
-         │    → pandas normalize → standard schema
-         │    → PostgreSQL write (transactions table)
-         │    → Qdrant upsert (memory + embedding)
-         │    → Neo4j episode via Graphiti
-         │    → Signals: "ingestion_complete"
-         │
-         ├──▶ Finance Desk agents fire:
-         │    BookkeeperAgent.categorize(new_transactions)
-         │    CFOAgent.analyze(cash_position)
-         │    AR APAgent.check_receivables()
-         │
-         ├──▶ Each agent → typed Pydantic finding
-         │    (validated at output boundary)
-         │    (Langfuse traces every node)
-         │
-         └──▶ ChiefOfStaffAgent receives ALL findings
-              → Queries Qdrant: semantic context
-              → Queries Neo4j: relational patterns
-              → Scores: what to surface right now?
-              → ToneFilter: jargon → plain language
-              → Drafts ONE Telegram message
-              → HITL gate: medium/high risk queued
-              → Go activity: send via Telegram Bot API
-                         │
-                         ▼
-              Founder's Telegram:
-              "Got your HDFC statement (March 1–15).
-               Money in: ₹2,34,000 | Out: ₹1,87,000
-               One thing I noticed: AWS costs up ₹23k
-               vs last month. Anything new deployed?
-               [It's fine] [Let me check]"
-```
-
----
-
-## 13. Pydantic Output Contracts
+### 6.2 E2E Tests — Full Stack (real Docker, real Azure LLM)
 
 ```python
-# apps/ai/src/schemas/findings.py
+# apps/ai/tests/test_e2e_sarthi.py
+@pytest.mark.e2e
+async def test_finance_anomaly_full_flow():
+    """
+    POST /webhooks/payments (AWS bill 2.3× baseline)
+    → raw_events row created
+    → Redpanda: BANK_WEBHOOK published
+    → FinanceWorkflow triggered
+    → Finance Monitor: anomaly detected
+    → agent_outputs row created, urgency=high
+    → Telegram message queued (assert via mock Telegram endpoint)
+    → Qdrant memory written
+    """
 
-BANNED_JARGON = {
-    "EBITDA","DSO","bps","YoY","MoM","liquidity",
-    "working capital","CAGR","accounts receivable",
-    "burn multiple","runway compression","NWC",
-    "cash conversion cycle","churn cohort delta",
-    "basis points","net margin","gross margin",
-    "accounts payable","amortization","depreciation",
+@pytest.mark.e2e
+async def test_weekly_revenue_briefing():
+    """
+    Seed 5 payment events over 7 days
+    → Trigger TIME_TICK_WEEKLY
+    → RevenueWorkflow completes
+    → agent_outputs: WEEKLY_REVENUE_SUMMARY emitted
+    → CoS collects + composes briefing
+    → Telegram briefing sent, ≤5 items, no banned jargon
+    """
+
+@pytest.mark.e2e
+async def test_onboarding_sequence_with_nag():
+    """
+    POST /webhooks/hr (EMPLOYEE_CREATED, role=eng)
+    → PeopleWorkflow starts
+    → Checklist generated (6 items for eng)
+    → Telegram sent with checklist buttons
+    → 24h tick fires → reminder for incomplete items
+    """
+
+@pytest.mark.e2e
+async def test_cs_churn_alert():
+    """
+    USER_SIGNED_UP → D7 tick with zero logins
+    → CS risk_score > 0.7
+    → Telegram alert to founder
+    → message contains customer name + action buttons
+    """
+
+@pytest.mark.e2e
+async def test_investor_update_draft():
+    """
+    1 month of payment + expense events → TIME_TICK_MONTHLY
+    → CoS composes investor draft
+    → Draft contains: revenue, burn, runway
+    → Draft written to Qdrant memory
+    → Telegram: "Investor update ready. [Review] [Send]"
+    """
+```
+
+### 6.3 LLM Eval Suite
+
+```python
+# 10 scripted scenarios per agent, scored with custom evaluator
+EVAL_CRITERIA = {
+    "correctness":  float,  # 0–1, does decision match gold label
+    "hallucination": bool,   # any fabricated numbers/names
+    "brevity":      int,     # Telegram message token count (target < 80)
+    "jargon_free":  bool,    # no banned terms
 }
 
-def validate_no_jargon(text: str) -> str:
-    for term in BANNED_JARGON:
-        if re.search(rf"\b{re.escape(term)}\b", text, re.IGNORECASE):
-            raise ValueError(f"Jargon violation: '{term}'")
-    return text
-
-class HitlRisk(str, Enum):
-    LOW    = "low"
-    MEDIUM = "medium"
-    HIGH   = "high"
-
-class CFOFinding(BaseModel):
-    headline:     str    # max 10 words, plain language
-    what_is_true: str    # 2-3 sentences, ₹ amounts, no jargon
-    do_this:      str    # exactly ONE action
-    urgency:      str    # "today" | "this week" | "this month"
-    rupee_impact: Optional[int]
-    hitl_risk:    HitlRisk
-    trigger_type: str
-    is_good_news: bool = False
-
-    @validator("headline", "what_is_true", "do_this")
-    def no_jargon(cls, v): return validate_no_jargon(v)
-
-    @validator("do_this")
-    def single_action(cls, v):
-        if any(c in v for c in ["\n-", "\n•", "\n1.", "\n2."]):
-            raise ValueError("do_this must be a single action")
-        return v
-
-class BIFinding(BaseModel):
-    headline:     str
-    pattern:      str
-    evidence:     str
-    do_this:      str
-    hitl_risk:    HitlRisk
-    is_good_news: bool = False
-
-class RiskAlert(BaseModel):
-    title:       str
-    deadline:    str    # "March 28 — 16 days away"
-    consequence: str    # plain language: "₹X penalty if missed"
-    do_this:     str
-    days_until:  int
-    hitl_risk:   HitlRisk = HitlRisk.HIGH
-
-class FinanceFinding(BaseModel):
-    category:      str
-    amount:        float
-    anomaly:       bool
-    do_this:       Optional[str]
-    hitl_risk:     HitlRisk = HitlRisk.LOW
-
-class HRFinding(BaseModel):
-    action_type:   str    # "onboarding" | "leave" | "payroll"
-    employee:      str
-    deadline:      Optional[str]
-    do_this:       str
-    hitl_risk:     HitlRisk
-
-class LegalFinding(BaseModel):
-    document_type: str
-    deadline:      Optional[str]
-    risk_level:    str    # "low" | "medium" | "high"
-    do_this:       str
-    hitl_risk:     HitlRisk
-
-class ITFinding(BaseModel):
-    category:      str    # "unused_subscription" | "renewal" | "spike"
-    vendor:        str
-    amount:        Optional[float]
-    do_this:       str
-    hitl_risk:     HitlRisk
+EVAL_SUITES = {
+    "revenue":  "stale deal detection across 10 scripted pipelines",
+    "cs":       "churn vs non-churn for 20 user histories",
+    "finance":  "anomaly vs expected spike (campaign launch vs real overspend)",
+    "cos":      "correct ordering of top 3 from mixed bag of 10 signals",
+}
 ```
 
----
+***
 
-## 14. Testing Architecture
+## 7. SOPs
 
-**PRINCIPLE:** Real Docker. Real LLM. No mocks. Always.
+### 7.1 Deployment SOP
+```
+1. git push to main
+2. CI: go test ./... + pytest + ruff + mypy
+3. Build: sarthi-gateway + sarthi-ai Docker images
+4. Push to registry
+5. Deploy via docker-compose (prod) or k8s manifests
+6. Smoke test:
+   - GET /health → 200
+   - POST /webhooks/payments (fake Razorpay event) → agent runs
+   - Check Langfuse traces → no errors
+   - Check Temporal UI → workflow completed
+```
 
-| Layer | Tool | What Is Tested |
-|-------|------|---------------|
-| **Infra** | conftest.py poison pill | All 12 Docker containers reachable before any test. LLM confirmed live. Mock patches on LLM BLOCKED |
-| **Agent graphs** | LangGraph + pytest-asyncio | Graph completes all nodes. State transitions valid. Error nodes reachable |
-| **Output contracts** | Pydantic v2 | Every finding typed. Jargon validator fires. Structure enforced at boundary |
-| **Prompt quality** | DSPy + BootstrapFewShot + compiled JSON | Score ≥ 0.7 on holdout examples. CFO runway within ±15 days. ToneFilter jargon-free |
-| **Observability** | Langfuse self-hosted | Every LangGraph node traced. Scores logged per run. Trace visible in UI |
-| **E2E flows** | Full stack | Telegram → Go → Redpanda → Temporal → Python agent → Pydantic output → Langfuse trace → Telegram delivery |
+### 7.2 Incident Response SOP
+```
+Alert condition: 5xx > 1% OR Temporal backlog > 100 OR Redpanda lag > 1000
 
-### Test Count Targets
+Steps:
+1. Temporal UI → look for stuck workflows
+2. Redpanda admin → check sarthi.events.raw lag
+3. Langfuse → filter failed LLM calls in last 15 min
+4. PostgreSQL → check raw_events.processed_at NULL backlog
+5. Roll back to previous image if cause unclear
+```
 
-| Suite | Tests | Type |
-|-------|-------|------|
-| Infrastructure health | 6 | Docker + LLM connectivity |
-| Memory agent (Qdrant) | 10 | write/read/isolation |
-| Graph memory agent (Neo4j) | 12 | episodes/search/patterns |
-| Chief of Staff | 8 | routing + tone |
-| Bank parser | 8 | HDFC/ICICI/SBI/scanned PDF |
-| Finance Desk (4 agents) | 25 | LangGraph E2E + Pydantic |
-| People Desk (2 agents) | 12 | onboarding + HR flows |
-| Legal Desk (2 agents) | 12 | contracts + compliance |
-| Intelligence Desk (2 agents) | 15 | BI + policy watching |
-| IT & Tools Desk (1 agent) | 10 | SaaS audit + spend |
-| Admin Desk (2 agents) | 12 | EA + knowledge mgmt |
-| Tone filter | 14 | jargon + DSPy + Hindi |
-| Sandbox client | 10 | isolated exec + charts |
-| E2E flows | 20 | full stack Telegram → output |
-| LLM evals (DSPy) | 15 | scoring + LLM-as-judge |
-| **Total** | **~189** | **Real LLM, real Docker** |
+***
 
----
+## 8. Coding Agent Brief
 
-## 15. Infrastructure — All Containers
+This is a self-contained, paste-and-execute instruction block. No clarifying questions needed.
 
-```yaml
-# docker-compose.yml — 12 containers total
-services:
-  # Core Infrastructure
-  temporal:          # Workflow orchestration
-  postgres:          # Primary database
-  redpanda:          # Event streaming
-  
-  # Memory Layer
-  qdrant:            # Vector embeddings
-  neo4j:             # Knowledge graph
-  
-  # Observability
-  langfuse:          # LLM tracing
-  
-  # Application
-  sarthi-core:       # Go service (Fiber + Temporal worker)
-  sarthi-ai:         # Python AI worker (LangGraph agents)
-  
-  # Utilities
-  sandbox:           # Isolated code execution
-```yaml
+***
 
----
+### BOOTSTRAP — Run Once
 
-## 16. ROI & Pricing
+```bash
+# 1. Confirm you are on the correct base
+git log --oneline -3
+# Must show v4.2.0-alpha context (255 tests passing)
 
-### What Sarthi Replaces
+# 2. Create feature branch
+git checkout -b feature/sarthi-v1 v4.2.0-alpha
 
-| Role | Fractional Cost (₹/month) | Sarthi Desk |
-|------|--------------------------|-------------|
-| Fractional CFO | ₹75,000–₹1,50,000 | Finance Desk |
-| Bookkeeper | ₹25,000–₹40,000 | Finance Desk |
-| HR Coordinator | ₹30,000–₹50,000 | People Desk |
-| Legal Retainer | ₹50,000–₹1,00,000 | Legal Desk |
-| EA/Admin | ₹20,000–₹35,000 | Admin Desk |
-| **Total** | **₹2,00,000–₹3,75,000** | **6 Desks** |
+# 3. Verify baseline green before touching anything
+cd apps/ai && uv run pytest tests/ -q --timeout=90
+cd apps/core && go test ./... -timeout=60s
+# Expected: 255 tests passing. STOP if not.
 
-### Sarthi Pricing
+# 4. Check current migration number
+ls apps/core/internal/db/migrations/ | sort | tail -1
+# Use LAST + 1 for your migration file
+```
 
-| Tier | Price (₹/month) | Desks Included |
-|------|-----------------|----------------|
-| Starter | ₹5,000 | Finance + Admin |
-| Growth | ₹10,000 | All 6 Desks |
-| Scale | ₹15,000 | All 6 Desks + Priority |
+***
 
-**ROI:** 20x–50x return. Replace ₹3.5L–₹7.5L/month in fractional admin costs with ₹5K–₹15K/month.
+### INVARIANTS — Run Before Every Commit
 
-### The Moat
+```bash
+# I-1: No raw JSON in Temporal signals (only PayloadRef strings)
+grep -rn "json.Marshal\|json.Unmarshal" apps/core/internal/workflow/ \
+  | grep -v "_test.go" | grep -v "// safe:" \
+  && echo "FAIL: raw JSON in workflow" && exit 1
 
-After 6 months with a founder:
-- We know their approval patterns
-- We know their vendor relationships
-- We know their team dynamics
-- We have institutional memory in Neo4j
+# I-2: No AzureOpenAI() outside config/llm.py
+grep -rn "AzureOpenAI(" apps/ai/src/ | grep -v "config/llm.py" \
+  && echo "FAIL: direct AzureOpenAI() call" && exit 1
 
-A competitor starting fresh cannot replicate this.
+# I-3: All 255 tests still pass
+cd apps/ai && uv run pytest tests/ -x -q --timeout=90 && cd -
+cd apps/core && go test ./... -timeout=60s && cd -
 
----
+# I-4: No jargon in Telegram messages
+grep -rn "leverage\|synergy\|utilize\|streamline\|paradigm" \
+  apps/ai/src/agents/ | grep -v "# allowed:" \
+  && echo "FAIL: banned jargon in agent output"
+```
 
-## 17. v4.2 Roadmap
+***
 
-### Phase 1 (IN PROGRESS)
-- [ ] LLM unification (`get_llm_client` everywhere)
-- [ ] Graphiti + Neo4j full integration
-- [ ] 125 tests passing
+### COMMIT SEQUENCE — Execute in Order
 
-### Phase 2
-- [ ] Finance Desk (CFO + Bookkeeper + AR/AP + Payroll)
-- [ ] People Desk (HR + Internal Recruiter)
-- [ ] Legal Desk (Contracts + Compliance)
-- [ ] 150 tests passing
+#### COMMIT 1 — Database migration
+```bash
+# File: apps/core/internal/db/migrations/NNN_sarthi_v1.sql
+# Content: all tables from Section 4 above
+# Apply: psql $DATABASE_URL -f migrations/NNN_sarthi_v1.sql
+# Test:
+go test ./internal/db -run TestMigration -v
+# Expected: tables exist, idempotency_key unique constraint works
+```
 
-### Phase 3
-- [ ] Intelligence Desk (BI + Policy Watcher)
-- [ ] IT & Tools Desk (IT Admin)
-- [ ] Admin Desk (EA + Knowledge Manager)
-- [ ] 175 tests passing
+#### COMMIT 2 — Event Envelope (Go + Python)
+```bash
+# Files:
+#   apps/core/internal/events/envelope.go   (EventEnvelope struct)
+#   apps/ai/src/schemas/event_envelope.py   (Pydantic model)
+# Test:
+uv run pytest tests/test_event_envelope.py -v
+# Expected: 4 tests — valid envelope, empty event_name fails,
+#           raw JSON as payload_ref fails, all sources valid
+```
 
-### Phase 4
-- [ ] Chief of Staff routing (internal-only)
-- [ ] BusinessOS workflow (Go + Temporal)
-- [ ] HITL gate E2E test
-- [ ] 20/20 E2E tests green
+#### COMMIT 3 — Event normalization map
+```bash
+# File: apps/core/internal/events/normalizer.go
+# Logic: source + raw_event → EventType from the table in Section 5
+# Unknown events → dead_letter_events table, no error returned
+# Test:
+go test ./internal/events -run TestNormalizer -v
+# Expected: 10 mappings correct, unknown event goes to DLQ
+```
 
-### Phase 5: v4.2.0
-- [ ] One real founder onboards
-- [ ] Uses at least 2 desks
-- [ ] Reports "This saved me admin time"
-- → **TAG v4.2.0**
+#### COMMIT 4 — Go webhook handlers (all 5 routes)
+```bash
+# Files:
+#   apps/core/internal/api/payments.go
+#   apps/core/internal/api/crm.go
+#   apps/core/internal/api/support.go
+#   apps/core/internal/api/hr.go
+#   apps/core/internal/api/bank.go
+# Each handler must:
+#   1. Verify HMAC (provider-specific)
+#   2. Store raw event in PostgreSQL FIRST
+#   3. Publish EventEnvelope (PayloadRef only) to Redpanda
+#   4. Return 200 immediately
+#   5. Unknown events → DLQ, still 200
+#   6. Duplicate idempotency_key → 200 + "duplicate"
+# Test per handler:
+go test ./internal/api -run TestPaymentsWebhook -v
+# Expected: valid sig accepted, invalid rejected, unknown to DLQ,
+#           duplicate idempotent, Redpanda receives envelope
+```
 
----
+#### COMMIT 5 — Temporal workflow routing
+```bash
+# File: apps/core/internal/workflow/sarthi_router.go
+# Logic:
+#   Parent workflow receives EventEnvelope signal
+#   Routes to child workflow by EventType:
+#     PAYMENT_* | SUBSCRIPTION_* | CRM_* | TIME_TICK_* → RevenueWorkflow
+#     USER_* | SUPPORT_* → CSWorkflow
+#     EMPLOYEE_* | CHECKLIST_* → PeopleWorkflow
+#     EXPENSE_* | BANK_* | TIME_TICK_DAILY → FinanceWorkflow
+#     TIME_TICK_WEEKLY | TIME_TICK_MONTHLY | AGENT_OUTPUT → CoSWorkflow
+#   Parent Continue-As-New at 1,000 events
+# Test:
+go test ./internal/workflow -run TestSarthiRouter -v
+# Expected: correct workflow spawned per event type,
+#           CAN fires at 1000, duplicate key skipped
+```
 
-## 18. Documentation
+#### COMMIT 6 — Finance Monitor LangGraph agent
+```bash
+# File: apps/ai/src/agents/finance_monitor.py
+# LangGraph nodes: UpdateSnapshot, VendorBaseline, DetectAnomaly,
+#                  ExplainAnomaly, DecideAlert, EmitActions
+# Thresholds: 2σ anomaly, runway < 3 months critical, < 6 months warn
+# Test:
+uv run pytest tests/test_finance_monitor.py -v
+# Per-node tests:
+#   test_spend_anomaly_2sigma_fires
+#   test_spend_within_1sigma_silent
+#   test_runway_critical_fires
+#   test_runway_healthy_silent
+#   test_anomaly_explained_by_qdrant_history
+#   test_normal_expense_silent
+# Run invariants. Commit.
+```
 
-| Doc | Purpose |
-|-----|---------|
-| [PRD](./PRD.md) | Complete product requirements, agent specs (v4.2) |
-| [INTERNAL_OPS_SCOPE](./INTERNAL_OPS_SCOPE.md) | What we do / don't do boundary |
-| [TESTING](./TESTING_ARCHITECTURE.md) | Testing strategy, ~189 test targets |
-| [Architecture](./architecture/) | System design, data flow |
-| [API Docs](./api/) | All endpoints, request/response schemas |
+#### COMMIT 7 — Revenue Tracker LangGraph agent
+```bash
+# File: apps/ai/src/agents/revenue_tracker.py
+# LangGraph nodes: IngestEvent, UpdateMetrics, DetectStaleDeals,
+#                  DecideAlerts, WriteMemory, EmitActions
+# Test:
+uv run pytest tests/test_revenue_tracker.py -v
+# Per-node tests:
+#   test_stale_deal_7d_fires
+#   test_active_deal_silent
+#   test_mrr_milestone_fires
+#   test_routine_payment_silent
+#   test_concentration_risk_fires
+#   test_weekly_summary_written_to_qdrant
+# Run invariants. Commit.
+```
 
----
+#### COMMIT 8 — CS Agent LangGraph agent
+```bash
+# File: apps/ai/src/agents/cs_agent.py
+# LangGraph nodes: OnSignup, OnTimeTick, OnSupportTicket,
+#                  RiskAssessment, EmitActions
+# Test:
+uv run pytest tests/test_cs_agent.py -v
+# Per-node tests:
+#   test_signup_initializes_cs_state
+#   test_d1_message_queued
+#   test_7d_no_login_risk_high
+#   test_active_user_risk_low
+#   test_support_ticket_faq_draft_reply
+#   test_support_ticket_escalation
+# Run invariants. Commit.
+```
 
-**Last Updated:** 2026-03-13
-**Version:** 4.2.0-alpha — Internal Ops Virtual Office Only
+#### COMMIT 9 — People Coordinator LangGraph agent
+```bash
+# File: apps/ai/src/agents/people_coordinator.py
+# LangGraph nodes: OnHireEvent, GenerateChecklist, ProgressTracking,
+#                  NagLoop, Offboarding
+# Test:
+uv run pytest tests/test_people_coordinator.py -v
+# Per-node tests:
+#   test_eng_checklist_has_github
+#   test_sales_checklist_no_github
+#   test_incomplete_item_nag_after_24h
+#   test_complete_checklist_no_nag
+#   test_offboarding_generates_revoke_list
+#   test_checklist_confirmed_updates_state
+# Run invariants. Commit.
+```
+
+#### COMMIT 10 — Chief of Staff LangGraph agent
+```bash
+# File: apps/ai/src/agents/chief_of_staff.py
+# LangGraph nodes: CollectSignals, Prioritize, ComposeBriefing,
+#                  ComposeInvestorDraft, EmitActions
+# Rules enforced in code:
+#   - max 5 items
+#   - at least 1 positive item if data supports it
+#   - BANNED_JARGON list checked on every output
+# Test:
+uv run pytest tests/test_chief_of_staff.py -v
+# Per-node tests:
+#   test_briefing_max_5_items
+#   test_briefing_has_one_positive_item
+#   test_briefing_no_banned_jargon
+#   test_high_urgency_items_ranked_first
+#   test_investor_draft_contains_revenue_burn_runway
+#   test_empty_week_briefing_graceful
+# Run invariants. Commit.
+```
+
+#### COMMIT 11 — Telegram handler
+```bash
+# File: apps/core/internal/api/telegram.go
+# Logic:
+#   Outbound: POST to Telegram Bot API with inline keyboard buttons
+#   Inbound:  POST /webhooks/telegram/callback
+#     → parse callback_query.data → update hitl_actions table
+#     → if action is "pay_now" → emit PAYMENT_INSTRUCTION event
+#     → if action is "mark_ok" → update relevant record
+#     → if action is "send_reminder" → queue re-send
+# Test:
+go test ./internal/api -run TestTelegram -v
+# Expected: message sent, callback parsed correctly,
+#           hitl_actions row written, downstream action emitted
+```
+
+#### COMMIT 12 — E2E test suite + test runner
+```bash
+# File: apps/ai/tests/test_e2e_sarthi.py
+# 5 E2E tests from Section 6.2:
+#   test_finance_anomaly_full_flow
+#   test_weekly_revenue_briefing
+#   test_onboarding_sequence_with_nag
+#   test_cs_churn_alert
+#   test_investor_update_draft
+# File: scripts/test_sarthi.sh
+#   Step 1: Docker health check
+#   Step 2: Azure LLM smoke test
+#   Step 3: Unit tests (all agents)
+#   Step 4: Go tests
+#   Step 5: E2E tests
+# All must pass. No mocks. Real Docker. Real Azure LLM.
+# Tag: git tag v1.0.0-alpha
+```
+
+***
+
+### DEFINITION OF DONE
+
+```
+REQUIRED BEFORE TAGGING v1.0.0:
+
+  ✅ Migration applied cleanly, all tables created
+  ✅ EventEnvelope rejects raw JSON in payload_ref
+  ✅ All 5 webhook handlers: HMAC, DLQ, idempotency
+  ✅ Parent workflow routes correctly, CAN at 1,000
+  ✅ Finance Monitor: 2σ anomaly + runway alerts
+  ✅ Revenue Tracker: stale deals + milestones
+  ✅ CS Agent: D1/D3/D7 sequence + churn risk
+  ✅ People Coordinator: role-based checklists + nag loop
+  ✅ Chief of Staff: ≤5 items, jargon-free, 1 positive
+  ✅ Telegram: outbound messages + callback handling
+  ✅ All 255 original tests still pass
+  ✅ bash scripts/test_sarthi.sh → FAILED: 0
+
+BLOCKED IF:
+  ✗ Temporal signal contains raw JSON payload
+  ✗ AzureOpenAI() called directly outside config/llm.py
+  ✗ Any Telegram message contains banned jargon
+  ✗ Original test count dropped below 255
+  ✗ Any E2E test uses a mock
+```
