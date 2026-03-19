@@ -165,6 +165,36 @@ class FinanceMonitorAgent(BaseAgent):
             output_json={"runway_months": runway},
         )
 
+    def _query_past_invoices(
+        self,
+        tenant_id: str,
+        vendor: str,
+        min_amount: float = 0,
+    ) -> list[dict]:
+        """
+        Query ZincSearch for past invoices from this vendor.
+
+        Uses vectorless BM25 + metadata filter search to retrieve
+        exact historical invoice records.
+
+        Args:
+            tenant_id: Tenant identifier for multi-tenant isolation
+            vendor: Vendor name to search for
+            min_amount: Minimum amount threshold for filtering
+
+        Returns:
+            List of structured invoice records from ZincSearch
+        """
+        from apps.ai.src.search.zincsearch_client import ZincSearchClient
+
+        zinc = ZincSearchClient()
+        return zinc.search_by_vendor(
+            index="sarthi-invoices",
+            tenant_id=tenant_id,
+            vendor=vendor,
+            min_amount=min_amount,
+        )
+
     def _explain_anomaly(
         self,
         vendor: str,
@@ -188,17 +218,21 @@ class FinanceMonitorAgent(BaseAgent):
         Returns:
             Single-line alert message (max 20 words) that cites memory if available
         """
-        # 1. Pull past memory for this vendor from Qdrant
-        past = self._query_qdrant_memory(tenant_id, vendor)
+        # 1. Pull past invoices from ZincSearch (vectorless — exact filter)
+        past_invoices = self._query_past_invoices(
+            tenant_id, vendor, min_amount=avg * 1.5
+        )
 
-        # 2. Build memory context string
-        if past:
+        # 2. Build memory context string from ZincSearch results
+        if past_invoices:
+            last = past_invoices[-1]
             memory_context = (
-                "Historical context from memory:\n"
-                + "\n".join(f"- {m['content']}" for m in past[:3])
+                f"Past high bill: ₹{last.get('amount'):,.0f} "
+                f"on {last.get('doc_date', 'unknown date')}. "
+                f"Category: {last.get('category', 'unknown')}."
             )
         else:
-            memory_context = "No prior history for this vendor in memory."
+            memory_context = "First time seeing a high bill from this vendor."
 
         # 3. Call LLM with memory context
         client = get_llm_client()
@@ -236,29 +270,30 @@ class FinanceMonitorAgent(BaseAgent):
         # qwen3 outputs reasoning in 'reasoning' field, final answer in 'content'
         message = resp.choices[0].message
         content = message.content or ""
-        reasoning = getattr(message, 'reasoning', '')
-        
+        reasoning = getattr(message, "reasoning", "")
+
         # If we have content, use it; otherwise try to extract from reasoning
         if content.strip():
             return content.strip()
-        
+
         # Try to extract headline from reasoning (look for quoted text or final statement)
         if reasoning:
             # Look for patterns like "Headline: ..." or quoted text
             import re
+
             # Try to find quoted headline
             match = re.search(r'"([^"]+)"', reasoning)
             if match:
                 return match.group(1).strip()
             # Try to find headline after colon
-            match = re.search(r'headline:\s*(.+?)(?:\n|$)', reasoning, re.IGNORECASE)
+            match = re.search(r"headline:\s*(.+?)(?:\n|$)", reasoning, re.IGNORECASE)
             if match:
                 return match.group(1).strip()[:100]
             # Fall back to last sentence
-            sentences = reasoning.split('.')
+            sentences = reasoning.split(".")
             if sentences:
                 return sentences[-1].strip()[:100]
-        
+
         return "AWS bill spike detected"  # Fallback headline
 
     def _query_qdrant_memory(self, tenant_id: str, vendor: str) -> list[dict]:
