@@ -395,14 +395,12 @@ func (r *Repository) ListIssues(ctx context.Context, params ListIssuesParams) ([
 // Raw Event Operations (SOP Runtime)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// RawEvent represents a raw event from an external source
+// RawEvent represents a raw event from an external source (v1.0 schema)
 type RawEvent struct {
 	ID             string
-	FounderID      string
+	TenantID       string
 	Source         string
-	EventName      string
-	Topic          string
-	SOPName        string
+	EventType      string
 	PayloadHash    string
 	PayloadBody    []byte
 	IdempotencyKey string
@@ -411,27 +409,25 @@ type RawEvent struct {
 // RawEventStore provides operations for raw event storage
 type RawEventStore interface {
 	InsertRawEvent(ctx context.Context, event RawEvent) (string, error)
-	InsertDLQ(ctx context.Context, eventName, reason string, payload []byte) error
+	InsertDLQ(ctx context.Context, eventType, reason string, payload []byte) error
 }
 
-// InsertRawEvent inserts a raw event into the database
+// InsertRawEvent inserts a raw event into the database (v1.0 schema)
 func (r *Repository) InsertRawEvent(ctx context.Context, event RawEvent) (string, error) {
 	query := `
 		INSERT INTO raw_events
-			(founder_id, source, event_name, topic, sop_name,
+			(tenant_id, source, event_type,
 			 payload_hash, payload_body, idempotency_key)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
 	`
-	
+
 	var id string
 	if r.pool != nil {
 		err := r.pool.QueryRow(ctx, query,
-			event.FounderID,
+			event.TenantID,
 			event.Source,
-			event.EventName,
-			event.Topic,
-			event.SOPName,
+			event.EventType,
 			event.PayloadHash,
 			event.PayloadBody,
 			event.IdempotencyKey,
@@ -441,11 +437,9 @@ func (r *Repository) InsertRawEvent(ctx context.Context, event RawEvent) (string
 		}
 	} else if r.db != nil {
 		err := r.db.QueryRowContext(ctx, query,
-			event.FounderID,
+			event.TenantID,
 			event.Source,
-			event.EventName,
-			event.Topic,
-			event.SOPName,
+			event.EventType,
 			event.PayloadHash,
 			event.PayloadBody,
 			event.IdempotencyKey,
@@ -456,32 +450,32 @@ func (r *Repository) InsertRawEvent(ctx context.Context, event RawEvent) (string
 	} else {
 		return "", fmt.Errorf("no database connection configured")
 	}
-	
+
 	return id, nil
 }
 
 // InsertDLQ inserts an event into the dead letter queue
-func (r *Repository) InsertDLQ(ctx context.Context, eventName, reason string, payload []byte) error {
+func (r *Repository) InsertDLQ(ctx context.Context, eventType, reason string, payload []byte) error {
 	query := `
 		INSERT INTO dead_letter_events
-			(source, event_name, failure_reason, raw_payload)
+			(source, event_type, failure_reason, raw_payload)
 		VALUES ($1, $2, $3, $4)
 	`
-	
+
 	if r.pool != nil {
-		_, err := r.pool.Exec(ctx, query, "razorpay", eventName, reason, payload)
+		_, err := r.pool.Exec(ctx, query, "razorpay", eventType, reason, payload)
 		if err != nil {
 			return fmt.Errorf("failed to insert DLQ event: %w", err)
 		}
 	} else if r.db != nil {
-		_, err := r.db.ExecContext(ctx, query, "razorpay", eventName, reason, payload)
+		_, err := r.db.ExecContext(ctx, query, "razorpay", eventType, reason, payload)
 		if err != nil {
 			return fmt.Errorf("failed to insert DLQ event: %w", err)
 		}
 	} else {
 		return fmt.Errorf("no database connection configured")
 	}
-	
+
 	return nil
 }
 

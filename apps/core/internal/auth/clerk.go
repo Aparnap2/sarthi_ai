@@ -51,7 +51,7 @@ type ClerkClaims struct {
 
 // ClerkAuth holds the authentication state
 type ClerkAuth struct {
-	config    ClerkConfig
+	config   ClerkConfig
 	jwks     *JWKS
 	jwksMu   sync.RWMutex
 	jwksLast time.Time

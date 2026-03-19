@@ -10,12 +10,12 @@ import (
 	"iterateswarm-core/internal/events"
 )
 
-// InternalOpsInput is the input to the InternalOpsWorkflow.
+// InternalOpsInput is the input to the InternalOpsWorkflow (v1.0 schema).
 type InternalOpsInput struct {
-	FounderID   string                 `json:"founder_id"`
-	EventType   string                 `json:"event_type"`
+	TenantID     string                 `json:"tenant_id"`
+	EventType    string                 `json:"event_type"`
 	EventPayload map[string]interface{} `json:"event_payload"`
-	ChannelID   string                 `json:"channel_id,omitempty"`
+	ChannelID    string                 `json:"channel_id,omitempty"`
 }
 
 // InternalOpsOutput contains the result of internal ops processing.
@@ -39,12 +39,12 @@ const (
 type DeskType string
 
 const (
-	DeskFinance     DeskType = "finance"
-	DeskPeople      DeskType = "people"
-	DeskLegal       DeskType = "legal"
+	DeskFinance      DeskType = "finance"
+	DeskPeople       DeskType = "people"
+	DeskLegal        DeskType = "legal"
 	DeskIntelligence DeskType = "intelligence"
-	DeskIT          DeskType = "it"
-	DeskAdmin       DeskType = "admin"
+	DeskIT           DeskType = "it"
+	DeskAdmin        DeskType = "admin"
 )
 
 // InternalOpsWorkflow processes internal operations events through appropriate desks.
@@ -64,7 +64,7 @@ func InternalOpsWorkflow(ctx workflow.Context, input InternalOpsInput) (*Interna
 	ctx = workflow.WithActivityOptions(ctx, ao)
 
 	workflow.GetLogger(ctx).Info("starting internal ops workflow",
-		"founder_id", input.FounderID,
+		"tenant_id", input.TenantID,
 		"event_type", input.EventType,
 	)
 
@@ -73,11 +73,11 @@ func InternalOpsWorkflow(ctx workflow.Context, input InternalOpsInput) (*Interna
 	var hitlLevel HITLClassification
 
 	err := workflow.ExecuteActivity(ctx, RouteInternalEvent, RouteInternalEventInput{
-		EventType:   input.EventType,
+		EventType:    input.EventType,
 		EventPayload: input.EventPayload,
 	}).Get(ctx, &RouteInternalEventOutput{
-		DeskType:     &deskType,
-		HITLLevel:    &hitlLevel,
+		DeskType:  &deskType,
+		HITLLevel: &hitlLevel,
 	})
 	if err != nil {
 		workflow.GetLogger(ctx).Error("failed to route event", "error", err)
@@ -130,12 +130,12 @@ func InternalOpsWorkflow(ctx workflow.Context, input InternalOpsInput) (*Interna
 
 	// Step 4: Persist result to database
 	err = workflow.ExecuteActivity(ctx, PersistInternalOpsResult, PersistInternalOpsResultInput{
-		FounderID:   input.FounderID,
-		EventType:   input.EventType,
-		DeskType:    string(deskType),
-		Result:      result.Result,
+		TenantID:     input.TenantID,
+		EventType:    input.EventType,
+		DeskType:     string(deskType),
+		Result:       result.Result,
 		TasksCreated: result.TasksCreated,
-		HITLLevel:   string(hitlLevel),
+		HITLLevel:    string(hitlLevel),
 	}).Get(ctx, nil)
 
 	if err != nil {
@@ -156,7 +156,7 @@ func InternalOpsWorkflow(ctx workflow.Context, input InternalOpsInput) (*Interna
 func processFinanceDesk(ctx workflow.Context, input InternalOpsInput) (*InternalOpsOutput, error) {
 	var result ProcessFinanceOpsOutput
 	err := workflow.ExecuteActivity(ctx, ProcessFinanceOps, ProcessFinanceOpsInput{
-		FounderID:    input.FounderID,
+		TenantID:     input.TenantID,
 		EventType:    input.EventType,
 		EventPayload: input.EventPayload,
 	}).Get(ctx, &result)
@@ -176,7 +176,7 @@ func processFinanceDesk(ctx workflow.Context, input InternalOpsInput) (*Internal
 func processPeopleDesk(ctx workflow.Context, input InternalOpsInput) (*InternalOpsOutput, error) {
 	var result ProcessPeopleOpsOutput
 	err := workflow.ExecuteActivity(ctx, ProcessPeopleOps, ProcessPeopleOpsInput{
-		FounderID:    input.FounderID,
+		TenantID:     input.TenantID,
 		EventType:    input.EventType,
 		EventPayload: input.EventPayload,
 	}).Get(ctx, &result)
@@ -196,7 +196,7 @@ func processPeopleDesk(ctx workflow.Context, input InternalOpsInput) (*InternalO
 func processLegalDesk(ctx workflow.Context, input InternalOpsInput) (*InternalOpsOutput, error) {
 	var result ProcessLegalOpsOutput
 	err := workflow.ExecuteActivity(ctx, ProcessLegalOps, ProcessLegalOpsInput{
-		FounderID:    input.FounderID,
+		TenantID:     input.TenantID,
 		EventType:    input.EventType,
 		EventPayload: input.EventPayload,
 	}).Get(ctx, &result)
@@ -216,7 +216,7 @@ func processLegalDesk(ctx workflow.Context, input InternalOpsInput) (*InternalOp
 func processIntelligenceDesk(ctx workflow.Context, input InternalOpsInput) (*InternalOpsOutput, error) {
 	var result ProcessIntelligenceOpsOutput
 	err := workflow.ExecuteActivity(ctx, ProcessIntelligenceOps, ProcessIntelligenceOpsInput{
-		FounderID:    input.FounderID,
+		TenantID:     input.TenantID,
 		EventType:    input.EventType,
 		EventPayload: input.EventPayload,
 	}).Get(ctx, &result)
@@ -236,7 +236,7 @@ func processIntelligenceDesk(ctx workflow.Context, input InternalOpsInput) (*Int
 func processITDesk(ctx workflow.Context, input InternalOpsInput) (*InternalOpsOutput, error) {
 	var result ProcessITOpsOutput
 	err := workflow.ExecuteActivity(ctx, ProcessITOps, ProcessITOpsInput{
-		FounderID:    input.FounderID,
+		TenantID:     input.TenantID,
 		EventType:    input.EventType,
 		EventPayload: input.EventPayload,
 	}).Get(ctx, &result)
@@ -256,7 +256,7 @@ func processITDesk(ctx workflow.Context, input InternalOpsInput) (*InternalOpsOu
 func processAdminDesk(ctx workflow.Context, input InternalOpsInput) (*InternalOpsOutput, error) {
 	var result ProcessAdminOpsOutput
 	err := workflow.ExecuteActivity(ctx, ProcessAdminOps, ProcessAdminOpsInput{
-		FounderID:    input.FounderID,
+		TenantID:     input.TenantID,
 		EventType:    input.EventType,
 		EventPayload: input.EventPayload,
 	}).Get(ctx, &result)
@@ -276,12 +276,12 @@ func processAdminDesk(ctx workflow.Context, input InternalOpsInput) (*InternalOp
 func applyHITLGate(ctx workflow.Context, input InternalOpsInput, result *InternalOpsOutput, hitlLevel HITLClassification) error {
 	// Create HITL record
 	err := workflow.ExecuteActivity(ctx, CreateHITLRecord, CreateHITLRecordInput{
-		FounderID:   input.FounderID,
-		EventType:   input.EventType,
-		DeskType:    result.DeskRouted,
-		HITLLevel:   string(hitlLevel),
-		Result:      result.Result,
-		ChannelID:   input.ChannelID,
+		TenantID:  input.TenantID,
+		EventType: input.EventType,
+		DeskType:  result.DeskRouted,
+		HITLLevel: string(hitlLevel),
+		Result:    result.Result,
+		ChannelID: input.ChannelID,
 	}).Get(ctx, nil)
 
 	if err != nil {
@@ -307,7 +307,7 @@ func applyHITLGate(ctx workflow.Context, input InternalOpsInput, result *Interna
 		_ = workflow.ExecuteActivity(ctx, NotifyHITLTimeout, NotifyHITLTimeoutInput{
 			ChannelID:  input.ChannelID,
 			IssueTitle: input.EventType,
-			WorkflowID: input.FounderID,
+			WorkflowID: input.TenantID,
 		}).Get(ctx, nil)
 		return nil
 	}
@@ -333,18 +333,18 @@ const (
 	AITaskQueue = "AI_TASK_QUEUE"
 )
 
-// BusinessOSState tracks workflow state across Continue-As-New cycles
+// BusinessOSState tracks workflow state across Continue-As-New cycles (v1.0 schema)
 type BusinessOSState struct {
-	FounderID       string            `json:"founder_id"`
-	EventsProcessed int               `json:"events_processed"`
-	SeenKeys        map[string]bool   `json:"seen_keys"`
+	TenantID        string          `json:"tenant_id"`
+	EventsProcessed int             `json:"events_processed"`
+	SeenKeys        map[string]bool `json:"seen_keys"`
 }
 
 // BusinessOSWorkflow is the parent router — spawns child workflows, never executes SOP logic
-// It receives events via signals and spawns SOPExecutorWorkflow for each unique event.
-func BusinessOSWorkflow(ctx workflow.Context, founderID string) error {
+// It receives events via signals and spawns agent workflows for each unique event.
+func BusinessOSWorkflow(ctx workflow.Context, tenantID string) error {
 	state := BusinessOSState{
-		FounderID:       founderID,
+		TenantID:        tenantID,
 		EventsProcessed: 0,
 		SeenKeys:        make(map[string]bool),
 	}
@@ -358,9 +358,9 @@ func BusinessOSWorkflow(ctx workflow.Context, founderID string) error {
 			workflow.GetLogger(ctx).Info(
 				"Triggering Continue-As-New",
 				"events_processed", state.EventsProcessed,
-				"founder_id", state.FounderID,
+				"tenant_id", state.TenantID,
 			)
-			return workflow.NewContinueAsNewError(ctx, BusinessOSWorkflow, state.FounderID)
+			return workflow.NewContinueAsNewError(ctx, BusinessOSWorkflow, state.TenantID)
 		}
 
 		// ── Receive next event
@@ -375,7 +375,7 @@ func BusinessOSWorkflow(ctx workflow.Context, founderID string) error {
 			workflow.GetLogger(ctx).Info(
 				"Skipping duplicate event",
 				"idempotency_key", envelope.IdempotencyKey,
-				"event_id", envelope.EventID,
+				"event_type", envelope.EventType,
 			)
 			continue
 		}
@@ -383,8 +383,9 @@ func BusinessOSWorkflow(ctx workflow.Context, founderID string) error {
 		state.EventsProcessed++
 
 		// ── Spawn child workflow: parent NEVER executes SOP logic
+		// v1.0: AgentName determines which agent handles the event
 		childCtx := workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
-			WorkflowID:        fmt.Sprintf("sop:%s:%s", envelope.SOPName, envelope.EventID),
+			WorkflowID:        fmt.Sprintf("agent:%s:%s", envelope.EventType, envelope.TenantID),
 			TaskQueue:         AITaskQueue,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON, // Child continues if parent dies
 		})
@@ -393,17 +394,17 @@ func BusinessOSWorkflow(ctx workflow.Context, founderID string) error {
 		_ = workflow.ExecuteChildWorkflow(childCtx, SOPExecutorWorkflow, envelope)
 
 		workflow.GetLogger(ctx).Info(
-			"Spawned SOP child workflow",
-			"sop_name", envelope.SOPName,
-			"event_id", envelope.EventID,
+			"Spawned agent workflow",
+			"event_type", envelope.EventType,
+			"tenant_id", envelope.TenantID,
 		)
 	}
 }
 
-// SOPExecutorWorkflow executes a single SOP via Python gRPC activity
+// SOPExecutorWorkflow executes a single SOP via Python gRPC activity (v1.0)
 func SOPExecutorWorkflow(ctx workflow.Context, envelope events.EventEnvelope) error {
 	logger := workflow.GetLogger(ctx)
-	logger.Info("Starting SOP execution", "sop_name", envelope.SOPName)
+	logger.Info("Starting agent execution", "event_type", envelope.EventType, "tenant_id", envelope.TenantID)
 
 	// Set activity options with retry policy
 	ao := workflow.ActivityOptions{

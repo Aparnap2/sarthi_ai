@@ -16,7 +16,7 @@ type Logger struct {
 func NewLogger(service string) *Logger {
 	// Create JSON handler for production, text handler for development
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level:     slog.LevelInfo,
 		AddSource: false,
 	})
 

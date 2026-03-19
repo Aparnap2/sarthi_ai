@@ -60,10 +60,10 @@ func (s *InternalOpsWorkflowTestSuite) TestBankStatementWorkflow() {
 
 	var result *workflow.InternalOpsOutput
 	s.env.ExecuteWorkflow(workflow.InternalOpsWorkflow, workflow.InternalOpsInput{
-		FounderID: "founder-uuid-123",
+		TenantID:  "tenant-uuid-123",
 		EventType: "bank_statement",
 		EventPayload: map[string]interface{}{
-			"balance": 500000,
+			"balance":  500000,
 			"currency": "INR",
 		},
 		ChannelID: "telegram-channel-123",
@@ -89,7 +89,7 @@ func (s *InternalOpsWorkflowTestSuite) TestNewHireWorkflow() {
 		Return(&workflow.ProcessPeopleOpsOutput{
 			Result: map[string]interface{}{
 				"onboarding_status": "initiated",
-				"tasks_assigned": 5,
+				"tasks_assigned":    5,
 			},
 			TasksCreated: []string{"onboarding-task-1", "onboarding-task-2"},
 			AlertsSent:   []string{},
@@ -102,12 +102,12 @@ func (s *InternalOpsWorkflowTestSuite) TestNewHireWorkflow() {
 
 	var result *workflow.InternalOpsOutput
 	s.env.ExecuteWorkflow(workflow.InternalOpsWorkflow, workflow.InternalOpsInput{
-		FounderID: "founder-uuid-456",
+		TenantID:  "tenant-uuid-456",
 		EventType: "new_hire",
 		EventPayload: map[string]interface{}{
 			"employee_name": "John Doe",
-			"role": "Software Engineer",
-			"start_date": "2026-03-15",
+			"role":          "Software Engineer",
+			"start_date":    "2026-03-15",
 		},
 	})
 
@@ -131,8 +131,8 @@ func (s *InternalOpsWorkflowTestSuite) TestContractUploadWorkflow() {
 		Return(&workflow.ProcessLegalOpsOutput{
 			Result: map[string]interface{}{
 				"contract_type": "Vendor Agreement",
-				"expiry_date": "2027-03-15",
-				"risk_level": "medium",
+				"expiry_date":   "2027-03-15",
+				"risk_level":    "medium",
 			},
 			TasksCreated: []string{"review-contract"},
 			AlertsSent:   []string{"expiry-alert"},
@@ -145,11 +145,11 @@ func (s *InternalOpsWorkflowTestSuite) TestContractUploadWorkflow() {
 
 	var result *workflow.InternalOpsOutput
 	s.env.ExecuteWorkflow(workflow.InternalOpsWorkflow, workflow.InternalOpsInput{
-		FounderID: "founder-uuid-789",
+		TenantID:  "tenant-uuid-789",
 		EventType: "contract_uploaded",
 		EventPayload: map[string]interface{}{
 			"contract_name": "Vendor Agreement",
-			"file_path": "/contracts/vendor-agreement.pdf",
+			"file_path":     "/contracts/vendor-agreement.pdf",
 		},
 	})
 
@@ -173,7 +173,7 @@ func (s *InternalOpsWorkflowTestSuite) TestMeetingTranscriptWorkflow() {
 		Return(&workflow.ProcessAdminOpsOutput{
 			Result: map[string]interface{}{
 				"sop_generated": true,
-				"action_items": 3,
+				"action_items":  3,
 			},
 			TasksCreated: []string{"follow-up-1", "follow-up-2"},
 			AlertsSent:   []string{},
@@ -181,7 +181,7 @@ func (s *InternalOpsWorkflowTestSuite) TestMeetingTranscriptWorkflow() {
 
 	var result *workflow.InternalOpsOutput
 	s.env.ExecuteWorkflow(workflow.InternalOpsWorkflow, workflow.InternalOpsInput{
-		FounderID: "founder-uuid-000",
+		TenantID:  "tenant-uuid-000",
 		EventType: "meeting_transcript",
 		EventPayload: map[string]interface{}{
 			"transcript":   "Meeting discussion content...",
@@ -208,8 +208,8 @@ func (s *InternalOpsWorkflowTestSuite) TestRevenueAnomalyWorkflow() {
 	s.env.OnActivity(workflow.ProcessIntelligenceOps, mock.Anything, mock.Anything).
 		Return(&workflow.ProcessIntelligenceOpsOutput{
 			Result: map[string]interface{}{
-				"anomaly_type": "revenue_spike",
-				"confidence": 0.95,
+				"anomaly_type":   "revenue_spike",
+				"confidence":     0.95,
 				"recommendation": "Investigate source",
 			},
 			TasksCreated: []string{"investigate-anomaly"},
@@ -223,10 +223,10 @@ func (s *InternalOpsWorkflowTestSuite) TestRevenueAnomalyWorkflow() {
 
 	var result *workflow.InternalOpsOutput
 	s.env.ExecuteWorkflow(workflow.InternalOpsWorkflow, workflow.InternalOpsInput{
-		FounderID: "founder-uuid-111",
+		TenantID:  "tenant-uuid-111",
 		EventType: "revenue_anomaly",
 		EventPayload: map[string]interface{}{
-			"current_revenue": 1000000,
+			"current_revenue":  1000000,
 			"expected_revenue": 500000,
 			"variance_percent": 100,
 		},
@@ -251,9 +251,9 @@ func (s *InternalOpsWorkflowTestSuite) TestSaaSSubscriptionWorkflow() {
 	s.env.OnActivity(workflow.ProcessITOps, mock.Anything, mock.Anything).
 		Return(&workflow.ProcessITOpsOutput{
 			Result: map[string]interface{}{
-				"tool_name": "Slack",
+				"tool_name":    "Slack",
 				"monthly_cost": 5000,
-				"utilization": 0.85,
+				"utilization":  0.85,
 			},
 			TasksCreated: []string{"review-subscription"},
 			AlertsSent:   []string{},
@@ -261,12 +261,12 @@ func (s *InternalOpsWorkflowTestSuite) TestSaaSSubscriptionWorkflow() {
 
 	var result *workflow.InternalOpsOutput
 	s.env.ExecuteWorkflow(workflow.InternalOpsWorkflow, workflow.InternalOpsInput{
-		FounderID: "founder-uuid-222",
+		TenantID:  "tenant-uuid-222",
 		EventType: "saas_subscription",
 		EventPayload: map[string]interface{}{
 			"tool_name": "Slack",
-			"cost": 5000,
-			"seats": 10,
+			"cost":      5000,
+			"seats":     10,
 		},
 	})
 
@@ -297,10 +297,10 @@ func (s *InternalOpsWorkflowTestSuite) TestHITLRejectionWorkflow() {
 
 	var result *workflow.InternalOpsOutput
 	s.env.ExecuteWorkflow(workflow.InternalOpsWorkflow, workflow.InternalOpsInput{
-		FounderID: "founder-uuid-333",
-		EventType: "bank_statement",
+		TenantID:     "tenant-uuid-333",
+		EventType:    "bank_statement",
 		EventPayload: map[string]interface{}{},
-		ChannelID: "telegram-channel",
+		ChannelID:    "telegram-channel",
 	})
 
 	s.True(s.env.IsWorkflowCompleted())
@@ -314,7 +314,7 @@ func (s *InternalOpsWorkflowTestSuite) TestHITLRejectionWorkflow() {
 // TestRoutingAccuracy tests that all event types route to correct desks
 func (s *InternalOpsWorkflowTestSuite) TestRoutingAccuracy() {
 	testCases := []struct {
-		eventType  string
+		eventType    string
 		expectedDesk workflow.DeskType
 	}{
 		{"bank_statement", workflow.DeskFinance},
@@ -329,7 +329,7 @@ func (s *InternalOpsWorkflowTestSuite) TestRoutingAccuracy() {
 		s.Run(tc.eventType, func() {
 			// Test routing activity directly
 			output, err := workflow.RouteInternalEvent(context.Background(), workflow.RouteInternalEventInput{
-				EventType: tc.eventType,
+				EventType:    tc.eventType,
 				EventPayload: map[string]interface{}{},
 			})
 			s.NoError(err)

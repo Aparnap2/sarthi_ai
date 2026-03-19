@@ -1,5 +1,5 @@
 """
-Raw events database operations.
+Raw events database operations (v1.0 schema).
 
 Stub implementations for TDD. Replace with real SQL when database is ready.
 """
@@ -31,27 +31,23 @@ def fetch_raw_event_by_id(event_id: str) -> Dict[str, Any]:
 
 
 async def insert_raw_event(
-    founder_id: str,
+    tenant_id: str,
     source: str,
-    event_name: str,
-    topic: str,
-    sop_name: str,
+    event_type: str,
     payload: Dict[str, Any],
 ) -> str:
     """
-    Insert raw event into PostgreSQL.
+    Insert raw event into PostgreSQL (v1.0 schema).
 
     Args:
-        founder_id: Founder ID
+        tenant_id: Tenant ID
         source: Event source (telegram, razorpay, etc.)
-        event_name: Event name (e.g., "payment.captured")
-        topic: Topic for routing
-        sop_name: SOP to handle this event
+        event_type: Normalized event type (e.g., "PAYMENT_SUCCESS")
         payload: Event payload
 
     Returns:
         Event UUID
     """
     # Stub for TDD
-    logger.debug(f"Insert raw event: founder={founder_id}, event={event_name}")
+    logger.debug(f"Insert raw event: tenant={tenant_id}, event_type={event_type}")
     return str(uuid.uuid4())

@@ -84,6 +84,15 @@ func main() {
 	w.RegisterActivity(workflow.PersistInternalOpsResult)
 	w.RegisterActivity(workflow.CreateHITLRecord)
 
+	// Register SarthiRouter and child workflows (Phase 5)
+	w.RegisterWorkflow(workflow.SarthiRouter)
+	w.RegisterWorkflow(workflow.RevenueWorkflow)
+	w.RegisterWorkflow(workflow.CSWorkflow)
+	w.RegisterWorkflow(workflow.PeopleWorkflow)
+	w.RegisterWorkflow(workflow.FinanceWorkflow)
+	w.RegisterWorkflow(workflow.ChiefOfStaffWorkflow)
+	w.RegisterActivity(workflow.SendToDLQActivity)
+
 	log.Printf("Worker listening on task queue: %s", *taskQueue)
 
 	// Start worker in goroutine

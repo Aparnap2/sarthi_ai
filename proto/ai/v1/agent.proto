@@ -100,20 +100,36 @@ enum IssueType {
 // =============================================================================
 
 // EventEnvelope is the ONLY shape that flows through Redpanda and Temporal.
+// v1.0 schema: tenant-centric, agent-based routing
 message EventEnvelope {
-  string event_id = 1;
-  string founder_id = 2;
+  // tenant_id is the multi-tenant identifier (replaces founder_id)
+  string tenant_id = 1;
+  
+  // event_type is the normalized event type (replaces event_name)
+  // e.g. PAYMENT_SUCCESS, USER_SIGNED_UP, EMPLOYEE_CREATED
+  string event_type = 2;
+  
+  // source is the event source (razorpay, stripe, intercom, etc.)
   string source = 3;
-  string event_name = 4;
-  string topic = 5;
-  string sop_name = 6;
-  string payload_ref = 7;
-  string payload_hash = 8;
-  int64 occurred_at = 9;
-  int64 received_at = 10;
-  string trace_id = 11;
-  string idempotency_key = 12;
-  string version = 13;
+  
+  // payload_ref is a storage reference ("raw_events:<uuid>")
+  // NEVER contains raw JSON — store in PostgreSQL first
+  string payload_ref = 4;
+  
+  // payload_hash is the SHA-256 hash of raw payload
+  string payload_hash = 5;
+  
+  // occurred_at is when the event occurred (from source)
+  int64 occurred_at = 6;
+  
+  // received_at is when Sarthi received the event
+  int64 received_at = 7;
+  
+  // trace_id is the distributed tracing ID (for Langfuse)
+  string trace_id = 8;
+  
+  // idempotency_key is the deduplication key (e.g., "razorpay:pay_abc:v1")
+  string idempotency_key = 9;
 }
 
 // ExecuteSOPRequest is the request for executing an SOP.

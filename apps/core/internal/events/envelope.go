@@ -19,23 +19,15 @@ const (
 // EventEnvelope is the ONLY shape that flows through Redpanda and Temporal.
 // PayloadRef points to raw_events table — NEVER contains raw JSON.
 type EventEnvelope struct {
-	// EventID is a unique event identifier (UUID)
-	EventID string `json:"event_id"`
+	// TenantID is the multi-tenant identifier (replaces FounderID)
+	TenantID string `json:"tenant_id"`
 
-	// FounderID is the founder who owns this event (UUID)
-	FounderID string `json:"founder_id"`
+	// EventType is the normalized event type (replaces EventName)
+	// e.g. PAYMENT_SUCCESS, USER_SIGNED_UP, EMPLOYEE_CREATED
+	EventType string `json:"event_type"`
 
-	// Source is the event source (razorpay, zoho_books, etc.)
+	// Source is the event source (razorpay, stripe, intercom, etc.)
 	Source EventSource `json:"source"`
-
-	// EventName is the event name from source (e.g., "payment.captured")
-	EventName string `json:"event_name"`
-
-	// Topic is the Redpanda topic to publish to
-	Topic string `json:"topic"`
-
-	// SOPName is the SOP to execute (e.g., "SOP_REVENUE_RECEIVED")
-	SOPName string `json:"sop_name"`
 
 	// PayloadRef is a storage reference ("raw_events:<uuid>" or "files:<path>")
 	// NEVER contains raw JSON — store in PostgreSQL first
@@ -55,7 +47,4 @@ type EventEnvelope struct {
 
 	// IdempotencyKey is the deduplication key (e.g., "razorpay:pay_abc:v1")
 	IdempotencyKey string `json:"idempotency_key"`
-
-	// Version is the envelope schema version (default "v1")
-	Version string `json:"version"`
 }

@@ -1,5 +1,5 @@
 """
-Canonical Event Envelope for Sarthi SOP Runtime.
+Canonical Event Envelope for Sarthi v1.0.
 
 This is the ONLY shape that flows through Redpanda and Temporal.
 PayloadRef points to raw_events table — NEVER contains raw JSON.
@@ -11,57 +11,48 @@ from pydantic import BaseModel, field_validator
 
 
 class EventSource(str, Enum):
-    """All event sources in Sarthi."""
-    RAZORPAY         = "razorpay"
-    ZOHO_BOOKS       = "zoho_books"
-    GOOGLE_WORKSPACE = "google_workspace"
-    ESIGN            = "esign"
-    TELEGRAM         = "telegram"
-    CRON             = "cron"
-    AWS_COST         = "aws_cost"
-    EMAIL_FORWARD    = "email_forward"
+    """All event sources in Sarthi v1.0."""
+    RAZORPAY = "razorpay"
+    STRIPE = "stripe"
+    INTERCOM = "intercom"
+    CRISP = "crisp"
+    KEKA = "keka"
+    DARWINBOX = "darwinbox"
+    BANK = "bank"
+    CRON = "cron"
 
 
 class EventEnvelope(BaseModel):
     """
-    Canonical event envelope for all Sarthi events.
+    EventEnvelope for Sarthi v1.0.
 
     Attributes:
-        event_id: Unique event identifier (UUID)
-        founder_id: Founder who owns this event (UUID)
-        source: Event source (razorpay, zoho_books, etc.)
-        event_name: Event name from source (e.g., "payment.captured")
-        topic: Redpanda topic to publish to
-        sop_name: SOP to execute (e.g., "SOP_REVENUE_RECEIVED")
-        payload_ref: Storage reference ("raw_events:<uuid>" or "files:<path>")
-                     NEVER raw JSON — store in PostgreSQL first
+        tenant_id: Multi-tenant identifier (renamed from founder_id)
+        event_type: Normalized event type (renamed from event_name)
+        source: Event source (razorpay, stripe, intercom, etc.)
+        payload_ref: Storage reference ("raw_events:<uuid>")
         payload_hash: SHA-256 hash of raw payload
-        occurred_at: When the event occurred (from source)
+        idempotency_key: Deduplication key
+        occurred_at: When the event occurred
         received_at: When Sarthi received the event
-        trace_id: Distributed tracing ID (for Langfuse)
-        idempotency_key: Deduplication key (e.g., "razorpay:pay_abc:v1")
-        version: Envelope schema version (default "v1")
+        trace_id: Distributed tracing ID
     """
-    event_id:        str
-    founder_id:      str
-    source:          EventSource
-    event_name:      str
-    topic:           str
-    sop_name:        str
-    payload_ref:     str
-    payload_hash:    str
-    occurred_at:     datetime
-    received_at:     datetime
-    trace_id:        str
+    tenant_id: str
+    event_type: str
+    source: str
+    payload_ref: str
+    payload_hash: str
     idempotency_key: str
-    version:         str = "v1"
+    occurred_at: datetime
+    received_at: datetime
+    trace_id: str
 
-    @field_validator("event_name")
+    @field_validator("event_type")
     @classmethod
-    def event_name_not_empty(cls, v: str) -> str:
-        """Event name must not be empty or whitespace."""
+    def event_type_not_empty(cls, v: str) -> str:
+        """Event type must not be empty."""
         if not v or not v.strip():
-            raise ValueError("event_name must not be empty")
+            raise ValueError("event_type must not be empty")
         return v
 
     @field_validator("payload_ref")
@@ -70,29 +61,26 @@ class EventEnvelope(BaseModel):
         """
         payload_ref must be a storage reference, not raw JSON.
 
-        Valid prefixes:
-        - raw_events:<uuid>  — Reference to raw_events table
-        - files:<path>       — File system path
-        - s3:<bucket>/<key>  — S3 reference
-        - pg:<table>:<id>    — PostgreSQL reference
+        Valid prefixes: raw_events:, files:, s3:, pg:
 
         Raises:
-            ValueError: If payload_ref contains raw JSON
+            ValueError: If payload_ref contains raw JSON or has invalid prefix
         """
-        VALID = ("raw_events:", "files:", "s3:", "pg:")
+        VALID_PREFIXES = ("raw_events:", "files:", "s3:", "pg:")
         if v.lstrip().startswith(("{", "[")):
             raise ValueError(
-                "payload_ref must be a storage reference like 'raw_events:<uuid>', "
-                "not raw JSON. Store in PostgreSQL first."
+                "payload_ref must be a storage reference, not raw JSON. "
+                "Store in PostgreSQL first, pass the row ID."
             )
-        if not any(v.startswith(p) for p in VALID):
+        if not any(v.startswith(p) for p in VALID_PREFIXES):
             raise ValueError(
-                f"payload_ref must start with one of {VALID}. Got: {v!r}"
+                f"payload_ref must start with one of {VALID_PREFIXES}. "
+                f"Got: {v!r}"
             )
         return v
 
     class Config:
-        """Pydantic config."""
+        """Pydantic config for JSON serialization."""
         json_encoders = {
             datetime: lambda v: v.isoformat(),
         }

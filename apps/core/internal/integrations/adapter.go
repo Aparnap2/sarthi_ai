@@ -19,11 +19,11 @@ type Integration interface {
 
 // WebhookConfig holds webhook configuration
 type WebhookConfig struct {
-	URL       string
-	Secret    string
-	Headers   map[string]string
-	Timeout   time.Duration
-	Retries   int
+	URL     string
+	Secret  string
+	Headers map[string]string
+	Timeout time.Duration
+	Retries int
 }
 
 // IntegrationResponse represents the response from an integration
@@ -37,7 +37,7 @@ type IntegrationResponse struct {
 
 // Adapter provides a common interface for all integrations
 type Adapter struct {
-	client  *http.Client
+	client   *http.Client
 	webhooks map[string]WebhookConfig
 }
 
@@ -139,13 +139,13 @@ type DiscordMessage struct {
 }
 
 type DiscordEmbed struct {
-	Title       string            `json:"title,omitempty"`
-	Description string            `json:"description,omitempty"`
-	URL         string            `json:"url,omitempty"`
-	Color       int               `json:"color,omitempty"`
-	Fields      []DiscordField    `json:"fields,omitempty"`
-	Footer      DiscordFooter     `json:"footer,omitempty"`
-	Timestamp   string            `json:"timestamp,omitempty"`
+	Title       string         `json:"title,omitempty"`
+	Description string         `json:"description,omitempty"`
+	URL         string         `json:"url,omitempty"`
+	Color       int            `json:"color,omitempty"`
+	Fields      []DiscordField `json:"fields,omitempty"`
+	Footer      DiscordFooter  `json:"footer,omitempty"`
+	Timestamp   string         `json:"timestamp,omitempty"`
 }
 
 type DiscordField struct {
@@ -164,15 +164,15 @@ type DiscordAllowedMentions struct {
 }
 
 type DiscordComponent struct {
-	Type       int                    `json:"type"`
+	Type       int                      `json:"type"`
 	Components []DiscordButtonComponent `json:"components,omitempty"`
 }
 
 type DiscordButtonComponent struct {
-	Type    int    `json:"type"`
-	Style   int    `json:"style"`
-	Label   string `json:"label,omitempty"`
-	URL     string `json:"url,omitempty"`
+	Type     int    `json:"type"`
+	Style    int    `json:"style"`
+	Label    string `json:"label,omitempty"`
+	URL      string `json:"url,omitempty"`
 	CustomID string `json:"custom_id,omitempty"`
 }
 
@@ -250,16 +250,16 @@ func (s *SlackAdapter) Type() string {
 
 // SlackMessage represents a Slack webhook message
 type SlackMessage struct {
-	Channel     string              `json:"channel,omitempty"`
-	Text        string              `json:"text,omitempty"`
-	Blocks      []SlackBlock        `json:"blocks,omitempty"`
-	Attachments []SlackAttachment   `json:"attachments,omitempty"`
-	Markdown    bool                `json:"mrkdwn,omitempty"`
+	Channel     string            `json:"channel,omitempty"`
+	Text        string            `json:"text,omitempty"`
+	Blocks      []SlackBlock      `json:"blocks,omitempty"`
+	Attachments []SlackAttachment `json:"attachments,omitempty"`
+	Markdown    bool              `json:"mrkdwn,omitempty"`
 }
 
 type SlackBlock struct {
-	Type     string              `json:"type"`
-	Text     *SlackText          `json:"text,omitempty"`
+	Type     string                   `json:"type"`
+	Text     *SlackText               `json:"text,omitempty"`
 	Elements []map[string]interface{} `json:"elements,omitempty"`
 }
 
@@ -275,12 +275,12 @@ type SlackField struct {
 }
 
 type SlackAttachment struct {
-	Color      string            `json:"color,omitempty"`
-	Title      string            `json:"title,omitempty"`
-	Text       string            `json:"text,omitempty"`
-	Fields     []SlackField      `json:"fields,omitempty"`
-	Footer     string            `json:"footer,omitempty"`
-	TS         int64             `json:"ts,omitempty"`
+	Color  string       `json:"color,omitempty"`
+	Title  string       `json:"title,omitempty"`
+	Text   string       `json:"text,omitempty"`
+	Fields []SlackField `json:"fields,omitempty"`
+	Footer string       `json:"footer,omitempty"`
+	TS     int64        `json:"ts,omitempty"`
 }
 
 // Send sends a Slack message

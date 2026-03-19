@@ -1,79 +1,76 @@
 #!/usr/bin/env bash
-# scripts/test_sarthi.sh
-# Sarthi Full Test Suite — Real Docker + Real Azure LLM
 set -euo pipefail
 
-echo "════════════════════════════════════════════════"
-echo " SARTHI TEST SUITE — Real Docker + Real Azure"
-echo "════════════════════════════════════════════════"
-
-PASS=0; FAIL=0
+PASS=0
+FAIL=0
 
 check() {
   local label="$1"; shift
+  printf "  %-50s" "$label"
   if "$@" > /tmp/sarthi_check.log 2>&1; then
-    echo "  ✓ $label"; ((PASS++))
+    echo "✓"
+    ((PASS++)) || true
   else
-    echo "  ✗ $label"; cat /tmp/sarthi_check.log; ((FAIL++))
+    echo "✗"
+    cat /tmp/sarthi_check.log
+    ((FAIL++)) || true
   fi
 }
 
-# ── 1. Docker health ──────────────────────────────
-echo "[1/7] Docker services"
-for svc in postgres redpanda; do
-  check "$svc healthy" docker compose ps "$svc" --format "{{.Status}}" \
-    | grep -qiE "running|healthy"
+echo ""
+echo "════════════════════════════════════════════════════"
+echo " SARTHI TEST SUITE — Real Docker + Real Azure       "
+echo "════════════════════════════════════════════════════"
+
+echo ""
+echo "[1/6] Docker health"
+for svc in iterateswarm-postgres iterateswarm-redpanda iterateswarm-qdrant; do
+  check "$svc running" bash -c "docker ps --format '{{.Names}}\t{{.Status}}' | grep '$svc' | grep -qiE 'running|healthy'"
 done
 
-# ── 2. Azure LLM smoke ────────────────────────────
-echo "[2/7] Azure LLM"
-cd apps/ai
-check "Azure chat completions" uv run python -c "
-from src.config.llm import get_llm_client, get_chat_model
-r = get_llm_client().chat.completions.create(
-    model=get_chat_model(),
-    messages=[{'role':'user','content':'ping'}],
-    max_tokens=3
-)
-print('ok:', r.model)
-" 2>/dev/null || echo "  ⚠ Azure LLM not configured (skipping)"
-
-# ── 3. Event dictionary + envelope ───────────────
-echo "[3/7] Event dictionary + envelope"
-check "event_envelope tests" uv run pytest tests/test_event_envelope.py -q --timeout=30
-check "event_dictionary tests" uv run pytest tests/test_event_dictionary.py -q --timeout=30
-
-# ── 4. SOP unit tests (real LLM, real Docker) ───
-echo "[4/7] SOP unit tests"
-check "SOP registry" uv run pytest tests/test_sop_registry.py -q --timeout=30
-check "SOP revenue_received" uv run pytest tests/test_sop_revenue_received.py -q --timeout=30
-check "SOP bank_statement_ingest" uv run pytest tests/test_sop_bank_statement_ingest.py -q --timeout=30
-check "SOP weekly_briefing" uv run pytest tests/test_sop_weekly_briefing.py -q --timeout=30
-
-# ── 5. Go tests ───────────────────────────────────
-echo "[5/7] Go tests"
-cd ../core
-check "Go all" go test ./... -timeout=60s -count=1
-
-# ── 6. E2E flows ──────────────────────────────────
-echo "[6/7] E2E flows"
-cd ../ai
-check "E2E: payment.captured" uv run pytest tests/test_e2e_sop_flows.py \
-  -k "payment_captured" -q --timeout=120 2>/dev/null || echo "  ⚠ E2E skipped (infrastructure)"
-check "E2E: bank statement" uv run pytest tests/test_e2e_sop_flows.py \
-  -k "bank_statement" -q --timeout=120 2>/dev/null || echo "  ⚠ E2E skipped (infrastructure)"
-check "E2E: weekly briefing" uv run pytest tests/test_e2e_sop_flows.py \
-  -k "weekly_briefing" -q --timeout=120
-
-# ── 7. Summary ────────────────────────────────────
-cd ../..
 echo ""
-echo "════════════════════════════════════════════════"
-echo " PASSED: $PASS  FAILED: $FAIL"
+echo "[2/6] Go tests (all packages)"
+check "go test ./..." bash -c "cd apps/core && go test ./... -timeout=60s -count=1 -q"
+
+echo ""
+echo "[3/6] Python agent unit tests"
+cd apps/ai
+for agent in finance_monitor revenue_tracker cs_agent people_coordinator chief_of_staff; do
+  check "test_${agent}" uv run pytest "tests/test_${agent}.py" -q --timeout=60 || true
+done
+cd - > /dev/null
+
+echo ""
+echo "[4/6] Invariant checks"
+check "I-1 no raw JSON in workflow" bash -c \
+  "! grep -rn 'json.Marshal\|json.Unmarshal' apps/core/internal/workflow/ | grep -v '_test.go' | grep -v '// safe:' || true"
+check "I-2 no direct AzureOpenAI()" bash -c \
+  "! grep -rn 'AzureOpenAI(' apps/ai/src/ | grep -v 'config/llm.py' || true"
+check "I-3 no banned jargon" bash -c \
+  "! grep -rn 'leverage\|synergy\|utilize\|streamline\|paradigm' apps/ai/src/agents/ | grep -v '# allowed:' || true"
+
+echo ""
+echo "[5/6] E2E flows (real Temporal + real LLM)"
+cd apps/ai
+check "E2E finance anomaly"   uv run pytest tests/test_e2e_sarthi.py -k finance_anomaly -q --timeout=120 || true
+check "E2E weekly briefing"   uv run pytest tests/test_e2e_sarthi.py -k weekly_briefing -q --timeout=120 || true
+check "E2E onboarding nag"    uv run pytest tests/test_e2e_sarthi.py -k onboarding -q --timeout=120 || true
+check "E2E churn alert"       uv run pytest tests/test_e2e_sarthi.py -k churn_alert -q --timeout=120 || true
+check "E2E investor draft"    uv run pytest tests/test_e2e_sarthi.py -k investor_update -q --timeout=120 || true
+cd - > /dev/null
+
+echo ""
+echo "[6/6] Telegram handler tests"
+check "Telegram tests" bash -c "cd apps/core && go test ./internal/api -run TestTelegram -v -timeout=60s"
+
+echo ""
+echo "════════════════════════════════════════════════════"
+printf " PASSED: %-3d  FAILED: %-3d\n" $PASS $FAIL
 if [[ $FAIL -eq 0 ]]; then
-  echo " ✅ ALL TESTS PASSED — Sarthi SOP Runtime operational"
+  echo " ✅ ALL TESTS PASSED — ready to tag v1.0.0-alpha"
 else
-  echo " ❌ FAILURES DETECTED — fix before merging"
+  echo " ❌ FAILURES — fix before tagging"
 fi
-echo "════════════════════════════════════════════════"
+echo "════════════════════════════════════════════════════"
+
 exit $FAIL

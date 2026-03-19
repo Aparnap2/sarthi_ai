@@ -172,7 +172,7 @@ func main() {
 			workflowID := fmt.Sprintf("feedback-workflow-%s", event.FeedbackID)
 			workflowOptions := client.StartWorkflowOptions{
 				ID:        workflowID,
-				TaskQueue: "GO_TASK_QUEUE",  // Use separate queue for Go-based activities
+				TaskQueue: "GO_TASK_QUEUE", // Use separate queue for Go-based activities
 			}
 
 			workflowInput := workflow.FeedbackInput{

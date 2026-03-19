@@ -25,7 +25,7 @@ type APIResponse struct {
 
 // Handler handles debug API requests.
 type Handler struct {
-	redpandaClient  *redpanda.Client
+	redpandaClient *redpanda.Client
 	temporalClient *temporal.Client
 	logger         *logging.Logger
 	jaegerURL      string
@@ -34,7 +34,7 @@ type Handler struct {
 // NewHandler creates a new debug Handler.
 func NewHandler(redpandaClient *redpanda.Client, temporalClient *temporal.Client, jaegerURL string) *Handler {
 	return &Handler{
-		redpandaClient:  redpandaClient,
+		redpandaClient: redpandaClient,
 		temporalClient: temporalClient,
 		logger:         logging.NewLogger("debug"),
 		jaegerURL:      jaegerURL,

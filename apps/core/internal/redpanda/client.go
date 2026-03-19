@@ -192,7 +192,7 @@ func (c *Client) Close() error {
 
 // Health checks if the client is healthy.
 func (c *Client) Health(ctx context.Context) error {
-conn, err := kafka.Dial("tcp", c.writer.Addr.String())
+	conn, err := kafka.Dial("tcp", c.writer.Addr.String())
 	if err != nil {
 		return err
 	}

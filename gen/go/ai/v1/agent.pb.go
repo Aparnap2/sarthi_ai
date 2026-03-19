@@ -684,21 +684,29 @@ func (x *IssueSpec) GetLabels() []string {
 }
 
 // EventEnvelope is the ONLY shape that flows through Redpanda and Temporal.
+// v1.0 schema: tenant-centric, agent-based routing
 type EventEnvelope struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	EventId        string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
-	FounderId      string                 `protobuf:"bytes,2,opt,name=founder_id,json=founderId,proto3" json:"founder_id,omitempty"`
-	Source         string                 `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
-	EventName      string                 `protobuf:"bytes,4,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
-	Topic          string                 `protobuf:"bytes,5,opt,name=topic,proto3" json:"topic,omitempty"`
-	SopName        string                 `protobuf:"bytes,6,opt,name=sop_name,json=sopName,proto3" json:"sop_name,omitempty"`
-	PayloadRef     string                 `protobuf:"bytes,7,opt,name=payload_ref,json=payloadRef,proto3" json:"payload_ref,omitempty"`
-	PayloadHash    string                 `protobuf:"bytes,8,opt,name=payload_hash,json=payloadHash,proto3" json:"payload_hash,omitempty"`
-	OccurredAt     int64                  `protobuf:"varint,9,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
-	ReceivedAt     int64                  `protobuf:"varint,10,opt,name=received_at,json=receivedAt,proto3" json:"received_at,omitempty"`
-	TraceId        string                 `protobuf:"bytes,11,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
-	IdempotencyKey string                 `protobuf:"bytes,12,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
-	Version        string                 `protobuf:"bytes,13,opt,name=version,proto3" json:"version,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// tenant_id is the multi-tenant identifier (replaces founder_id)
+	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// event_type is the normalized event type (replaces event_name)
+	// e.g. PAYMENT_SUCCESS, USER_SIGNED_UP, EMPLOYEE_CREATED
+	EventType string `protobuf:"bytes,2,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	// source is the event source (razorpay, stripe, intercom, etc.)
+	Source string `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	// payload_ref is a storage reference ("raw_events:<uuid>")
+	// NEVER contains raw JSON — store in PostgreSQL first
+	PayloadRef string `protobuf:"bytes,4,opt,name=payload_ref,json=payloadRef,proto3" json:"payload_ref,omitempty"`
+	// payload_hash is the SHA-256 hash of raw payload
+	PayloadHash string `protobuf:"bytes,5,opt,name=payload_hash,json=payloadHash,proto3" json:"payload_hash,omitempty"`
+	// occurred_at is when the event occurred (from source)
+	OccurredAt int64 `protobuf:"varint,6,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	// received_at is when Sarthi received the event
+	ReceivedAt int64 `protobuf:"varint,7,opt,name=received_at,json=receivedAt,proto3" json:"received_at,omitempty"`
+	// trace_id is the distributed tracing ID (for Langfuse)
+	TraceId string `protobuf:"bytes,8,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+	// idempotency_key is the deduplication key (e.g., "razorpay:pay_abc:v1")
+	IdempotencyKey string `protobuf:"bytes,9,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -733,16 +741,16 @@ func (*EventEnvelope) Descriptor() ([]byte, []int) {
 	return file_ai_v1_agent_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *EventEnvelope) GetEventId() string {
+func (x *EventEnvelope) GetTenantId() string {
 	if x != nil {
-		return x.EventId
+		return x.TenantId
 	}
 	return ""
 }
 
-func (x *EventEnvelope) GetFounderId() string {
+func (x *EventEnvelope) GetEventType() string {
 	if x != nil {
-		return x.FounderId
+		return x.EventType
 	}
 	return ""
 }
@@ -750,27 +758,6 @@ func (x *EventEnvelope) GetFounderId() string {
 func (x *EventEnvelope) GetSource() string {
 	if x != nil {
 		return x.Source
-	}
-	return ""
-}
-
-func (x *EventEnvelope) GetEventName() string {
-	if x != nil {
-		return x.EventName
-	}
-	return ""
-}
-
-func (x *EventEnvelope) GetTopic() string {
-	if x != nil {
-		return x.Topic
-	}
-	return ""
-}
-
-func (x *EventEnvelope) GetSopName() string {
-	if x != nil {
-		return x.SopName
 	}
 	return ""
 }
@@ -813,13 +800,6 @@ func (x *EventEnvelope) GetTraceId() string {
 func (x *EventEnvelope) GetIdempotencyKey() string {
 	if x != nil {
 		return x.IdempotencyKey
-	}
-	return ""
-}
-
-func (x *EventEnvelope) GetVersion() string {
-	if x != nil {
-		return x.Version
 	}
 	return ""
 }
@@ -976,27 +956,21 @@ const file_ai_v1_agent_proto_rawDesc = "" +
 	"\bseverity\x18\x02 \x01(\x0e2\x0f.ai.v1.SeverityR\bseverity\x12$\n" +
 	"\x04type\x18\x03 \x01(\x0e2\x10.ai.v1.IssueTypeR\x04type\x12 \n" +
 	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x16\n" +
-	"\x06labels\x18\x05 \x03(\tR\x06labels\"\x95\x03\n" +
-	"\rEventEnvelope\x12\x19\n" +
-	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1d\n" +
+	"\x06labels\x18\x05 \x03(\tR\x06labels\"\xad\x02\n" +
+	"\rEventEnvelope\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
-	"founder_id\x18\x02 \x01(\tR\tfounderId\x12\x16\n" +
-	"\x06source\x18\x03 \x01(\tR\x06source\x12\x1d\n" +
-	"\n" +
-	"event_name\x18\x04 \x01(\tR\teventName\x12\x14\n" +
-	"\x05topic\x18\x05 \x01(\tR\x05topic\x12\x19\n" +
-	"\bsop_name\x18\x06 \x01(\tR\asopName\x12\x1f\n" +
-	"\vpayload_ref\x18\a \x01(\tR\n" +
+	"event_type\x18\x02 \x01(\tR\teventType\x12\x16\n" +
+	"\x06source\x18\x03 \x01(\tR\x06source\x12\x1f\n" +
+	"\vpayload_ref\x18\x04 \x01(\tR\n" +
 	"payloadRef\x12!\n" +
-	"\fpayload_hash\x18\b \x01(\tR\vpayloadHash\x12\x1f\n" +
-	"\voccurred_at\x18\t \x01(\x03R\n" +
+	"\fpayload_hash\x18\x05 \x01(\tR\vpayloadHash\x12\x1f\n" +
+	"\voccurred_at\x18\x06 \x01(\x03R\n" +
 	"occurredAt\x12\x1f\n" +
-	"\vreceived_at\x18\n" +
-	" \x01(\x03R\n" +
+	"\vreceived_at\x18\a \x01(\x03R\n" +
 	"receivedAt\x12\x19\n" +
-	"\btrace_id\x18\v \x01(\tR\atraceId\x12'\n" +
-	"\x0fidempotency_key\x18\f \x01(\tR\x0eidempotencyKey\x12\x18\n" +
-	"\aversion\x18\r \x01(\tR\aversion\"E\n" +
+	"\btrace_id\x18\b \x01(\tR\atraceId\x12'\n" +
+	"\x0fidempotency_key\x18\t \x01(\tR\x0eidempotencyKey\"E\n" +
 	"\x11ExecuteSOPRequest\x120\n" +
 	"\benvelope\x18\x01 \x01(\v2\x14.ai.v1.EventEnvelopeR\benvelope\"g\n" +
 	"\x12ExecuteSOPResponse\x12\x18\n" +

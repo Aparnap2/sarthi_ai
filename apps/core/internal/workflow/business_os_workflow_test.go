@@ -23,7 +23,7 @@ func TestBusinessOSWorkflowSpawnsChildNotExecutesSOP(t *testing.T) {
 	// Register child workflow handler and mock activity
 	env.RegisterWorkflow(workflow.SOPExecutorWorkflow)
 	env.RegisterActivity(workflow.ExecuteSOPActivity)
-	
+
 	// Mock the activity to return success
 	env.OnActivity(workflow.ExecuteSOPActivity, mock.Anything, mock.Anything).
 		Return(&workflow.SOPActivityResult{
@@ -36,23 +36,19 @@ func TestBusinessOSWorkflowSpawnsChildNotExecutesSOP(t *testing.T) {
 	env.SetTestTimeout(1 * time.Hour)
 
 	// Start parent workflow
-	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, "founder_test")
+	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, "tenant_test")
 
-	// Send signal with event envelope
+	// Send signal with event envelope (v1.0 schema)
 	envelope := events.EventEnvelope{
-		EventID:        "evt_test_123",
-		FounderID:      "founder_test",
+		TenantID:       "tenant_test",
+		EventType:      "PAYMENT_SUCCESS",
 		Source:         events.SourceRazorpay,
-		EventName:      "payment.captured",
-		Topic:          "finance.revenue.captured",
-		SOPName:        "SOP_REVENUE_RECEIVED",
 		PayloadRef:     "raw_events:test-uuid",
 		PayloadHash:    "sha256:abc123",
 		OccurredAt:     time.Now(),
 		ReceivedAt:     time.Now(),
 		TraceID:        "trace_test",
 		IdempotencyKey: "razorpay:pay_test:v1",
-		Version:        "v1",
 	}
 
 	// Signal the workflow with the event
@@ -80,24 +76,20 @@ func TestContinueAsNewAt5000Events(t *testing.T) {
 	env.SetTestTimeout(1 * time.Hour)
 
 	// Start parent workflow
-	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, "founder_test")
+	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, "tenant_test")
 
-	// Send 5001 events to trigger Continue-As-New
+	// Send 5001 events to trigger Continue-As-New (v1.0 schema)
 	for i := 0; i < 5001; i++ {
 		envelope := events.EventEnvelope{
-			EventID:        fmt.Sprintf("evt_%d", i),
-			FounderID:      "founder_test",
+			TenantID:       "tenant_test",
+			EventType:      "PAYMENT_SUCCESS",
 			Source:         events.SourceRazorpay,
-			EventName:      "payment.captured",
-			Topic:          "finance.revenue.captured",
-			SOPName:        "SOP_REVENUE_RECEIVED",
 			PayloadRef:     "raw_events:test-uuid",
 			PayloadHash:    "sha256:abc",
 			OccurredAt:     time.Now(),
 			ReceivedAt:     time.Now(),
 			TraceID:        "trace_test",
 			IdempotencyKey: fmt.Sprintf("razorpay:pay_%d:v1", i),
-			Version:        "v1",
 		}
 		env.SignalWorkflow("sarthi.events", envelope)
 	}
@@ -125,23 +117,19 @@ func TestDuplicateIdempotencyKeySkipped(t *testing.T) {
 	env.SetTestTimeout(1 * time.Hour)
 
 	// Start parent workflow
-	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, "founder_test")
+	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, "tenant_test")
 
-	// Send same event twice
+	// Send same event twice (v1.0 schema)
 	envelope := events.EventEnvelope{
-		EventID:        "evt_duplicate",
-		FounderID:      "founder_test",
+		TenantID:       "tenant_test",
+		EventType:      "PAYMENT_SUCCESS",
 		Source:         events.SourceRazorpay,
-		EventName:      "payment.captured",
-		Topic:          "finance.revenue.captured",
-		SOPName:        "SOP_REVENUE_RECEIVED",
 		PayloadRef:     "raw_events:test-uuid",
 		PayloadHash:    "sha256:abc",
 		OccurredAt:     time.Now(),
 		ReceivedAt:     time.Now(),
 		TraceID:        "trace_test",
 		IdempotencyKey: "razorpay:pay_duplicate:v1",
-		Version:        "v1",
 	}
 
 	// First signal
@@ -164,18 +152,17 @@ func TestSOPExecutorWorkflowCallsPythonActivity(t *testing.T) {
 	// Mock the ExecuteSOPActivity
 	env.RegisterActivity(workflow.ExecuteSOPActivity)
 	env.OnActivity(workflow.ExecuteSOPActivity, mock.Anything, mock.MatchedBy(func(env events.EventEnvelope) bool {
-		return env.EventID == "evt_test" && env.SOPName == "SOP_REVENUE_RECEIVED"
+		return env.TenantID == "tenant_test" && env.EventType == "PAYMENT_SUCCESS"
 	})).
 		Return(&workflow.SOPActivityResult{
 			Success:   true,
-			Message:   "SOP executed successfully",
+			Message:   "Agent executed successfully",
 			FireAlert: false,
 		}, nil).Once()
 
 	envelope := events.EventEnvelope{
-		EventID:    "evt_test",
-		FounderID:  "founder_test",
-		SOPName:    "SOP_REVENUE_RECEIVED",
+		TenantID:   "tenant_test",
+		EventType:  "PAYMENT_SUCCESS",
 		PayloadRef: "raw_events:test-uuid",
 	}
 
