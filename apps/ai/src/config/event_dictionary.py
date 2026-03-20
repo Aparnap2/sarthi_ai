@@ -25,20 +25,33 @@ class UnknownEventError(KeyError):
     pass
 
 
-# Registry of events for Sarthi v1.0 (sample entries for migration)
+# Registry of events for Sarthi v1.0 (2 agents: Finance + BI)
 _REGISTRY: List[DictionaryEntry] = [
     # ── RAZORPAY ──────────────────────────────────────────────
     DictionaryEntry("razorpay", "PAYMENT_SUCCESS", "FinanceAgent", ["Bookkeeper", "CFO"]),
     DictionaryEntry("razorpay", "PAYMENT_FAILURE", "FinanceAgent", ["AR/AP Clerk"]),
     DictionaryEntry("razorpay", "SUBSCRIPTION_ACTIVATED", "FinanceAgent", ["Bookkeeper", "CFO"]),
     DictionaryEntry("razorpay", "SUBSCRIPTION_CANCELLED", "FinanceAgent", ["CFO", "BI Analyst"]),
+    DictionaryEntry("razorpay", "REFUND", "FinanceAgent", ["Bookkeeper"]),
+
+    # ── BANK WEBHOOK ──────────────────────────────────────────
+    DictionaryEntry("bank", "TRANSACTION", "FinanceAgent", ["Bookkeeper", "CFO"]),
+    DictionaryEntry("bank", "EXPENSE_RECORDED", "FinanceAgent", ["Bookkeeper"]),
 
     # ── TELEGRAM ──────────────────────────────────────────────
     DictionaryEntry("telegram", "QUERY_INBOUND", "ChiefOfStaffAgent", ["Chief of Staff"]),
     DictionaryEntry("telegram", "BANK_STATEMENT", "FinanceAgent", ["Bookkeeper", "CFO"]),
+    DictionaryEntry("telegram", "NL_QUERY", "BIAgent", ["BI Analyst"]),
 
     # ── CRON ──────────────────────────────────────────────────
+    DictionaryEntry("cron", "DAILY_TICK", "FinanceAgent", ["Bookkeeper", "CFO"]),
     DictionaryEntry("cron", "WEEKLY_BRIEFING", "ChiefOfStaffAgent", ["Chief of Staff"]),
+    DictionaryEntry("cron", "WEEKLY_INSIGHTS", "BIAgent", ["BI Analyst"]),
+
+    # ── INTERNAL ──────────────────────────────────────────────
+    DictionaryEntry("internal", "FINANCE_ANOMALY", "BIAgent", ["BI Analyst"]),
+    DictionaryEntry("internal", "HITL_INVESTIGATE", "BIAgent", ["BI Analyst"]),
+    DictionaryEntry("internal", "HITL_DISMISS", "FinanceAgent", ["Bookkeeper", "CFO"]),
 ]
 
 
@@ -51,7 +64,7 @@ class EventDictionary:
 
     Usage:
         d = EventDictionary()
-        entry = d.resolve("razorpay", "PAYMENT_SUCCESS")
+        entry = d.resolve(source="razorpay", event_type="PAYMENT_SUCCESS")
         print(entry.agent_name)  # "FinanceAgent"
         print(entry.employees)   # ["Bookkeeper", "CFO"]
     """
@@ -64,8 +77,8 @@ class EventDictionary:
         Resolve (source, event_type) to DictionaryEntry.
 
         Args:
-            source: Event source (e.g., "razorpay", "stripe")
-            event_type: Normalized event type (e.g., "PAYMENT_SUCCESS")
+            source: Event source (razorpay, bank, telegram, cron, internal)
+            event_type: Normalized event type (PAYMENT_SUCCESS, etc.)
 
         Returns:
             DictionaryEntry with agent_name and employees
@@ -88,3 +101,11 @@ class EventDictionary:
     def count(self) -> int:
         """Return total number of registered events."""
         return len(self._index)
+
+    def by_agent(self, agent_name: str) -> List[DictionaryEntry]:
+        """Return all events handled by a specific agent."""
+        return [e for e in self._index.values() if e.agent_name == agent_name]
+
+    def by_source(self, source: str) -> List[DictionaryEntry]:
+        """Return all events from a specific source."""
+        return [e for e in self._index.values() if e.source == source]

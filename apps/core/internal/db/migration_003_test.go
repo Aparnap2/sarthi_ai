@@ -8,7 +8,8 @@ import (
 
 // TestMigration003_BiQueriesTableExists verifies bi_queries table was created
 func TestMigration003_BiQueriesTableExists(t *testing.T) {
-    db := connectTestDB(t)
+    db := getTestDB(t)
+    defer db.Close()
     
     var exists bool
     err := db.QueryRow(`
@@ -24,7 +25,8 @@ func TestMigration003_BiQueriesTableExists(t *testing.T) {
 
 // TestMigration003_VendorBaselinesColumns verifies new columns were added
 func TestMigration003_VendorBaselinesColumns(t *testing.T) {
-    db := connectTestDB(t)
+    db := getTestDB(t)
+    defer db.Close()
     
     // Test avg_30d column
     var avg30dExists bool
@@ -65,7 +67,8 @@ func TestMigration003_VendorBaselinesColumns(t *testing.T) {
 
 // TestMigration003_AgentOutputsColumns verifies langfuse_trace and anomaly_score were added
 func TestMigration003_AgentOutputsColumns(t *testing.T) {
-    db := connectTestDB(t)
+    db := getTestDB(t)
+    defer db.Close()
     
     var langfuseTraceExists bool
     err := db.QueryRow(`
@@ -92,7 +95,8 @@ func TestMigration003_AgentOutputsColumns(t *testing.T) {
 
 // TestMigration003_IndexesCreated verifies performance indexes exist
 func TestMigration003_IndexesCreated(t *testing.T) {
-    db := connectTestDB(t)
+    db := getTestDB(t)
+    defer db.Close()
     
     indexes := []string{
         "idx_bi_queries_tenant",
@@ -117,7 +121,8 @@ func TestMigration003_IndexesCreated(t *testing.T) {
 
 // TestMigration003_InsertBiQuery verifies bi_queries table is writable
 func TestMigration003_InsertBiQuery(t *testing.T) {
-    db := connectTestDB(t)
+    db := getTestDB(t)
+    defer db.Close()
     
     _, err := db.Exec(`
         INSERT INTO bi_queries (tenant_id, query_text, generated_sql, row_count, narrative)
@@ -129,7 +134,8 @@ func TestMigration003_InsertBiQuery(t *testing.T) {
 
 // TestMigration003_UpdateVendorBaseline verifies vendor_baselines new columns are writable
 func TestMigration003_UpdateVendorBaseline(t *testing.T) {
-    db := connectTestDB(t)
+    db := getTestDB(t)
+    defer db.Close()
     
     // First insert a test row
     _, err := db.Exec(`
