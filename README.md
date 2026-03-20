@@ -1,14 +1,15 @@
-# Sarthi.ai — Your Virtual Back-Office for Software Startups
+# Sarthi.ai — Ops Memory Layer for Software Startups
 
 <div align="center">
 
-**5-Agent Ops Automation System | Telegram Interface | Real Docker + Real Azure LLM**
+**Two Agents. Nine Technologies. Production-Grade Agentic AI.**
 
-[![Tests](https://img.shields.io/badge/tests-255%2B%20baseline-brightgreen)](./apps/ai/tests/)
-[![Agents](https://img.shields.io/badge/agents-5%20vertical-blue)](./docs/PRD.md)
-[![Version](https://img.shields.io/badge/version-v1.0--alpha-purple)](./docs/PRD.md)
+[![Tests](https://img.shields.io/badge/tests-40%2B%20unit%20|%208%2B%20E2E-brightgreen)](./docs/PRD.md)
+[![Agents](https://img.shields.io/badge/agents-2%20(Finance+%2B%20BI)-blue)](./docs/PRD.md)
+[![Stack](https://img.shields.io/badge/stack-Go%20|%20Python%20|%20Temporal%20|%20LangGraph-purple)](./docs/PRD.md)
+[![Version](https://img.shields.io/badge/version-v1.0.0--alpha-orange)](./docs/PRD.md)
 
-[Architecture](#architecture) • [Agents](#five-agents) • [PRD](./docs/PRD.md) • [Testing](#testing)
+[Architecture](#architecture) • [Agents](#two-agents) • [PRD](./docs/PRD.md) • [Demo](#3-minute-demo)
 
 </div>
 
@@ -16,41 +17,43 @@
 
 ## The Problem
 
-Solo technical founders drown in operational chaos:
+Every software startup that reaches ₹50L ARR hits the same wall — **context evaporation**.
 
-| Metric | Impact |
-|--------|--------|
-| **Tools fragmentation** | 10+ tools (Razorpay, Zoho, Intercom, Keka) with no intelligence layer |
-| **Founder as bus** | You manually relay info between payment → CRM → support → HR → finance |
-| **Time waste** | 15–20 hours/week on back-office = $9,000–$22,500/month hidden cost |
-| **Roadmap delay** | ~3 months/year lost to ops work that doesn't require your judgment |
+| Pain | Before Sarthi |
+|------|---------------|
+| Anomaly detection | 3 weeks (if ever) |
+| Runway accuracy | Monthly manual calc |
+| BI query time | 2–4 hrs (analyst) |
+| Context on alerts | None |
+| Weekly digest | Manual assembly |
 
-**The gap:** Not "founders don't have tools" — it's **no system watches all tools and acts silently**.
+**The gap:** No system watches your data continuously, reasons about anomalies with memory of the past, answers natural language questions, and gets smarter with every event.
 
 ---
 
 ## The Solution
 
-**Sarthi** is the intelligence layer that sits above all your existing tools and runs the ops *between* them.
+**Sarthi** is an ops memory layer with two focused agents:
 
 ```
-Every operational task that doesn't require your
-unique human judgment — Sarthi handles.
-Everything that does — Sarthi prepares perfectly
-and puts in front of you in 30 seconds, not 3 hours.
+┌──────────────────────────────────────────────────────────────┐
+│  FINANCE AGENT                                                │
+│  Watches: Razorpay, bank feed, expenses                       │
+│  Does:    Burn/runway, anomaly detection, spend memory       │
+│  Output:  Telegram alerts + weekly digest                    │
+├──────────────────────────────────────────────────────────────┤
+│  BI AGENT                                                     │
+│  Watches: PostgreSQL, Sheets, GA4, Mixpanel                  │
+│  Does:    NL → SQL → chart → narrative, proactive insights   │
+│  Output:  Charts + narrative + Telegram digest               │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-### What Sarthi Does (Real Examples)
-
-> "Sarthi saved me 18 hours this week:
-> - Detected AWS spike (2.3× usual) before I noticed
-> - Sent payment reminders to 3 stale deals (closed 2)
-> - Generated Priya's onboarding checklist (eng role)
-> - Drafted Monday brief: 3 items, no jargon
-> - Flagged Arjun as high churn risk (8 days no login)
-> - Prepared investor update: revenue, burn, runway"
-
-**That's not a feature list. That's a Monday.**
+**Value delivered:**
+- Anomaly detection: < 5 minutes (was 3 weeks)
+- Runway accuracy: Real-time (was monthly)
+- BI query time: < 30 seconds (was 2–4 hrs)
+- Cost: ₹9,999/month (was ₹50,000+ for human)
 
 ---
 
@@ -58,146 +61,108 @@ and puts in front of you in 30 seconds, not 3 hours.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  CONNECTORS (Go API Gateway)                                │
-│  Razorpay • Stripe • Zoho • Intercom • Keka • Bank          │
-│  HMAC verified → raw_events → Redpanda                      │
+│                   EXTERNAL TRIGGERS                          │
+│  Razorpay ──┐                                               │
+│  Bank Feed ─┼──→ Go Fiber API ──→ Redpanda ──→ Temporal    │
+│  Telegram  ─┘  (HMAC Validated)  (Event Bus)  (Workflows)  │
 └─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
+                                              │
+                       ┌──────────────────────┘
+                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  TEMPORAL WORKFLOWS (Go)                                    │
-│  RevenueWorkflow • CSWorkflow • PeopleWorkflow              │
-│  FinanceWorkflow • ChiefOfStaffWorkflow                     │
-│  Continue-As-New at 1,000 events                            │
+│                 PYTHON AI WORKER                             │
+│                                                             │
+│  Temporal Activity: RunLangGraphAgent(agent, event)         │
+│               │                                             │
+│      ┌────────┴────────┐                                   │
+│      ▼                 ▼                                   │
+│  FinanceAgent      BIAgent                                  │
+│  (LangGraph)       (LangGraph)                              │
+│      │                 │                                   │
+│  PostgreSQL         PostgreSQL                              │
+│  Qdrant             Qdrant                                  │
 └─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
+                       │
+                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  PYTHON AGENTS (LangGraph)                                  │
-│  Revenue Tracker • CS Agent • People Coordinator            │
-│  Finance Monitor • Chief of Staff                           │
-│  Reason → Act → Write Memory                                │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│  OUTPUTS                                                    │
-│  PostgreSQL (structured) • Qdrant (episodic)                │
-│  Telegram (HITL only)                                       │
+│                  OUTPUT LAYER                                │
+│  Telegram ← alerts, charts, digests, HITL buttons          │
+│  Langfuse  ← all LLM traces, scores, costs                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow
+### Tech Stack
 
-```mermaid
-graph TD
-  subgraph Connectors
-    A[Razorpay/Stripe] --> GW[Go API Gateway]
-    B[Zoho/Tally] --> GW
-    C[Support webhook] --> GW
-    D[HR webhook] --> GW
-    E[Bank webhook] --> GW
-    F[gws CLI cron] --> GW
-  end
+| Layer | Technology | Why |
+|---|---|---|
+| API Gateway | Go + Fiber | High concurrency, low latency |
+| Event Bus | Redpanda | Kafka-compatible, persistent |
+| Workflow Engine | Temporal | Durable execution, HITL signals |
+| Agent Framework | LangGraph (Python) | ReAct graphs, state machines |
+| LLM | Ollama (qwen3:0.6b) | Local, no API keys, fast |
+| Prompt Compiler | DSPy | Systematic, not hand-tuned |
+| Memory | Qdrant | Semantic + episodic search |
+| Primary DB | PostgreSQL + sqlc | Type-safe queries |
+| Observability | Langfuse | LLM trace + eval scoring |
+| Notifications | Telegram Bot API | Zero-friction HITL |
+| Charts | Plotly Python | Code-executed, shareable PNG |
+| Deploy | Docker Compose | Local dev + Hetzner |
 
-  subgraph Event Bus
-    GW -->|HMAC verified + normalized| RP[Redpanda: sarthi.events.raw]
-  end
+---
 
-  subgraph Temporal Workflows
-    RP --> RW[RevenueWorkflow]
-    RP --> CW[CSWorkflow]
-    RP --> PW[PeopleWorkflow]
-    RP --> FW[FinanceWorkflow]
-    RP --> CoSW[ChiefOfStaffWorkflow]
-  end
+## Two Agents
 
-  subgraph Python Agents — LangGraph
-    RW --> RA[Revenue Tracker]
-    CW --> CA[CS Agent]
-    PW --> PA[People Coordinator]
-    FW --> FA[Finance Monitor]
-    CoSW --> CoS[Chief of Staff]
-  end
+### Finance Agent
 
-  subgraph Outputs
-    RA & CA & PA & FA & CoS --> PG[PostgreSQL]
-    RA & CA & PA & FA & CoS --> QD[Qdrant]
-    CoS & FA & PA --> TG[Telegram HITL]
-  end
+**Purpose:** Continuously monitors financial events. Detects anomalies. Tracks burn and runway. Remembers context. Alerts with explanation.
+
+**LangGraph Nodes (9-node ReAct loop):**
+```
+1. INGEST_EVENT       → Validate, normalize, classify
+2. UPDATE_SNAPSHOT    → Query PostgreSQL: revenue, expense, burn, runway
+3. LOAD_VENDOR_BASELINE → IF expense: query 90d avg for vendor
+4. DETECT_ANOMALY     → Score-based rules (spike, first-time, runway)
+5. QUERY_MEMORY       → Qdrant: "similar anomaly for {vendor}"
+6. REASON_AND_EXPLAIN → LLM (DSPy): 1–3 sentence explanation
+7. DECIDE_ACTION      → ALERT (>0.7) | DIGEST (weekly) | SKIP
+8. WRITE_MEMORY       → Qdrant: event + explanation + outcome
+9. EMIT_OUTPUT        → Telegram alert or weekly digest
+```
+
+**HITL Flow:**
+```
+Founder taps [Investigate]
+  → BI Agent triggered: "Break down {vendor} costs"
+    → Chart + breakdown → Telegram
+
+Founder taps [Dismiss]
+  → Qdrant: "dismissed — not anomalous"
+  → Future threshold raised for this vendor
 ```
 
 ---
 
-## Five Agents
+### BI Agent
 
-### 1. Revenue Tracker
+**Purpose:** Answers natural language questions. Proactively surfaces insights. Executes SQL safely. Remembers past queries.
 
-**Watches:** Razorpay, Stripe, CRM deals  
-**Acts:** MRR snapshots, stale deal nudges  
-**Telegram:** Stale deals (>7 days), MRR milestones
+**LangGraph Nodes (9-node ReAct loop):**
+```
+1. UNDERSTAND_QUERY    → Classify: aggregation/trend/breakdown
+2. SELECT_DATASOURCE   → Revenue → payments, Users → users
+3. GENERATE_SQL        → LLM (DSPy): NL → SQL
+4. EXECUTE_SQL         → PostgreSQL (read-only), retry on error
+5. DECIDE_VISUALIZATION → line/bar/pie/text based on type
+6. GENERATE_CODE       → Plotly Python in sandbox
+7. GENERATE_NARRATIVE  → LLM (DSPy): 2–4 sentence plain English
+8. WRITE_MEMORY        → Qdrant: query + SQL + narrative
+9. EMIT_OUTPUT         → Telegram with chart + narrative
+```
 
-| Threshold | Action |
-|-----------|--------|
-| MRR crosses ₹1L/₹5L/₹10L | Celebratory alert |
-| Deal idle >7 days | "Still live? [Nudge] [Mark Lost]" |
-| Single customer >30% | Concentration risk warning |
-
----
-
-### 2. CS Agent
-
-**Watches:** Signup events, support tickets, login activity  
-**Acts:** D1/D3/D7 onboarding sequence, churn risk detection  
-**Telegram:** High churn risk founders only (risk_score > 0.7)
-
-| Trigger | Action |
-|---------|--------|
-| USER_SIGNED_UP | Day 1 message queued |
-| last_seen_at >7 days | Churn risk alert to founder |
-| ticket_count >2 in 48h | Escalation draft |
-
----
-
-### 3. People Coordinator
-
-**Watches:** Hire/exit events, checklist confirmations  
-**Acts:** Role-based checklists, provisioning/revocation  
-**Telegram:** New hire checklist, offboard revoke list
-
-| Role | Checklist |
-|------|-----------|
-| Eng | GitHub, Notion, Slack, GWorkspace, Linear |
-| Ops | Notion, Slack, GWorkspace |
-| Sales | Notion, Slack, GWorkspace, CRM |
-
----
-
-### 4. Finance Monitor
-
-**Watches:** Payments, expenses, bank feeds, time ticks  
-**Acts:** Burn/runway, spend anomaly detection (2σ threshold)  
-**Telegram:** Spend anomalies, runway <90 days
-
-| Threshold | Action |
-|-----------|--------|
-| Spend > baseline + 2σ | "AWS bill ₹42,000 — 2.3× usual. [Investigate] [Expected]" |
-| Runway <3 months | Critical alert |
-| Runway <6 months | Warning |
-
----
-
-### 5. Chief of Staff
-
-**Watches:** All agent outputs + weekly/monthly cron  
-**Acts:** Monday briefing, monthly investor draft  
-**Telegram:** Weekly brief (max 5 items, jargon-free, 1 positive)
-
-**Briefing rules:**
-- Max 5 items
-- Always 1 positive if data supports
-- Banned jargon: `leverage, synergy, utilize, streamline, paradigm`
-- Each item: headline + `[Action]` button
+**Proactive Monday Queries:**
+1. "How did revenue change this week vs last week?"
+2. "What are the top 3 expense categories this month?"
+3. "Which user cohort has the lowest 7-day retention?"
 
 ---
 
@@ -206,182 +171,158 @@ graph TD
 ### Prerequisites
 
 ```bash
-# Docker & Docker Compose
+# Docker installed
 docker --version
-docker compose version
 
-# Go 1.24+
-go version
-
-# Python 3.11+ with uv
-uv --version
+# Ollama installed and running
+ollama list
+# Should show: qwen3:0.6b, nomic-embed-text, ibm/granite-docling
 ```
 
 ### Start Infrastructure
 
 ```bash
-# Clone
+# Clone repo
 git clone https://github.com/Aparnap2/IterateSwarm.git
 cd iterate_swarm
 
-# Start Docker services
-docker compose up -d
+# Start Docker containers (one at a time)
+docker run -d --name sarthi-postgres \
+  -e POSTGRES_USER=sarthi -e POSTGRES_PASSWORD=sarthi \
+  -e POSTGRES_DB=sarthi -p 5432:5432 \
+  postgres:15-alpine
 
-# Wait for services
-sleep 60
+docker run -d --name sarthi-qdrant \
+  -p 6333:6333 \
+  qdrant/qdrant:latest
 
-# Check health
-docker compose ps
+docker run -d --name sarthi-redpanda \
+  -p 19092:19092 \
+  redpandadata/redpanda:latest-fips \
+  redpanda start --overprovisioned
+
+# Temporal (requires PostgreSQL first)
+docker run -d --name sarthi-temporal \
+  -e DB=postgresql \
+  -e POSTGRES_USER=sarthi \
+  -e POSTGRES_PWD=sarthi \
+  -e POSTGRES_SEEDS=host.docker.internal \
+  -p 7233:7233 -p 8089:8089 \
+  temporalio/server:latest
+
+# Wait for all to start
+sleep 30
+
+# Verify
+docker ps
 ```
-
-### Access Points
-
-| Service | URL | Purpose |
-|---------|-----|---------|
-| **Temporal UI** | http://localhost:8088 | Workflow tracing |
-| **Redpanda Console** | http://localhost:9644 | Event streaming |
-| **Qdrant Dashboard** | http://localhost:6333 | Vector search |
-| **Langfuse** | http://localhost:3001 | LLM observability |
-
----
-
-## Development
 
 ### Run Tests
 
 ```bash
-# Full test suite (real Docker + real Azure LLM)
-bash scripts/test_sarthi.sh
+# Full test suite
+bash scripts/test_sarthi_v2.sh
 
-# Python tests only
+# Finance agent tests only
 cd apps/ai
-uv run pytest tests/ -v --timeout=90
+uv run pytest tests/unit/test_finance_nodes.py -v
 
-# Go tests only
-cd apps/core
-go test ./... -v -timeout=60s
+# BI agent tests only
+uv run pytest tests/unit/test_bi_nodes.py -v
 
-# E2E tests only
-cd apps/ai
-uv run pytest tests/test_e2e_sarthi.py -v --timeout=120
+# E2E tests (requires all containers running)
+uv run pytest tests/e2e/ -v --timeout=120
 ```
 
-### Test Categories
-
-| Category | Count | Description |
-|----------|-------|-------------|
-| **Baseline** | 255 | Existing IterateSwarm tests |
-| **Event Envelope** | 4 | Valid/invalid envelope tests |
-| **Event Normalizer** | 10 | Source → EventType mapping |
-| **Webhook Handlers** | 20 | HMAC, DLQ, idempotency (5 handlers × 4 tests) |
-| **Workflow Routing** | 5 | Parent workflow + CAN |
-| **Agent Unit Tests** | 90 | 5 agents × 6 nodes × 3 tests |
-| **E2E Flows** | 5 | Full stack: finance, revenue, onboarding, CS, investor |
-| **LLM Evals** | 40 | 4 agents × 10 scenarios |
-
-**Target:** 429+ tests passing for v1.0.0
-
-### Add a New Agent
-
-1. Create `apps/ai/src/agents/your_agent.py`
-2. Define LangGraph state + nodes
-3. Register in Temporal workflow
-4. Add tests in `apps/ai/tests/test_your_agent.py`
-5. Run: `uv run pytest tests/test_your_agent.py -v`
-
-### Environment Variables
+### Simulate Events
 
 ```bash
-# LLM (Azure OpenAI)
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_KEY=your-key
-AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-4o-mini
-AZURE_OPENAI_API_VERSION=2024-02-01
+# Simulate Razorpay payment (2.3x AWS spike)
+TENANT_ID=test-tenant-001 bash scripts/simulate_payment.sh
 
-# Telegram
-TELEGRAM_BOT_TOKEN=...
+# Simulate BI query
+TENANT_ID=test-tenant-001 QUERY="What was MRR last month?" \
+  bash scripts/simulate_query.sh
 
-# PostgreSQL
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=sarthi
-POSTGRES_USER=sarthi
-POSTGRES_PASSWORD=...
-
-# Qdrant
-QDRANT_HOST=localhost
-QDRANT_PORT=6333
-
-# Redpanda
-REDPANDA_BROKERS=localhost:9094
-
-# Temporal
-TEMPORAL_ADDRESS=localhost:7233
-TEMPORAL_NAMESPACE=default
+# Smoke test
+bash scripts/smoke_test.sh
 ```
 
 ---
 
-## Testing
+## 3-Minute Demo
 
-### Philosophy
-
-**Real Docker. Real Azure LLM. Zero mocks on external infra.**
-
-```python
-# Pattern: fixed state + fixed event → assert decisions
-class TestRevenueTracker:
-    def test_stale_deal_detected():
-        state = RevenueState(pipeline_deals=[
-            {"deal_id": "D1", "amount": 50000,
-             "stage": "NEGOTIATION", "last_contact_at": 9_days_ago}
-        ])
-        actions = revenue_graph.invoke(state, TICK_WEEKLY_EVENT)
-        assert any(a["type"] == "SEND_TELEGRAM" for a in actions)
-        assert "D1" in actions[0]["message"]
 ```
+[0:00] "Sarthi is a multi-agent agentic AI system — the
+        ops memory brain for software startups."
 
-### Invariants (Enforced Before Every Commit)
+[0:20] Run: ./scripts/simulate_payment.sh
+       "Just fired a fake Razorpay webhook —
+        AWS bill 2.3x higher than the 90-day baseline."
 
-```bash
-# I-1: No raw JSON in Temporal signals
-grep -rn "json.Marshal" apps/core/internal/workflow/ \
-  | grep -v "_test.go" && exit 1
+[0:35] Open Temporal UI → FinanceWorkflow RUNNING
+       "Temporal ensures this survives any crash.
+        Durable execution — not a cron job."
 
-# I-2: No AzureOpenAI() outside config/llm.py
-grep -rn "AzureOpenAI(" apps/ai/src/ | grep -v "config/llm.py" && exit 1
+[0:50] "LangGraph ReAct loop: Ingest → Load baseline
+        → Detect anomaly → Query Qdrant → Reason → Alert"
 
-# I-3: All baseline tests still pass
-uv run pytest tests/ -x -q --timeout=90
+[1:10] Show Qdrant returning memory:
+       "Similar AWS spike. October 2025.
+        Cause: undeleted staging environment."
+       "It didn't just detect it — it remembered."
 
-# I-4: No jargon in agent output
-grep -rn "leverage\|synergy\|utilize" apps/ai/src/agents/ && exit 1
+[1:30] Show Telegram alert:
+       "AWS bill 2.3x usual. First spike since October.
+        Check recent deployments. [Investigate][Dismiss]"
+
+[1:50] Tap [Investigate]
+       "Temporal receives the signal. BI Agent activates.
+        Generates SQL, executes it, builds a chart."
+       Show chart arriving in Telegram (< 30 seconds)
+
+[2:20] Open Langfuse:
+       "Every LLM call traced: input, output, tokens,
+        latency, score. Production observability."
+
+[2:45] "Two agents. Nine technologies.
+        Temporal durable workflows. LangGraph ReAct.
+        Qdrant episodic memory. Deployed. Tested.
+        Observable. This is Sarthi."
+
+[3:00] END
 ```
 
 ---
 
-## Roadmap
+## Test Results
 
-### v1.0.0-alpha (Current)
+| Category | Tests | Target | Status |
+|----------|-------|--------|--------|
+| Finance Unit | 14 | 14+ | 🔲 Pending |
+| BI Unit | 10 | 10+ | 🔲 Pending |
+| Go Webhooks | 5 | 5+ | 🔲 Pending |
+| E2E Flows | 8 | 8+ | 🔲 Pending |
+| LLM Evals | 3 | 3 | 🔲 Pending |
 
-- [x] Database schema (9 tables)
-- [x] Event envelope (Go + Python)
-- [x] Event normalization (10 mappings)
-- [ ] 5 webhook handlers (HMAC, DLQ, idempotency)
-- [ ] Temporal workflow routing (CAN at 1,000)
-- [ ] 5 LangGraph agents
-- [ ] Telegram HITL handling
-- [ ] 5 E2E tests
-- [ ] Test runner script
+**Run all tests:**
+```bash
+bash scripts/test_sarthi_v2.sh
+```
 
-### v1.0.0 (Production)
+---
 
-- [ ] All 429+ tests passing
-- [ ] Langfuse tracing for all agents
-- [ ] LLM eval suite (40 scenarios)
-- [ ] Deployment SOP
-- [ ] Incident response SOP
-- [ ] First real founder onboarded
+## Project Status
+
+**Current Phase:** Week 1 — Finance Agent Implementation
+
+| Week | Dates | Deliverable | Status |
+|------|-------|-------------|--------|
+| 1 | Mar 21–27 | Finance Agent end-to-end | 🔲 In Progress |
+| 2 | Mar 28–Apr 3 | BI Agent end-to-end | 🔲 Pending |
+| 3 | Apr 4–10 | Cross-agent + memory | 🔲 Pending |
+| 4 | Apr 11–17 | Production deploy | 🔲 Pending |
+| 5 | Apr 18–24 | htmx dashboard (optional) | 🔲 Pending |
 
 ---
 
@@ -389,10 +330,11 @@ grep -rn "leverage\|synergy\|utilize" apps/ai/src/agents/ && exit 1
 
 | Doc | Purpose |
 |-----|---------|
-| [PRD](./docs/PRD.md) | Complete product requirements, agent specs, database schema |
-| [ARCHITECTURE](./docs/ARCHITECTURE.md) | System design, data flow |
-| [TESTING](./docs/TESTING_ARCHITECTURE.md) | Testing strategy, 429+ test targets |
-| [PHASES](./docs/PHASES.md) | Phase execution order (12 commits) |
+| [PRD](./docs/PRD.md) | Complete product requirements, agent specs |
+| [Architecture](./docs/ARCHITECTURE.md) | System design, data flow |
+| [Testing](./docs/TESTING_ARCHITECTURE.md) | Testing strategy, 40+ unit + 8+ E2E |
+| [Vectorless RAG](./docs/VECTORLESS_RAG_ZINCSEARCH.md) | ZincSearch + Docling + LangExtract |
+| [ZincSearch Integration](./docs/ZINCSEARCH_INTEGRATION_COMPLETE.md) | Document retrieval pipeline |
 
 ---
 
@@ -401,10 +343,26 @@ grep -rn "leverage\|synergy\|utilize" apps/ai/src/agents/ && exit 1
 1. Fork the repo
 2. Create a feature branch (`git checkout -b feat/your-feature`)
 3. Write tests first (RED → GREEN → REFACTOR)
-4. Commit with conventional commits
+4. Run invariant checks before commit
 5. Open a PR
 
-**Note:** All agents must have 100% test coverage before merge.
+**Invariant Checks (run before every commit):**
+```bash
+# I-1: No raw JSON marshal in workflow/
+grep -rn "json.Marshal\|json.Unmarshal" apps/core/internal/workflow/ \
+  | grep -v "_test.go" | grep -v "// safe:" && exit 1
+
+# I-2: No direct AzureOpenAI() outside config/llm.py
+grep -rn "AzureOpenAI(" apps/ai/src/ | grep -v "config/llm.py" && exit 1
+
+# I-3: All existing tests still pass
+cd apps/core && go test ./... -timeout=60s -q && cd -
+cd apps/ai && uv run pytest tests/ -x -q --timeout=90 && cd -
+
+# I-4: No banned jargon in agent output
+grep -rn "leverage\|synergy\|utilize\|streamline" \
+  apps/ai/src/agents/ | grep -v "# allowed:" && exit 1
+```
 
 ---
 
@@ -414,6 +372,6 @@ MIT License — see [LICENSE](LICENSE) file.
 
 ---
 
-**Built with:** Go 1.24 • Python 3.11 • Temporal • Redpanda • PostgreSQL • Qdrant • Azure OpenAI • LangGraph
+**Built with:** Go 1.24 • Python 3.11 • Temporal • Redpanda • PostgreSQL • Qdrant • Ollama • LangGraph • DSPy • Langfuse
 
-**Status:** ✅ v1.0.0-alpha — 5-Agent Ops Automation System
+**Status:** 🔲 v1.0.0-alpha — In Development

@@ -1,389 +1,508 @@
 # Sarthi v1.0 — Implementation TODO List
-## 5-Agent Ops Automation System
+## 2-Agent Focused Build (Finance + BI)
 
-**Version:** 1.0.0-alpha  
-**Date:** March 2026  
+**Version:** 1.0  
+**Date:** March 21, 2026  
 **Status:** Phase 0 COMPLETE ✅
 
 ---
 
 ## Phase 0 ✅ — Baseline Verification (COMPLETE)
 
-**Target:** Confirm v4.2.0-alpha baseline (255 tests passing)
+**Target:** Confirm existing infrastructure and codebase
 
 ### Completed Tasks
 
-- [x] Run `git log --oneline -3` — shows v4.2.0-alpha context
-- [x] Create feature branch: `git checkout -b feature/sarthi-v1 v4.2.0-alpha`
-- [x] Run baseline tests: `bash scripts/test_sarthi.sh` — 255 tests PASS
-- [x] Check current migration number: `ls migrations/ | sort | tail -1`
+- [x] Verify Docker containers running (postgres, qdrant, redpanda, temporal, ollama)
+- [x] Check Ollama models: `docker exec ollama ollama list`
+- [x] Verify existing codebase structure (apps/core, apps/ai)
+- [x] Confirm existing tests pass (255+ baseline)
+- [x] Create `feature/sarthi-v1` branch from v4.2.0-alpha
 
 **Exit Criteria:** ✅ MET
 
 ---
 
-## Phase 1 🔲 — Database Migration (Commit 1)
+## Phase 1 🔲 — Infrastructure Setup
 
-**Target:** 9 new tables for 5-agent system
+**Target:** Docker containers, database migrations, Qdrant collections
 
 ### Tasks
 
-- [ ] Create `apps/core/internal/db/migrations/NNN_sarthi_v1.sql`
-  - [ ] founders table (tenant_id, telegram_chat_id)
-  - [ ] raw_events table (payload storage, idempotency_key)
-  - [ ] transactions table (revenue/expense tracking)
-  - [ ] pipeline_deals table (CRM deals, last_contact_at)
-  - [ ] cs_customers table (onboarding_stage, risk_score)
-  - [ ] employees table (checklist JSONB, role_function)
-  - [ ] finance_snapshots table (burn_rate, runway_months)
-  - [ ] vendor_baselines table (avg_monthly, stddev_monthly)
-  - [ ] agent_outputs table (consumed by CoS)
-  - [ ] hitl_actions table (Telegram callback tracking)
-- [ ] Apply migration: `psql $DATABASE_URL -f migrations/NNN_sarthi_v1.sql`
-- [ ] Create `apps/core/internal/db/migration_test.go`
-  - [ ] TestMigration_TablesExist
-  - [ ] TestMigration_IdempotencyUnique
-- [ ] Run tests: `go test ./internal/db -run TestMigration -v` → expect PASS
+#### 1A: Database Migration 003
+
+- [ ] Create `infra/migrations/003_sarthi_stripped.sql`
+  - [ ] `bi_queries` table (BI query history)
+  - [ ] Add `avg_30d`, `avg_90d`, `transaction_count` to `vendor_baselines`
+  - [ ] Add `langfuse_trace`, `anomaly_score` to `agent_outputs`
+  - [ ] Indexes: `idx_bi_queries_tenant`, `idx_transactions_vendor`
+- [ ] Apply migration: `psql "$DATABASE_URL" -f infra/migrations/003_sarthi_stripped.sql`
+- [ ] Create Go test: `apps/core/internal/db/migration_003_test.go`
+- [ ] Run tests: `go test ./internal/db -run TestMigration003 -v`
 
 **Exit Criteria:**
-- 9 tables created
-- Idempotency constraint works
+- Migration applied successfully
+- All new tables/columns exist
 - 2+ tests passing
 
----
+#### 1B: Qdrant Collections
 
-## Phase 2 🔲 — Event Envelope (Commit 2)
-
-**Target:** Canonical envelope (Go + Python)
-
-### Tasks
-
-- [ ] Create `apps/core/internal/events/envelope.go`
-  - [ ] EventEnvelope struct (TenantID, EventType, PayloadRef, etc.)
-  - [ ] NEVER contains raw JSON — only PayloadRef string
-- [ ] Create `apps/ai/src/schemas/event_envelope.py`
-  - [ ] EventEnvelope Pydantic model
-  - [ ] Validators (event_name not empty, payload_ref is storage ref)
-- [ ] Create `apps/ai/tests/test_event_envelope.py`
-  - [ ] test_valid_envelope_passes
-  - [ ] test_empty_event_name_fails
-  - [ ] test_raw_json_as_payload_ref_fails
-  - [ ] test_all_sources_valid
-- [ ] Run tests: `uv run pytest tests/test_event_envelope.py -v` → expect 4 PASS
+- [ ] Create `scripts/setup_qdrant_collections.py`
+  - [ ] `finance_memory` collection (768-dim, nomic-embed-text)
+  - [ ] `bi_memory` collection (768-dim)
+- [ ] Run script: `uv run python scripts/setup_qdrant_collections.py`
+- [ ] Verify collections: `curl http://localhost:6333/collections`
 
 **Exit Criteria:**
-- Envelope schema in Go + Python
-- 4 tests passing
-- Rejects raw JSON in payload_ref
+- Both collections created
+- Vector size = 768 (nomic-embed-text)
 
----
+#### 1C: Redpanda Topics
 
-## Phase 3 🔲 — Event Normalization (Commit 3)
-
-**Target:** 10 source → EventType mappings
-
-### Tasks
-
-- [ ] Create `apps/core/internal/events/normalizer.go`
-  - [ ] Normalize(source, raw_event) → EventType
-  - [ ] Unknown events → dead_letter_events (no error)
-- [ ] Event mappings:
-  - [ ] Razorpay `payment.captured` → `PAYMENT_SUCCESS`
-  - [ ] Razorpay `subscription.cancelled` → `SUBSCRIPTION_CANCELED`
-  - [ ] Stripe `invoice.paid` → `PAYMENT_SUCCESS`
-  - [ ] Intercom `user.created` → `USER_SIGNED_UP`
-  - [ ] Intercom `conversation.created` → `SUPPORT_TICKET_CREATED`
-  - [ ] Keka `employee.created` → `EMPLOYEE_CREATED`
-  - [ ] Keka `employee.terminated` → `EMPLOYEE_TERMINATED`
-  - [ ] Bank `bank.transaction` → `BANK_WEBHOOK`
-  - [ ] Cron `cron.weekly` → `TIME_TICK_WEEKLY`
-  - [ ] Cron `cron.daily` → `TIME_TICK_DAILY`
-- [ ] Create `apps/core/internal/events/normalizer_test.go`
-  - [ ] TestNormalizer_10MappingsCorrect
-  - [ ] TestNormalizer_UnknownEventToDLQ
-- [ ] Run tests: `go test ./internal/events -run TestNormalizer -v` → expect PASS
+- [ ] Create topics via Docker:
+  ```bash
+  docker exec sarthi-redpanda rpk topic create \
+    sarthi.events.raw \
+    sarthi.queries.raw \
+    sarthi.agent.outputs \
+    sarthi.dlq \
+    --partitions 3 --replicas 1
+  ```
+- [ ] Verify topics: `docker exec sarthi-redpanda rpk topic list`
 
 **Exit Criteria:**
-- 10 mappings implemented
-- Unknown events go to DLQ
-- 2+ tests passing
+- 4 topics created
+- 3 partitions each
 
 ---
 
-## Phase 4 🔲 — Go Webhook Handlers (Commit 4)
+## Phase 2 🔲 — Finance Agent (LangGraph)
 
-**Target:** 5 handlers with HMAC, DLQ, idempotency
+**Target:** 9-node ReAct graph, 14 unit tests passing
 
 ### Tasks
 
-#### Payments Handler
-- [ ] Create `apps/core/internal/api/payments.go`
-  - [ ] Razorpay HMAC-SHA256 verification
-  - [ ] Store raw event in PostgreSQL FIRST
-  - [ ] Publish EventEnvelope (PayloadRef only) to Redpanda
-  - [ ] Return 200 immediately
-- [ ] Create `apps/core/internal/api/payments_test.go`
-  - [ ] TestPaymentsWebhook_ValidSignatureAccepted
-  - [ ] TestPaymentsWebhook_InvalidSignatureRejected
-  - [ ] TestPaymentsWebhook_UnknownEventToDLQ
-  - [ ] TestPaymentsWebhook_DuplicateIdempotent
+#### 2A: State Definition
 
-#### CRM Handler
-- [ ] Create `apps/core/internal/api/crm.go`
-  - [ ] Same pattern as payments
+- [ ] Create `apps/ai/src/agents/finance/state.py`
+  - [ ] `FinanceState` TypedDict
+  - [ ] All required fields: tenant_id, event, revenue, expense, burn, runway, etc.
 
-#### Support Handler
-- [ ] Create `apps/core/internal/api/support.go`
+#### 2B: DSPy Prompts
 
-#### HR Handler
-- [ ] Create `apps/core/internal/api/hr.go`
+- [ ] Create `apps/ai/src/agents/finance/prompts.py`
+  - [ ] `AnomalyExplainer` signature (input: event, vendor, amount, avg, score, past_context, runway)
+  - [ ] `FinanceDigestWriter` signature (input: MRR, burn, runway, WoW%, top expenses)
+  - [ ] Configure DSPy with Ollama: `dspy.LM(model="openai/qwen3:0.6b", api_base="http://localhost:11434/v1")`
 
-#### Bank Handler
-- [ ] Create `apps/core/internal/api/bank.go`
+#### 2C: Node Functions
 
-- [ ] Run tests: `go test ./internal/api -v` → expect 20 PASS (5 handlers × 4 tests)
+- [ ] Create `apps/ai/src/agents/finance/nodes.py`
+  - [ ] `node_ingest_event` — validate schema
+  - [ ] `node_update_snapshot` — query PostgreSQL for burn/runway
+  - [ ] `node_load_vendor_baseline` — load 90d avg
+  - [ ] `node_detect_anomaly` — score-based rules
+  - [ ] `node_query_memory` — Qdrant semantic search
+  - [ ] `node_reason_and_explain` — DSPy ChainOfThought
+  - [ ] `node_decide_action` — ALERT | DIGEST | SKIP
+  - [ ] `node_write_memory` — Qdrant upsert
+  - [ ] `node_emit_output` — format Telegram message
+  - [ ] `route_after_decide` — conditional edge function
+
+#### 2D: LangGraph Graph
+
+- [ ] Create `apps/ai/src/agents/finance/graph.py`
+  - [ ] Build `StateGraph(FinanceState)`
+  - [ ] Add all 9 nodes
+  - [ ] Set entry point
+  - [ ] Add edges
+  - [ ] Compile graph
+
+#### 2E: Unit Tests
+
+- [ ] Create `apps/ai/tests/unit/test_finance_nodes.py`
+  - [ ] `test_ingest_event_normalizes_razorpay_payload`
+  - [ ] `test_ingest_event_rejects_missing_fields`
+  - [ ] `test_detect_anomaly_scores_2x_spend`
+  - [ ] `test_detect_anomaly_scores_first_vendor`
+  - [ ] `test_detect_anomaly_skips_normal_transaction`
+  - [ ] `test_detect_anomaly_flags_low_runway`
+  - [ ] `test_decide_action_alerts_on_high_score`
+  - [ ] `test_decide_action_digests_on_weekly_tick`
+  - [ ] `test_decide_action_skips_on_low_score`
+  - [ ] `test_update_snapshot_calculates_burn` (mocked PostgreSQL)
+  - [ ] `test_update_snapshot_calculates_runway` (mocked PostgreSQL)
+  - [ ] `test_load_vendor_baseline_returns_90d_avg`
+  - [ ] `test_write_memory_payload_has_required_fields`
+  - [ ] `test_reason_and_explain_returns_non_empty_string`
 
 **Exit Criteria:**
-- 5 webhook handlers
-- HMAC verification working
-- DLQ for unknown events
-- Idempotency working
-- 20 tests passing
+- Graph compiles without errors
+- 14/14 unit tests PASS
+- No banned jargon in output strings
 
 ---
 
-## Phase 5 🔲 — Temporal Workflow Routing (Commit 5)
+## Phase 3 🔲 — BI Agent (LangGraph)
 
-**Target:** Parent workflow with CAN at 1,000 events
+**Target:** 9-node ReAct graph, 10 unit tests passing
 
 ### Tasks
 
-- [ ] Create `apps/core/internal/workflow/sarthi_router.go`
-  - [ ] Parent workflow receives EventEnvelope signal
-  - [ ] Routes by EventType:
-    - `PAYMENT_* | SUBSCRIPTION_* | CRM_* | TIME_TICK_*` → RevenueWorkflow
-    - `USER_* | SUPPORT_*` → CSWorkflow
-    - `EMPLOYEE_* | CHECKLIST_*` → PeopleWorkflow
-    - `EXPENSE_* | BANK_* | TIME_TICK_DAILY` → FinanceWorkflow
-    - `TIME_TICK_WEEKLY | TIME_TICK_MONTHLY | AGENT_OUTPUT` → CoSWorkflow
-  - [ ] Continue-As-New at 1,000 events
-- [ ] Create `apps/core/internal/workflow/sarthi_router_test.go`
-  - [ ] TestSarthiRouter_CorrectWorkflowSpawned
-  - [ ] TestSarthiRouter_CANFiresAt1000
-  - [ ] TestSarthiRouter_DuplicateKeySkipped
-- [ ] Run tests: `go test ./internal/workflow -run TestSarthiRouter -v` → expect PASS
+#### 3A: State Definition
+
+- [ ] Create `apps/ai/src/agents/bi/state.py`
+  - [ ] `BIState` TypedDict
+  - [ ] All fields: tenant_id, query, query_type, generated_sql, sql_result, chart_path, narrative, etc.
+
+#### 3B: DSPy Prompts
+
+- [ ] Create `apps/ai/src/agents/bi/prompts.py`
+  - [ ] `TextToSQL` signature (input: question, schema, sample_rows, time_hint)
+  - [ ] `NarrativeWriter` signature (input: question, sql_result, past_answer)
+  - [ ] `PlotlyCodeGen` signature (input: chart_type, data_json, title, chart_path)
+
+#### 3C: Node Functions
+
+- [ ] Create `apps/ai/src/agents/bi/nodes.py`
+  - [ ] `node_understand_query` — classify + check Qdrant cache
+  - [ ] `node_generate_sql` — DSPy TextToSQL + sanitize
+  - [ ] `node_execute_sql` — PostgreSQL execution + retry logic
+  - [ ] `node_decide_visualization` — choose chart type
+  - [ ] `node_generate_chart` — Plotly code gen + sandboxed exec
+  - [ ] `node_generate_narrative` — DSPy NarrativeWriter
+  - [ ] `node_write_bi_memory` — Qdrant + PostgreSQL write
+  - [ ] `node_emit_bi_output` — format Telegram message
+
+#### 3D: LangGraph Graph
+
+- [ ] Create `apps/ai/src/agents/bi/graph.py`
+  - [ ] Build `StateGraph(BIState)`
+  - [ ] Add all 8 nodes
+  - [ ] Set entry point
+  - [ ] Add edges
+  - [ ] Compile graph
+
+#### 3E: Unit Tests
+
+- [ ] Create `apps/ai/tests/unit/test_bi_nodes.py`
+  - [ ] `test_understand_query_classifies_revenue_query`
+  - [ ] `test_understand_query_classifies_trend_query`
+  - [ ] `test_generate_sql_sanitize_rejects_insert`
+  - [ ] `test_generate_sql_sanitize_rejects_drop`
+  - [ ] `test_generate_sql_allows_select`
+  - [ ] `test_decide_viz_line_for_trend`
+  - [ ] `test_decide_viz_bar_for_breakdown`
+  - [ ] `test_decide_viz_none_for_empty_result`
+  - [ ] `test_execute_sql_returns_rows` (mocked)
+  - [ ] `test_execute_sql_retries_on_syntax_error`
 
 **Exit Criteria:**
-- Parent workflow routes correctly
-- CAN fires at 1,000 events
-- 3+ tests passing
+- Graph compiles without errors
+- 10/10 unit tests PASS
+- SQL sanitizer rejects INSERT/UPDATE/DELETE/DROP
 
 ---
 
-## Phase 6 🔲 — Finance Monitor Agent (Commit 6)
+## Phase 4 🔲 — Temporal Workflows (Go)
 
-**Target:** LangGraph agent with 6 nodes
+**Target:** FinanceWorkflow + BIWorkflow with HITL signals
 
 ### Tasks
 
-- [ ] Create `apps/ai/src/agents/finance_monitor.py`
-  - [ ] LangGraph nodes:
-    - UpdateSnapshot (recompute burn + runway)
-    - VendorBaseline (load avg ± 2σ)
-    - DetectAnomaly (compare to baseline)
-    - ExplainAnomaly (query Qdrant history)
-    - DecideAlert (severity + who to ping)
-    - EmitActions (alert + runway update)
-  - [ ] Thresholds: 2σ anomaly, runway <3mo critical, <6mo warn
-- [ ] Create `apps/ai/tests/test_finance_monitor.py`
-  - [ ] test_spend_anomaly_2sigma_fires
-  - [ ] test_spend_within_1sigma_silent
-  - [ ] test_runway_critical_fires
-  - [ ] test_runway_healthy_silent
-  - [ ] test_anomaly_explained_by_qdrant_history
-  - [ ] test_normal_expense_silent
-- [ ] Run tests: `uv run pytest tests/test_finance_monitor.py -v` → expect 6 PASS
+#### 4A: Finance Workflow
+
+- [ ] Create `apps/core/internal/workflow/finance_workflow.go`
+  - [ ] `FinanceWorkflowInput` struct
+  - [ ] `AgentOutput` struct
+  - [ ] `FinanceWorkflow` function
+  - [ ] Activity options with retry policy
+  - [ ] Execute `RunFinanceAgentActivity`
+  - [ ] Send Telegram with HITL buttons if anomaly
+  - [ ] HITL signal handler: `FinanceHITLWorkflow`
+
+#### 4B: BI Workflow
+
+- [ ] Create `apps/core/internal/workflow/bi_workflow.go`
+  - [ ] `BIWorkflowInput` struct
+  - [ ] `BIOutput` struct
+  - [ ] `BIWorkflow` function
+  - [ ] Execute `RunBIAgentActivity`
+  - [ ] Send Telegram with chart (if generated)
+  - [ ] Proactive weekly insight function
+
+#### 4C: Workflow Tests
+
+- [ ] Create `apps/core/internal/workflow/finance_workflow_test.go`
+  - [ ] `TestFinanceWorkflow_CompletesSuccessfully`
+  - [ ] `TestFinanceWorkflow_SendsTelegramOnAlert`
+  - [ ] `TestFinanceWorkflow_SkipsOnLowScore`
+- [ ] Create `apps/core/internal/workflow/bi_workflow_test.go`
+  - [ ] `TestBIWorkflow_CompletesSuccessfully`
+  - [ ] `TestBIWorkflow_SendsChart`
+  - [ ] `TestBIWorkflow_CachesIdenticalQuery`
 
 **Exit Criteria:**
-- 6 LangGraph nodes implemented
-- 2σ anomaly detection working
-- 6 tests passing
+- Both workflows compile
+- 6+ Go tests PASS
+- HITL signal handler registered
 
 ---
 
-## Phase 7 🔲 — Revenue Tracker Agent (Commit 7)
+## Phase 5 🔲 — Python Temporal Worker
 
-**Target:** LangGraph agent with 6 nodes
+**Target:** Activity worker running LangGraph agents
 
 ### Tasks
 
-- [ ] Create `apps/ai/src/agents/revenue_tracker.py`
-  - [ ] LangGraph nodes:
-    - IngestEvent (classify, extract amount + customer)
-    - UpdateMetrics (recompute MRR + windows)
-    - DetectStaleDeals (last_contact_at >7 days)
-    - DecideAlerts (milestone / stale / anomaly)
-    - WriteMemory (weekly summary to Qdrant)
-    - EmitActions (Telegram + WEEKLY_REVENUE_SUMMARY)
-  - [ ] Thresholds: MRR milestones, stale >7d, concentration >30%
-- [ ] Create `apps/ai/tests/test_revenue_tracker.py`
-  - [ ] test_stale_deal_7d_fires
-  - [ ] test_active_deal_silent
-  - [ ] test_mrr_milestone_fires
-  - [ ] test_routine_payment_silent
-  - [ ] test_concentration_risk_fires
-  - [ ] test_weekly_summary_written_to_qdrant
-- [ ] Run tests: `uv run pytest tests/test_revenue_tracker.py -v` → expect 6 PASS
+#### 5A: Worker Setup
+
+- [ ] Create `apps/ai/src/worker.py`
+  - [ ] Temporal client connection
+  - [ ] Task queue: `AI_TASK_QUEUE`
+  - [ ] Register activities
+
+#### 5B: Activities
+
+- [ ] Create `apps/ai/src/activities/run_finance_agent.py`
+  - [ ] `@activity.defn(name="RunFinanceAgentActivity")`
+  - [ ] Deserialize input
+  - [ ] Invoke `finance_graph.invoke(initial_state)`
+  - [ ] Return `AgentOutput` dict
+- [ ] Create `apps/ai/src/activities/run_bi_agent.py`
+  - [ ] `@activity.defn(name="RunBIAgentActivity")`
+  - [ ] Invoke `bi_graph.invoke(initial_state)`
+  - [ ] Return `BIOutput` dict
+- [ ] Create `apps/ai/src/activities/upsert_qdrant.py`
+  - [ ] `@activity.defn(name="UpsertQdrantActivity")`
+  - [ ] Call `upsert_memory()`
+- [ ] Create `apps/ai/src/activities/execute_code.py`
+  - [ ] `@activity.defn(name="ExecuteCodeActivity")`
+  - [ ] Sandboxed subprocess execution
+  - [ ] Timeout: 30 seconds
+
+#### 5C: Services
+
+- [ ] Create `apps/ai/src/services/langfuse_client.py`
+  - [ ] `get_langfuse()` singleton
+  - [ ] No-op fallback if unconfigured
+- [ ] Create `apps/ai/src/services/postgres_client.py`
+  - [ ] `get_postgres_conn()` context manager
+  - [ ] Read-only connection for BI agent
 
 **Exit Criteria:**
-- 6 LangGraph nodes implemented
-- Stale deal detection working
-- 6 tests passing
+- Worker starts successfully
+- All 4 activities registered
+- Can invoke activities via Temporal UI
 
 ---
 
-## Phase 8 🔲 — CS Agent (Commit 8)
+## Phase 6 🔲 — Integration + Cross-Agent
 
-**Target:** LangGraph agent with 5 nodes
+**Target:** Finance anomaly → BI query trigger
 
 ### Tasks
 
-- [ ] Create `apps/ai/src/agents/cs_agent.py`
-  - [ ] LangGraph nodes:
-    - OnSignup (initialize state, queue D1 message)
-    - OnTimeTick (check stage, decide next touchpoint)
-    - OnSupportTicket (classify FAQ vs real, draft reply)
-    - RiskAssessment (infer churn from inactivity + tickets)
-    - EmitActions (user messages + founder alert if risk >0.7)
-  - [ ] Thresholds: last_seen >7d, ticket_count >2 in 48h
-- [ ] Create `apps/ai/tests/test_cs_agent.py`
-  - [ ] test_signup_initializes_cs_state
-  - [ ] test_d1_message_queued
-  - [ ] test_7d_no_login_risk_high
-  - [ ] test_active_user_risk_low
-  - [ ] test_support_ticket_faq_draft_reply
-  - [ ] test_support_ticket_escalation
-- [ ] Run tests: `uv run pytest tests/test_cs_agent.py -v` → expect 6 PASS
+#### 6A: Cross-Agent Trigger
+
+- [ ] Update `apps/ai/src/agents/finance/nodes.py`
+  - [ ] In `node_decide_action`: if ALERT, set `trigger_bi_query=True`
+  - [ ] In `node_emit_output`: include BI query suggestion
+- [ ] Update `apps/core/internal/workflow/finance_workflow.go`
+  - [ ] After FinanceWorkflow completes, check `trigger_bi_query`
+  - [ ] If true: spawn child BIWorkflow with vendor breakdown query
+
+#### 6B: HITL Callbacks
+
+- [ ] Create `apps/core/internal/api/hitl.go`
+  - [ ] `POST /internal/hitl/investigate`
+  - [ ] `POST /internal/hitl/dismiss`
+  - [ ] Signal Temporal workflow with trace_id
+- [ ] Update Qdrant memory on dismiss
+  - [ ] Add `founder_dismissed: true` to memory payload
+  - [ ] Raise future anomaly threshold for this vendor
+
+#### 6C: Memory Compounding Tests
+
+- [ ] Create `apps/ai/tests/e2e/test_memory_compounds.py`
+  - [ ] `test_qdrant_memory_compounds` — second anomaly returns past_context
+  - [ ] `test_dismissed_anomaly_raises_threshold` — future score lower
 
 **Exit Criteria:**
-- 5 LangGraph nodes implemented
-- D1/D3/D7 sequence working
-- 6 tests passing
+- Finance anomaly triggers BI query
+- HITL buttons work (Investigate/Dismiss)
+- Memory compounding verified
 
 ---
 
-## Phase 9 🔲 — People Coordinator Agent (Commit 9)
+## Phase 7 🔲 — E2E Tests
 
-**Target:** LangGraph agent with 5 nodes
+**Target:** 8+ E2E tests with real services (no mocks)
 
 ### Tasks
 
-- [ ] Create `apps/ai/src/agents/people_coordinator.py`
-  - [ ] LangGraph nodes:
-    - OnHireEvent (create checklist based on role_function)
-    - GenerateChecklist (eng ≠ ops ≠ sales)
-    - ProgressTracking (track confirmed items, compute %)
-    - NagLoop (reminder if incomplete after 24h)
-    - Offboarding (mirror of onboarding, revoke list)
-  - [ ] Role-based checklists (Eng: GitHub, Ops: no GitHub, Sales: CRM)
-- [ ] Create `apps/ai/tests/test_people_coordinator.py`
-  - [ ] test_eng_checklist_has_github
-  - [ ] test_sales_checklist_no_github
-  - [ ] test_incomplete_item_nag_after_24h
-  - [ ] test_complete_checklist_no_nag
-  - [ ] test_offboarding_generates_revoke_list
-  - [ ] test_checklist_confirmed_updates_state
-- [ ] Run tests: `uv run pytest tests/test_people_coordinator.py -v` → expect 6 PASS
+#### 7A: Finance E2E
+
+- [ ] Create `apps/ai/tests/e2e/test_finance_e2e.py`
+  - [ ] `test_infra_health` — all containers reachable
+  - [ ] `test_finance_anomaly_detection` — full flow, anomaly detected
+  - [ ] `test_qdrant_memory_written_after_alert` — memory exists
+  - [ ] `test_memory_compounds_on_second_anomaly` — past_context populated
+
+#### 7B: BI E2E
+
+- [ ] Create `apps/ai/tests/e2e/test_bi_e2e.py`
+  - [ ] `test_bi_adhoc_query_full_flow` — NL → SQL → narrative → Qdrant
+  - [ ] `test_same_query_returns_cached_memory` — second query uses cache
+  - [ ] `test_bi_query_written_to_postgres` — bi_queries row exists
+
+#### 7C: Weekly Digest E2E
+
+- [ ] Create `apps/ai/tests/e2e/test_weekly_digest.py`
+  - [ ] `test_weekly_digest_full_flow` — cron trigger → combined digest
 
 **Exit Criteria:**
-- 5 LangGraph nodes implemented
-- Role-based checklists working
-- 6 tests passing
+- 8+ E2E tests PASS
+- No mocks for PostgreSQL, Qdrant, Ollama
+- All tests run in <10 minutes
 
 ---
 
-## Phase 10 🔲 — Chief of Staff Agent (Commit 10)
+## Phase 8 🔲 — LLM Evals (DSPy + Langfuse)
 
-**Target:** LangGraph agent with 5 nodes
+**Target:** 3 eval sets with >80% accuracy
 
 ### Tasks
 
-- [ ] Create `apps/ai/src/agents/chief_of_staff.py`
-  - [ ] LangGraph nodes:
-    - CollectSignals (pull agent outputs from PostgreSQL + Qdrant)
-    - Prioritize (rank by urgency × impact)
-    - ComposeBriefing (LLM: 3–5 bullets, plain English)
-    - ComposeInvestorDraft (monthly, revenue + burn + runway)
-    - EmitActions (Telegram briefing + investor draft)
-  - [ ] Rules: max 5 items, 1 positive if exists, no jargon
-- [ ] Create `apps/ai/tests/test_chief_of_staff.py`
-  - [ ] test_briefing_max_5_items
-  - [ ] test_briefing_has_one_positive_item
-  - [ ] test_briefing_no_banned_jargon
-  - [ ] test_high_urgency_items_ranked_first
-  - [ ] test_investor_draft_contains_revenue_burn_runway
-  - [ ] test_empty_week_briefing_graceful
-- [ ] Run tests: `uv run pytest tests/test_chief_of_staff.py -v` → expect 6 PASS
+#### 8A: Anomaly Explanation Eval
+
+- [ ] Create `apps/ai/tests/evals/test_anomaly_explanation.py`
+  - [ ] 20 scripted scenarios + gold narratives
+  - [ ] Metrics: correctness, no hallucination, <60 words
+  - [ ] Target: >80% pass rate
+- [ ] Log to Langfuse with before/after DSPy compile
+
+#### 8B: Text-to-SQL Eval
+
+- [ ] Create `apps/ai/tests/evals/test_text_to_sql.py`
+  - [ ] 15 NL queries + gold SQL
+  - [ ] Metrics: SQL valid, correct row count, column match
+  - [ ] Target: >85% pass rate
+
+#### 8C: BI Narrative Eval
+
+- [ ] Create `apps/ai/tests/evals/test_bi_narrative.py`
+  - [ ] 10 SQL results + gold narratives
+  - [ ] Metrics: data grounded, no hallucination, actionable
+  - [ ] Target: >75% pass rate
 
 **Exit Criteria:**
-- 5 LangGraph nodes implemented
-- Max 5 items enforced
-- Jargon-free output
-- 6 tests passing
+- All 3 eval sets running
+- Scores logged to Langfuse
+- DSPy compile improves scores
 
 ---
 
-## Phase 11 🔲 — Telegram Handler (Commit 11)
+## Phase 9 🔲 — Production Polish
 
-**Target:** Outbound messages + callback handling
+**Target:** Deploy-ready, portfolio-ready
 
 ### Tasks
 
-- [ ] Create `apps/core/internal/api/telegram.go`
-  - [ ] Outbound: POST to Telegram Bot API with inline keyboard buttons
-  - [ ] Inbound: POST /webhooks/telegram/callback
-    - Parse callback_query.data
-    - Update hitl_actions table
-    - Emit downstream action (PAYMENT_INSTRUCTION, etc.)
-- [ ] Create `apps/core/internal/api/telegram_test.go`
-  - [ ] TestTelegram_MessageSent
-  - [ ] TestTelegram_CallbackParsed
-  - [ ] TestTelegram_HITLActionsRowWritten
-  - [ ] TestTelegram_DownstreamActionEmitted
-- [ ] Run tests: `go test ./internal/api -run TestTelegram -v` → expect 4 PASS
+#### 9A: Docker Compose Production
+
+- [ ] Create `infra/docker-compose.prod.yml`
+  - [ ] Hetzner-optimized config
+  - [ ] Resource limits
+  - [ ] Health checks
+  - [ ] Persistent volumes
+
+#### 9B: Smoke Test Script
+
+- [ ] Create `scripts/smoke_test.sh`
+  - [ ] `GET /health` → 200
+  - [ ] PostgreSQL connection
+  - [ ] Qdrant collections exist
+  - [ ] Ollama models available
+  - [ ] Simulate payment → full flow
+  - [ ] Langfuse trace visible
+
+#### 9C: Documentation
+
+- [ ] Update `README.md` with:
+  - [ ] Architecture diagram
+  - [ ] Quick start guide
+  - [ ] Test results
+  - [ ] Demo script
+- [ ] Create `docs/DEMO_SCRIPT.md` with 3-minute walkthrough
+- [ ] Screenshot Langfuse dashboard
+
+#### 9D: Go Tests
+
+- [ ] Ensure 5+ webhook handler tests passing
+- [ ] Run invariant checks before commit
 
 **Exit Criteria:**
-- Outbound messages working
-- Callback handling working
-- 4 tests passing
+- `smoke_test.sh` all green
+- README complete with test results
+- Langfuse dashboard screenshot ready
 
 ---
 
-## Phase 12 🔲 — E2E Suite + Test Runner (Commit 12)
+## Phase 10 🔲 — htmx Dashboard (Optional)
 
-**Target:** 5 E2E tests + test runner script
+**Target:** Admin UI for monitoring
 
 ### Tasks
 
-- [ ] Create `apps/ai/tests/test_e2e_sarthi.py`
-  - [ ] test_finance_anomaly_full_flow
-  - [ ] test_weekly_revenue_briefing
-  - [ ] test_onboarding_sequence_with_nag
-  - [ ] test_cs_churn_alert
-  - [ ] test_investor_update_draft
-- [ ] Update `scripts/test_sarthi.sh`
-  - [ ] Step 1: Docker health check
-  - [ ] Step 2: Azure LLM smoke test
-  - [ ] Step 3: Unit tests (all agents)
-  - [ ] Step 4: Go tests
-  - [ ] Step 5: E2E tests
-- [ ] Run: `bash scripts/test_sarthi.sh` → expect ALL PASS
-- [ ] Tag: `git tag v1.0.0-alpha`
+#### 10A: Go Templates
+
+- [ ] Create `apps/core/web/templates/dashboard.html`
+  - [ ] Finance agent status
+  - [ ] BI query history
+  - [ ] Qdrant memory browser
+- [ ] Create `apps/core/internal/api/dashboard.go`
+  - [ ] `GET /` — dashboard home
+  - [ ] `GET /finance` — finance status
+  - [ ] `GET /bi` — BI history
+  - [ ] `GET /memory` — memory browser
+
+#### 10B: SSE Live Feed
+
+- [ ] Add Server-Sent Events endpoint
+- [ ] Stream live agent outputs
+- [ ] Auto-refresh every 5 seconds
 
 **Exit Criteria:**
-- 5 E2E tests passing
-- Test runner working
-- v1.0.0-alpha tagged
+- Dashboard accessible at `localhost:8080`
+- Live feed working
+- Screenshot for portfolio
+
+---
+
+## Invariant Checks (Run Before EVERY Commit)
+
+```bash
+# I-1: No raw JSON marshal in workflow/
+grep -rn "json.Marshal\|json.Unmarshal" apps/core/internal/workflow/ \
+  | grep -v "_test.go" | grep -v "// safe:" \
+  && echo "FAIL I-1" && exit 1 || true
+
+# I-2: No direct AzureOpenAI() outside config/llm.py
+grep -rn "AzureOpenAI(" apps/ai/src/ | grep -v "config/llm.py" \
+  && echo "FAIL I-2" && exit 1 || true
+
+# I-3: All existing tests still pass
+cd apps/core && go test ./... -timeout=60s -q && cd -
+cd apps/ai && uv run pytest tests/ -x -q --timeout=90 && cd -
+
+# I-4: No banned jargon in agent output strings
+grep -rn "leverage\|synergy\|utilize\|streamline\|paradigm" \
+  apps/ai/src/agents/ | grep -v "# allowed:" \
+  && echo "FAIL I-4" && exit 1 || true
+
+echo "✓ All invariants pass"
+```
 
 ---
 
@@ -393,47 +512,61 @@
 |-------|--------|------------|--------|
 | Phase 0 | Baseline | 255 | ✅ COMPLETE |
 | Phase 1 | 2 tests | 257 | 🔲 Pending |
-| Phase 2 | 4 tests | 261 | 🔲 Pending |
-| Phase 3 | 2 tests | 263 | 🔲 Pending |
-| Phase 4 | 20 tests | 283 | 🔲 Pending |
-| Phase 5 | 3 tests | 286 | 🔲 Pending |
-| Phase 6 | 6 tests | 292 | 🔲 Pending |
-| Phase 7 | 6 tests | 298 | 🔲 Pending |
-| Phase 8 | 6 tests | 304 | 🔲 Pending |
-| Phase 9 | 6 tests | 310 | 🔲 Pending |
-| Phase 10 | 6 tests | 316 | 🔲 Pending |
-| Phase 11 | 4 tests | 320 | 🔲 Pending |
-| Phase 12 | 5 tests | 325 | 🔲 Pending |
+| Phase 2 | 14 tests | 271 | 🔲 Pending |
+| Phase 3 | 10 tests | 281 | 🔲 Pending |
+| Phase 4 | 6 tests | 287 | 🔲 Pending |
+| Phase 5 | 0 tests | 287 | 🔲 Pending |
+| Phase 6 | 2 tests | 289 | 🔲 Pending |
+| Phase 7 | 8 tests | 297 | 🔲 Pending |
+| Phase 8 | 3 evals | 300 | 🔲 Pending |
+| Phase 9 | 5 tests | 305 | 🔲 Pending |
+| Phase 10 | 0 tests | 305 | 🔲 Optional |
 
-**Target:** 325+ tests passing for v1.0.0-alpha  
-**Full Target:** 429+ tests (including LLM evals) for v1.0.0
+**Target:** 300+ tests passing for v1.0.0-alpha
 
 ---
 
-## Definition of Done (v1.0.0)
+## Definition of Done (v1.0.0-alpha)
 
 ```
-REQUIRED BEFORE TAGGING v1.0.0:
+WEEK 1 — Finance Agent:
+  ✅ Migration 003 applied
+  ✅ Qdrant: finance_memory collection
+  ✅ LangGraph finance graph: 9 nodes compiling
+  ✅ Finance unit tests: 14 passing
+  ✅ E2E: anomaly detected, Qdrant written, memory compounds
+  ✅ DSPy AnomalyExplainer wired to Ollama
 
-  ✅ Migration applied cleanly, all 9 tables created
-  ✅ EventEnvelope rejects raw JSON in payload_ref
-  ✅ All 5 webhook handlers: HMAC, DLQ, idempotency
-  ✅ Parent workflow routes correctly, CAN at 1,000
-  ✅ Finance Monitor: 2σ anomaly + runway alerts
-  ✅ Revenue Tracker: stale deals + milestones
-  ✅ CS Agent: D1/D3/D7 sequence + churn risk
-  ✅ People Coordinator: role-based checklists + nag loop
-  ✅ Chief of Staff: ≤5 items, jargon-free, 1 positive
-  ✅ Telegram: outbound messages + callback handling
-  ✅ All 255 original tests still pass
-  ✅ bash scripts/test_sarthi.sh → FAILED: 0
+WEEK 2 — BI Agent:
+  ✅ LangGraph BI graph: 9 nodes compiling
+  ✅ SQL sanitizer rejects INSERT/DROP
+  ✅ BI unit tests: 10 passing
+  ✅ E2E: NL → SQL → result → narrative → Qdrant cached
+  ✅ Second identical query hits Qdrant cache
+
+WEEK 3 — Integration:
+  ✅ Finance anomaly → triggers BI agent (cross-agent)
+  ✅ HITL: [Investigate] → BIWorkflow with vendor query
+  ✅ HITL: [Dismiss] → Qdrant memory updated
+  ✅ Monday weekly digest cron working
+  ✅ DSPy: compile finance + BI prompts
+  ✅ LLM evals: all 3 eval sets running in Langfuse
+
+WEEK 4 — Production:
+  ✅ docker-compose.prod.yml for Hetzner
+  ✅ Go tests: 5+ webhook handler tests passing
+  ✅ Python tests: 40+ unit + 8 E2E passing
+  ✅ smoke_test.sh all green
+  ✅ README.md: architecture + demo flow + test results
+  ✅ Langfuse dashboard screenshot for portfolio
+  ✅ 3-minute demo video recorded
 
 BLOCKED IF:
-  ✗ Temporal signal contains raw JSON payload
-  ✗ AzureOpenAI() called directly outside config/llm.py
-  ✗ Any Telegram message contains banned jargon
-  ✗ Original test count dropped below 255
-  ✗ Any E2E test uses a mock
+  ✗ Any E2E uses a mock for PostgreSQL, Qdrant, or Ollama
+  ✗ SQL generator produces INSERT/UPDATE/DELETE
+  ✗ Agent output contains banned jargon
+  ✗ AzureOpenAI() called anywhere outside config/llm.py
+  ✗ Any new Docker image pulled
 ```
 
 ---
@@ -442,12 +575,12 @@ BLOCKED IF:
 
 **Phase:** 0 (COMPLETE ✅)
 
-**Next:** Phase 1 — Database Migration
+**Next:** Phase 1 — Infrastructure Setup
 
-**Target:** 9 tables, 2 tests
+**Target:** Migration 003, Qdrant collections, Redpanda topics
 
 ---
 
 **Document Version:** 1.0  
-**Last Updated:** March 2026  
+**Last Updated:** March 21, 2026  
 **Status:** Phase 0 COMPLETE — Ready for Phase 1
