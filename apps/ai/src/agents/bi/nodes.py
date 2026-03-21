@@ -18,6 +18,8 @@ import re
 import stat
 import uuid
 import json
+import datetime
+from decimal import Decimal
 import subprocess
 from contextlib import contextmanager
 from typing import List, Dict, Any, Optional
@@ -83,8 +85,10 @@ def _pg():
 # ── Qdrant embed + search helpers ────────────────────────────────
 def _embed(text: str) -> List[float]:
     """Embed using nomic-embed-text via Ollama REST."""
+    # Build URL from configured OLLAMA_BASE_URL
+    embed_url = OLLAMA_BASE_URL.rstrip('/') + '/api/embeddings'
     r = requests.post(
-        "http://localhost:11434/api/embeddings",
+        embed_url,
         json={"model": EMBED_MODEL, "input": text},
         timeout=30,
     )
@@ -478,8 +482,24 @@ def node_execute_sql(state: BIState) -> Dict:
                 rows = cur.fetchall()
                 row_count = cur.rowcount if cur.rowcount >= 0 else len(rows)
 
-                # Convert to list of dicts for JSON serialization
-                rows_as_dicts = [dict(zip(columns, row)) for row in rows]
+                # Convert to list of dicts with JSON-serializable values
+                rows_as_dicts = []
+                for row in rows:
+                    row_dict = {}
+                    for col, val in zip(columns, row):
+                        if val is None:
+                            row_dict[col] = None
+                        elif isinstance(val, Decimal):
+                            row_dict[col] = float(val)
+                        elif isinstance(val, (datetime.date, datetime.datetime)):
+                            row_dict[col] = val.isoformat()
+                        elif isinstance(val, bytes):
+                            row_dict[col] = val.decode('utf-8', errors='replace')
+                        elif isinstance(val, (list, dict)):
+                            row_dict[col] = val
+                        else:
+                            row_dict[col] = val
+                    rows_as_dicts.append(row_dict)
 
                 return {
                     **state,
@@ -490,6 +510,7 @@ def node_execute_sql(state: BIState) -> Dict:
                     },
                     "error": "",
                     "retry_count": 0,  # Reset on success
+                    "retryable": False,
                 }
     except psycopg2.Error as e:
         # Check if retryable error
@@ -501,18 +522,21 @@ def node_execute_sql(state: BIState) -> Dict:
                 **state,
                 "error": f"Retryable error (attempt {retry_count + 1}/{max_retries}): {str(e)}",
                 "retry_count": retry_count + 1,
+                "retryable": True,
             }
 
         return {
             **state,
             "error": f"SQL execution failed: {str(e)}",
             "sql_result": {"rows": [], "columns": [], "count": 0},
+            "retryable": False,
         }
     except Exception as e:
         return {
             **state,
             "error": f"Unexpected error: {str(e)}",
             "sql_result": {"rows": [], "columns": [], "count": 0},
+            "retryable": False,
         }
 
 

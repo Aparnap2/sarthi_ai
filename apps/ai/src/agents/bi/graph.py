@@ -30,7 +30,7 @@ def _should_retry_sql(state: BIState) -> str:
     Conditional edge: Check if SQL execution should be retried.
 
     Retry conditions:
-    - error field is non-empty
+    - retryable flag is True (set by node_execute_sql for transient errors)
     - retry_count < 2 (max 2 retries)
 
     Args:
@@ -39,11 +39,11 @@ def _should_retry_sql(state: BIState) -> str:
     Returns:
         "retry" to go back to generate_sql, "continue" to proceed
     """
-    error = state.get("error", "")
+    retryable = state.get("retryable", False)
     retry_count = state.get("retry_count", 0)
     max_retries = 2
 
-    if error and retry_count < max_retries:
+    if retryable and retry_count < max_retries:
         return "retry"
     return "continue"
 

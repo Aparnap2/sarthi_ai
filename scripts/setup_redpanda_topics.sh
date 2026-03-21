@@ -44,29 +44,41 @@ echo "3. Creating topics..."
 echo "   Creating sarthi.events.raw (3 partitions)..."
 docker exec "${REDPANDA_CONTAINER}" \
   rpk topic create sarthi.events.raw --partitions 3 --replicas 1 \
-  --config retention.ms=604800000  # 7 days
+  --config retention.ms=604800000 \
+  --if-not-exists
 echo "   ✅ sarthi.events.raw created"
 
 # sarthi.finance.events (3 partitions)
 echo "   Creating sarthi.finance.events (3 partitions)..."
 docker exec "${REDPANDA_CONTAINER}" \
   rpk topic create sarthi.finance.events --partitions 3 --replicas 1 \
-  --config retention.ms=604800000
+  --config retention.ms=604800000 \
+  --if-not-exists
 echo "   ✅ sarthi.finance.events created"
 
 # sarthi.bi.queries (3 partitions)
 echo "   Creating sarthi.bi.queries (3 partitions)..."
 docker exec "${REDPANDA_CONTAINER}" \
   rpk topic create sarthi.bi.queries --partitions 3 --replicas 1 \
-  --config retention.ms=604800000
+  --config retention.ms=604800000 \
+  --if-not-exists
 echo "   ✅ sarthi.bi.queries created"
 
 # sarthi.dlq (1 partition)
 echo "   Creating sarthi.dlq (1 partition)..."
 docker exec "${REDPANDA_CONTAINER}" \
   rpk topic create sarthi.dlq --partitions 1 --replicas 1 \
-  --config retention.ms=2592000000  # 30 days
+  --config retention.ms=2592000000 \
+  --if-not-exists
 echo "   ✅ sarthi.dlq created"
+
+# founder.signals (3 partitions) - for founder HITL signals
+echo "   Creating founder.signals (3 partitions)..."
+docker exec "${REDPANDA_CONTAINER}" \
+  rpk topic create founder.signals --partitions 3 --replicas 1 \
+  --config retention.ms=604800000 \
+  --if-not-exists
+echo "   ✅ founder.signals created"
 
 echo ""
 
