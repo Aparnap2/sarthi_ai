@@ -7,11 +7,19 @@ import structlog
 from temporalio import activity
 from pydantic import BaseModel, Field
 
-from src.agents.spec import write_spec
-from src.agents.triage import classify_feedback
-from src.services.qdrant import get_qdrant_service
-
 logger = structlog.get_logger(__name__)
+
+# Import new Phase 4 activities
+from src.activities.run_finance_agent import run_finance_agent
+from src.activities.run_bi_agent import run_bi_agent
+from src.activities.send_telegram import send_telegram_message, send_telegram_photo
+
+__all__ = [
+    "run_finance_agent",
+    "run_bi_agent",
+    "send_telegram_message",
+    "send_telegram_photo",
+]
 
 
 # ========================

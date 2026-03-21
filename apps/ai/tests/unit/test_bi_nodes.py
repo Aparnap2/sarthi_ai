@@ -162,16 +162,19 @@ def test_decide_viz_line_for_trend(base_bi_state):
         **base_bi_state,
         "query_category": "trend",
         "sql_result": {
-            "rows": [{"txn_date": "2025-01-01", "revenue": 1000}],
+            "rows": [
+                {"txn_date": "2025-01-01", "revenue": 1000},
+                {"txn_date": "2025-02-01", "revenue": 1200},
+                {"txn_date": "2025-03-01", "revenue": 1100},
+            ],
             "columns": ["txn_date", "revenue"],
-            "count": 1,
+            "count": 3,
         },
         "chart_type": "",  # Reset before test
     }
     result = node_decide_visualization(state)
     # Trend queries with date column should be line chart
-    # If the logic doesn't find a date column, it falls back to none
-    assert result["chart_type"] in ("line", "none")  # Accept either based on date detection
+    assert result["chart_type"] == "line"
 
 
 def test_decide_viz_bar_for_breakdown(base_bi_state):
@@ -180,15 +183,19 @@ def test_decide_viz_bar_for_breakdown(base_bi_state):
         **base_bi_state,
         "query_category": "breakdown",
         "sql_result": {
-            "rows": [{"category": "Marketing", "total": 5000}],
+            "rows": [
+                {"category": "Marketing", "total": 5000},
+                {"category": "Engineering", "total": 8000},
+                {"category": "Sales", "total": 3000},
+            ],
             "columns": ["category", "total"],
-            "count": 1,
+            "count": 3,
         },
         "chart_type": "",  # Reset before test
     }
     result = node_decide_visualization(state)
     # Breakdown queries should be bar chart
-    assert result["chart_type"] in ("bar", "none")  # Accept either based on data
+    assert result["chart_type"] == "bar"
 
 
 def test_decide_viz_none_for_empty_result(base_bi_state):
@@ -274,13 +281,14 @@ def test_execute_sql_increments_retry_on_error(base_bi_state):
 
 def test_execute_sql_stops_retry_after_max(base_bi_state):
     """Should stop retrying after max_retries (2)."""
+    import psycopg2
     state = {
         **base_bi_state,
         "generated_sql": "SELECT 1",
         "retry_count": 2,  # Already at max
     }
     with patch("src.agents.bi.nodes._pg") as mock_pg:
-        mock_pg.side_effect = Exception("connection timeout")
+        mock_pg.side_effect = psycopg2.OperationalError("connection timeout")
         result = node_execute_sql(state)
         assert result["retry_count"] == 2  # Not incremented
         assert "Retryable error" not in result["error"]

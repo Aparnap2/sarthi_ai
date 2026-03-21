@@ -36,8 +36,8 @@ EMBED_MODEL       = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text:latest")
 
 # ── DSPy — wired to local Ollama, no external API ────────────────
 _dspy_lm = dspy.LM(
-    model=f"openai/{OLLAMA_CHAT_MODEL}",
-    api_base=OLLAMA_BASE_URL,
+    model=f"ollama_chat/{OLLAMA_CHAT_MODEL}",
+    api_base="http://localhost:11434",
     api_key="ollama",
     max_tokens=200,
     temperature=0.1,
@@ -56,11 +56,33 @@ def _pg():
     finally:
         conn.close()
 
+
+def _normalize_vendor(event: Dict) -> str:
+    """
+    Extract normalized vendor name from event.
+
+    Uses vendor field if present, falls back to description.
+    Strips whitespace and converts to lowercase for consistent matching.
+
+    Args:
+        event: Event dict with vendor and/or description fields
+
+    Returns:
+        Normalized vendor string
+    """
+    vendor = (event.get("vendor") or
+              event.get("description") or
+              "unknown").strip().lower()
+    return vendor if vendor else "unknown"
+
+
 # ── Qdrant embed + search helpers ────────────────────────────────
 def _embed(text: str) -> List[float]:
     """Embed using nomic-embed-text via Ollama REST."""
+    # Build URL from configured OLLAMA_BASE_URL
+    embed_url = OLLAMA_BASE_URL.rstrip('/') + '/api/embeddings'
     r = requests.post(
-        "http://localhost:11434/api/embeddings",
+        embed_url,
         json={"model": EMBED_MODEL, "input": text},
         timeout=30,
     )
@@ -115,26 +137,37 @@ def _qdrant_upsert(collection: str, point_id: str,
 def node_ingest_event(state: FinanceState) -> Dict:
     """
     N1: Validate and normalize incoming event.
-    
+
+    Validates:
+    - event_type and tenant_id present
+    - event tenant_id matches state tenant_id
+
     Args:
         state: Current FinanceState
-        
+
     Returns:
         Updated FinanceState with normalized event
-        
+
     Raises:
-        ValueError: If event missing required fields
+        ValueError: If event missing required fields or tenant mismatch
     """
     event = state["event"]
     required = {"event_type", "tenant_id"}
     missing = required - set(event.keys())
     if missing:
         raise ValueError(f"Event missing required fields: {missing}")
-    
+
+    # Validate tenant_id consistency
+    if event.get("tenant_id") != state["tenant_id"]:
+        raise ValueError(
+            f"Event tenant_id '{event.get('tenant_id')}' does not match "
+            f"state tenant_id '{state['tenant_id']}'"
+        )
+
     # Normalize amount to float
     if "amount" in event:
         event = {**event, "amount": float(event["amount"])}
-    
+
     return {**state, "event": event}
 
 
@@ -195,17 +228,15 @@ def node_update_snapshot(state: FinanceState) -> Dict:
 def node_load_vendor_baseline(state: FinanceState) -> Dict:
     """
     N3: Load 90-day spend baseline for the event vendor.
-    
+
     Args:
         state: Current FinanceState
-        
+
     Returns:
         Updated FinanceState with vendor_baselines dict
     """
     event     = state["event"]
-    vendor    = (event.get("vendor") or
-                 event.get("description") or
-                 "unknown").strip()
+    vendor    = _normalize_vendor(event)
     tid       = state["tenant_id"]
     baselines = dict(state.get("vendor_baselines") or {})
 
@@ -233,7 +264,7 @@ def node_load_vendor_baseline(state: FinanceState) -> Dict:
 def node_detect_anomaly(state: FinanceState) -> Dict:
     """
     N4: Score-based anomaly detection. Pure logic — no LLM.
-    
+
     Scoring rules:
     - Spend >= 2.0x baseline: +0.5
     - Spend >= 1.5x baseline: +0.3
@@ -241,16 +272,16 @@ def node_detect_anomaly(state: FinanceState) -> Dict:
     - Runway < 3 months: +0.5
     - Runway < 6 months: +0.2
     - Revenue drop on TIME_TICK: +0.3
-    
+
     Args:
         state: Current FinanceState
-        
+
     Returns:
         Updated FinanceState with anomaly_detected, anomaly_score
     """
     event      = state["event"]
     etype      = event.get("event_type", "")
-    vendor     = (event.get("vendor") or "unknown").strip()
+    vendor     = _normalize_vendor(event)
     amount     = float(event.get("amount", 0))
     baselines  = state.get("vendor_baselines") or {}
     baseline   = baselines.get(vendor, {})

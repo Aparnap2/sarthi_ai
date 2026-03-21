@@ -118,6 +118,13 @@ func main() {
 	app.Post("/webhooks/slack", handler.HandleSlackWebhook)
 	app.Post("/webhooks/interaction", handler.HandleInteraction)
 
+	// HITL routes (internal - simple token auth)
+	app.Post("/internal/hitl/investigate", handler.HandleHITLInvestigate)
+	app.Post("/internal/hitl/dismiss", handler.HandleHITLDismiss)
+
+	// BI query endpoint (internal)
+	app.Post("/internal/query", handler.HandleBIQuery)
+
 	// Test route (no auth)
 	app.Get("/test/kafka", handler.HandleKafkaTest)
 

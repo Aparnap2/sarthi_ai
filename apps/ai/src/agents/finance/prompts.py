@@ -5,7 +5,7 @@ Defines signature classes for:
 - AnomalyExplainer: Explains financial anomalies to founders
 - FinanceDigestWriter: Writes weekly finance digests
 
-Uses DSPy ChainOfThought for systematic prompt compilation.
+These signatures are used with DSPy ChainOfThought in nodes.py.
 """
 import dspy
 

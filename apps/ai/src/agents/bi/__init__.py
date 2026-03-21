@@ -17,6 +17,8 @@ Usage:
         "sql_result": {},
         "chart_type": "",
         "chart_path": "",
+        "chart_x_col": "",
+        "chart_y_col": "",
         "past_queries": [],
         "narrative": "",
         "output_message": "",
@@ -40,8 +42,6 @@ from .nodes import (
     node_write_bi_memory,
     node_emit_bi_output,
     sanitize_sql,
-    _run_chart_code,
-    _ensure_chart_container,
 )
 
 __all__ = [
@@ -56,6 +56,4 @@ __all__ = [
     "node_write_bi_memory",
     "node_emit_bi_output",
     "sanitize_sql",
-    "_run_chart_code",
-    "_ensure_chart_container",
 ]

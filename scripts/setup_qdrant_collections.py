@@ -51,7 +51,27 @@ def check_qdrant() -> bool:
 
 
 def get_embedding(text: str) -> List[float]:
-    """Get embedding from Ollama."""
+    """Get embedding from Ollama with backward compatibility."""
+    # Try new /api/embed endpoint first
+    try:
+        resp = requests.post(
+            f"{OLLAMA_URL}/api/embed",
+            json={
+                "model": EMBEDDING_MODEL,
+                "input": text,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # New endpoint returns "embeddings" key
+        embeddings = data.get("embeddings")
+        if embeddings and isinstance(embeddings, list) and len(embeddings) > 0:
+            return embeddings[0] if isinstance(embeddings[0], list) else embeddings
+    except Exception:
+        pass  # Fall back to old endpoint
+    
+    # Fallback to deprecated /api/embeddings endpoint
     resp = requests.post(
         f"{OLLAMA_URL}/api/embeddings",
         json={
@@ -65,15 +85,42 @@ def get_embedding(text: str) -> List[float]:
 
 
 def create_collection(name: str) -> bool:
-    """Create Qdrant collection if it doesn't exist."""
+    """Create Qdrant collection if it doesn't exist, with schema validation."""
     try:
         # Check if collection exists
         resp = requests.get(f"{QDRANT_URL}/collections/{name}", timeout=5)
-        
+
         if resp.status_code == 200:
-            print(f"⚠️  Collection '{name}' already exists")
-            return True
-        
+            # Validate schema on existing collection
+            try:
+                data = resp.json()
+                config = data.get("result", {}).get("config", {})
+                params = config.get("params", {})
+                vectors_config = params.get("vectors", {})
+                
+                # Handle both simple and complex vector configs
+                if isinstance(vectors_config, dict):
+                    actual_size = vectors_config.get("size")
+                    actual_distance = vectors_config.get("distance")
+                else:
+                    actual_size = VECTOR_SIZE  # Default assumption
+                    actual_distance = "Cosine"
+                
+                if actual_size != VECTOR_SIZE:
+                    print(f"❌ Collection '{name}' exists but has wrong vector size: "
+                          f"got {actual_size}, expected {VECTOR_SIZE}")
+                    return False
+                if actual_distance != "Cosine":
+                    print(f"❌ Collection '{name}' exists but has wrong distance: "
+                          f"got {actual_distance}, expected Cosine")
+                    return False
+                    
+                print(f"✅ Collection '{name}' already exists (validated: {VECTOR_SIZE}-dim, Cosine)")
+                return True
+            except (KeyError, TypeError) as e:
+                print(f"⚠️  Collection '{name}' exists but schema validation skipped: {e}")
+                return True
+
         # Create collection
         resp = requests.put(
             f"{QDRANT_URL}/collections/{name}",
@@ -90,7 +137,7 @@ def create_collection(name: str) -> bool:
             timeout=10,
         )
         resp.raise_for_status()
-        
+
         result = resp.json()
         # Qdrant returns {"result": true, "status": "ok", "time": ...}
         result_value = result.get("result")
@@ -100,7 +147,7 @@ def create_collection(name: str) -> bool:
         else:
             print(f"❌ Failed to create collection '{name}'")
             return False
-            
+
     except Exception as e:
         print(f"❌ Error creating collection '{name}': {e}")
         return False

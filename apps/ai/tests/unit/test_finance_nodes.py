@@ -43,7 +43,7 @@ def base_state():
         "burn_rate": 80000.0,
         "runway_months": 8.0,
         "vendor_baselines": {
-            "AWS": {"avg_30d": 18000.0, "avg_90d": 18000.0, "count": 12}
+            "aws": {"avg_30d": 18000.0, "avg_90d": 18000.0, "count": 12}
         },
         "anomaly_detected": False,
         "anomaly_score": 0.0,

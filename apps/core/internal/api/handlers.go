@@ -812,3 +812,105 @@ func ParseCustomID(customID string) (SignalData, error) {
 		RunID:      runID,
 	}, nil
 }
+
+// HandleHITLInvestigate handles HITL "investigate" signal from founder
+func (h *Handler) HandleHITLInvestigate(c *fiber.Ctx) error {
+	var body struct {
+		WorkflowID string `json:"workflow_id"`
+		TenantID   string `json:"tenant_id"`
+		Vendor     string `json:"vendor"`
+	}
+	if err := c.BodyParser(&body); err != nil || body.WorkflowID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "workflow_id required",
+		})
+	}
+
+	ctx := c.Context()
+	if err := h.temporalClient.SignalWorkflow(ctx, body.WorkflowID, "hitl_action", "investigate"); err != nil {
+		h.logger.Error("failed to send investigate signal", err, "workflow_id", body.WorkflowID)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	h.logger.Info("HITL investigate signal sent", "workflow_id", body.WorkflowID, "tenant_id", body.TenantID)
+	return c.JSON(fiber.Map{
+		"ok":          true,
+		"action":      "investigate",
+		"workflow_id": body.WorkflowID,
+	})
+}
+
+// HandleHITLDismiss handles HITL "dismiss" signal from founder
+func (h *Handler) HandleHITLDismiss(c *fiber.Ctx) error {
+	var body struct {
+		WorkflowID string `json:"workflow_id"`
+		TenantID   string `json:"tenant_id"`
+		Vendor     string `json:"vendor"`
+	}
+	if err := c.BodyParser(&body); err != nil || body.WorkflowID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "workflow_id required",
+		})
+	}
+
+	ctx := c.Context()
+	if err := h.temporalClient.SignalWorkflow(ctx, body.WorkflowID, "hitl_action", "dismiss"); err != nil {
+		h.logger.Error("failed to send dismiss signal", err, "workflow_id", body.WorkflowID)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	h.logger.Info("HITL dismiss signal sent", "workflow_id", body.WorkflowID, "tenant_id", body.TenantID)
+	return c.JSON(fiber.Map{
+		"ok":          true,
+		"action":      "dismiss",
+		"workflow_id": body.WorkflowID,
+	})
+}
+
+// HandleBIQuery handles direct BI query from API/UI
+func (h *Handler) HandleBIQuery(c *fiber.Ctx) error {
+	var body struct {
+		TenantID  string `json:"tenant_id"`
+		Query     string `json:"query"`
+		QueryType string `json:"query_type"` // ADHOC | SCHEDULED | TRIGGERED
+	}
+	if err := c.BodyParser(&body); err != nil || body.Query == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "query required",
+		})
+	}
+
+	if body.QueryType == "" {
+		body.QueryType = "ADHOC"
+	}
+
+	queryID := uuid.New().String()
+	workflowID := fmt.Sprintf("bi-%s-%s", body.TenantID[:8], queryID[:8])
+
+	// Start BI workflow
+	input := map[string]interface{}{
+		"tenant_id":  body.TenantID,
+		"query":      body.Query,
+		"query_type": body.QueryType,
+	}
+
+	_, err := h.temporalClient.StartWorkflow(c.Context(), workflowID, "sarthi-queue", input)
+	if err != nil {
+		h.logger.Error("failed to start BI workflow", err, "query_id", queryID)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	h.logger.Info("BI workflow started", "query_id", queryID, "workflow_id", workflowID)
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"ok":          true,
+		"query_id":    queryID,
+		"workflow_id": workflowID,
+		"message":     "Query queued. Result sent to Telegram.",
+	})
+}

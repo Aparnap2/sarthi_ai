@@ -21,6 +21,8 @@ class BIState(TypedDict):
         sql_result:        Dict with rows, columns, count
         chart_type:        line | bar | pie | none
         chart_path:        PNG absolute path or ""
+        chart_x_col:       Column name for x-axis (set by node_decide_visualization)
+        chart_y_col:       Column name for y-axis (set by node_decide_visualization)
         past_queries:      List of past queries from Qdrant bi_memory
         narrative:         LLM plain English explanation
         output_message:    Formatted Telegram message
@@ -37,6 +39,8 @@ class BIState(TypedDict):
     sql_result:        dict
     chart_type:        str
     chart_path:        str
+    chart_x_col:       str
+    chart_y_col:       str
     past_queries:      list
     narrative:         str
     output_message:    str
