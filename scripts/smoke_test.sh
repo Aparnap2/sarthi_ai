@@ -15,6 +15,70 @@ echo "Sarthi v1.0 Phase 4 - Smoke Test"
 echo "========================================"
 echo ""
 
+# Test 0: Check Ollama (existing step)
+log "STEP 0a — Ollama"
+if curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; then
+    echo -e "${GREEN}✓${NC} Ollama running"
+else
+    echo -e "${YELLOW}⚠${NC} Ollama not running (optional for smoke tests)"
+fi
+
+# Test 0b: Mockoon CLI
+log "STEP 0b — Mockoon CLI (@mockoon/cli)"
+
+# Stop any existing Mockoon
+if [ -f /tmp/sarthi-mockoon.pid ]; then
+    kill $(cat /tmp/sarthi-mockoon.pid) 2>/dev/null || true
+    rm -f /tmp/sarthi-mockoon.pid
+fi
+pkill -f "mockoon-cli.*3000" 2>/dev/null || true
+sleep 1
+
+# Start Mockoon CLI
+bash scripts/start-mockoon.sh > /tmp/mockoon.log 2>&1 &
+MOCKOON_PID=$!
+echo $MOCKOON_PID > /tmp/sarthi-mockoon.pid
+
+# Wait for Mockoon to be ready
+for i in {1..15}; do
+    if curl -sf http://localhost:3000/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✓${NC} Mockoon ready on :3000"
+        break
+    fi
+    sleep 1
+done
+
+export MOCKOON_BASE_URL=http://localhost:3000
+
+run_test() {
+    local name="$1"
+    local cmd="$2"
+    echo -n "   Testing: $name... "
+    if eval "$cmd" > /dev/null 2>&1; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${RED}✗${NC}"
+    fi
+}
+
+run_test "mockoon: health" \
+  curl -sf http://localhost:3000/health
+
+run_test "mockoon: HITL investigate" bash -c "
+  curl -sf -X POST http://localhost:3000/internal/hitl/investigate \
+    -H 'Content-Type: application/json' \
+    -d '{\"workflow_id\":\"test-123\"}' | grep -q '\"ok\": true'
+"
+
+run_test "mockoon: BI query" bash -c "
+  curl -sf -X POST http://localhost:3000/internal/query \
+    -H 'Content-Type: application/json' \
+    -d '{\"tenant_id\":\"test\",\"query\":\"Revenue last 30 days\"}' \
+  | grep -q 'workflow_id'
+"
+
+echo "  Mockoon running on :3000 — kept alive for E2E steps"
+
 # Test 1: Check containers
 echo -n "1. Checking Docker containers... "
 TEMPORAL_RUNNING=$(docker ps --filter name="sarthi-temporal" --format "{{.Status}}" | grep -c "Up" || true)
@@ -147,6 +211,16 @@ echo -n "   Stopping worker... "
 kill $WORKER_PID 2>/dev/null || true
 sleep 2
 echo -e "${GREEN}✓${NC} Worker stopped"
+
+# Stop Mockoon
+echo -n "   Stopping Mockoon... "
+if [ -f /tmp/sarthi-mockoon.pid ]; then
+    kill $(cat /tmp/sarthi-mockoon.pid) 2>/dev/null || true
+    rm -f /tmp/sarthi-mockoon.pid
+fi
+pkill -f "mockoon-cli.*3000" 2>/dev/null || true
+sleep 1
+echo -e "${GREEN}✓${NC} Mockoon stopped"
 
 # Summary
 echo ""

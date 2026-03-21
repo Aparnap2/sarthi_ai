@@ -1,0 +1,189 @@
+{
+  "uuid": "sarthi-hitl-testing",
+  "lastMigration": 32,
+  "name": "Sarthi v1.0 — HITL + BI Query Mocks",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 3000,
+  "hostname": "0.0.0.0",
+  "routes": [
+    {
+      "uuid": "hitl-investigate",
+      "type": "http",
+      "documentation": "HITL Investigate Signal",
+      "method": "post",
+      "endpoint": "internal/hitl/investigate",
+      "responses": [
+        {
+          "uuid": "resp-investigate-ok",
+          "label": "success",
+          "statusCode": 200,
+          "latency": 50,
+          "bodyType": "INLINE",
+          "body": "{\n  \"ok\": true,\n  \"action\": \"investigate\",\n  \"workflow_id\": \"{{body 'workflow_id'}}\",\n  \"message\": \"Investigate signal sent to Temporal workflow\"\n}",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "rules": [],
+          "default": true
+        },
+        {
+          "uuid": "resp-investigate-bad-request",
+          "label": "missing_workflow_id",
+          "statusCode": 400,
+          "latency": 10,
+          "bodyType": "INLINE",
+          "body": "{\n  \"error\": \"workflow_id required\"\n}",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "rules": [
+            {
+              "target": "body",
+              "modifier": "workflow_id",
+              "operator": "null",
+              "invert": false
+            }
+          ],
+          "default": false
+        }
+      ]
+    },
+    {
+      "uuid": "hitl-dismiss",
+      "type": "http",
+      "documentation": "HITL Dismiss Signal",
+      "method": "post",
+      "endpoint": "internal/hitl/dismiss",
+      "responses": [
+        {
+          "uuid": "resp-dismiss-ok",
+          "label": "success",
+          "statusCode": 200,
+          "latency": 50,
+          "bodyType": "INLINE",
+          "body": "{\n  \"ok\": true,\n  \"action\": \"dismiss\",\n  \"workflow_id\": \"{{body 'workflow_id'}}\",\n  \"message\": \"Dismiss signal sent to Temporal workflow\"\n}",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "rules": [],
+          "default": true
+        }
+      ]
+    },
+    {
+      "uuid": "bi-query",
+      "type": "http",
+      "documentation": "BI Query Endpoint",
+      "method": "post",
+      "endpoint": "internal/query",
+      "responses": [
+        {
+          "uuid": "resp-bi-query-ok",
+          "label": "success",
+          "statusCode": 202,
+          "latency": 100,
+          "bodyType": "INLINE",
+          "body": "{\n  \"ok\": true,\n  \"query_id\": \"{{uuid}}\",\n  \"workflow_id\": \"bi-{{body 'tenant_id' 'slice 8'}}-{{uuid 'slice 8'}}\",\n  \"message\": \"Query queued. Result sent to Telegram.\"\n}",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "rules": [],
+          "default": true
+        },
+        {
+          "uuid": "resp-bi-query-bad-request",
+          "label": "missing_query",
+          "statusCode": 400,
+          "latency": 10,
+          "bodyType": "INLINE",
+          "body": "{\n  \"error\": \"query required\"\n}",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "rules": [
+            {
+              "target": "body",
+              "modifier": "query",
+              "operator": "null",
+              "invert": false
+            }
+          ],
+          "default": false
+        }
+      ]
+    },
+    {
+      "uuid": "health",
+      "type": "http",
+      "documentation": "Health Check",
+      "method": "get",
+      "endpoint": "health",
+      "responses": [
+        {
+          "uuid": "resp-health-ok",
+          "label": "success",
+          "statusCode": 200,
+          "latency": 10,
+          "bodyType": "INLINE",
+          "body": "{\n  \"status\": \"ok\",\n  \"service\": \"sarthi-core-mock\",\n  \"time\": \"{{now}}\"\n}",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "rules": [],
+          "default": true
+        }
+      ]
+    },
+    {
+      "uuid": "telegram-sendmessage",
+      "type": "http",
+      "documentation": "Telegram sendMessage (Mock)",
+      "method": "post",
+      "endpoint": "bot:test-token/sendMessage",
+      "responses": [
+        {
+          "uuid": "resp-tg-ok",
+          "label": "success",
+          "statusCode": 200,
+          "latency": 50,
+          "bodyType": "INLINE",
+          "body": "{\n  \"ok\": true,\n  \"result\": {\n    \"message_id\": {{faker 'number.int' min=1000 max=9999}},\n    \"chat\": {\n      \"id\": {{body 'chat_id'}},\n      \"type\": \"private\"\n    },\n    \"date\": {{faker 'number.int' min=1700000000 max=1800000000}},\n    \"text\": \"{{body 'text'}}\"\n  }\n}",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "rules": [],
+          "default": true
+        }
+      ]
+    },
+    {
+      "uuid": "telegram-sendphoto",
+      "type": "http",
+      "documentation": "Telegram sendPhoto (Mock)",
+      "method": "post",
+      "endpoint": "bot:test-token/sendPhoto",
+      "responses": [
+        {
+          "uuid": "resp-tg-photo-ok",
+          "label": "success",
+          "statusCode": 200,
+          "latency": 100,
+          "bodyType": "INLINE",
+          "body": "{\n  \"ok\": true,\n  \"result\": {\n    \"message_id\": {{faker 'number.int' min=1000 max=9999}},\n    \"chat\": {\n      \"id\": {{body 'chat_id'}},\n      \"type\": \"private\"\n    },\n    \"date\": {{faker 'number.int' min=1700000000 max=1800000000}},\n    \"photo\": {\n      \"file_id\": \"AgACAgIAAxkBAAIB\",\n      \"file_unique_id\": \"AQADG4cxY6V9a0g\"\n    },\n    \"caption\": \"{{body 'caption'}}\"\n  }\n}",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "rules": [],
+          "default": true
+        }
+      ]
+    }
+  ],
+  "proxyMode": false,
+  "cors": true,
+  "tlsOptions": { "enabled": false },
+  "data": [],
+  "folders": [],
+  "rootChildren": []
+}
