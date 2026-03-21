@@ -67,6 +67,32 @@ func main() {
 	w.RegisterActivity(workflow.DetectArchetypeActivity)
 	w.RegisterActivity(workflow.CompleteOnboardingActivity)
 
+	// Register BusinessOS workflow and child workflows
+	w.RegisterWorkflow(workflow.BusinessOSWorkflow)
+	w.RegisterWorkflow(workflow.SOPExecutorWorkflow)
+	w.RegisterActivity(workflow.ExecuteSOPActivity)
+
+	// Register InternalOps workflow and activities
+	w.RegisterWorkflow(workflow.InternalOpsWorkflow)
+	w.RegisterActivity(workflow.RouteInternalEvent)
+	w.RegisterActivity(workflow.ProcessFinanceOps)
+	w.RegisterActivity(workflow.ProcessPeopleOps)
+	w.RegisterActivity(workflow.ProcessLegalOps)
+	w.RegisterActivity(workflow.ProcessIntelligenceOps)
+	w.RegisterActivity(workflow.ProcessITOps)
+	w.RegisterActivity(workflow.ProcessAdminOps)
+	w.RegisterActivity(workflow.PersistInternalOpsResult)
+	w.RegisterActivity(workflow.CreateHITLRecord)
+
+	// Register SarthiRouter and child workflows (Phase 5)
+	w.RegisterWorkflow(workflow.SarthiRouter)
+	w.RegisterWorkflow(workflow.RevenueWorkflow)
+	w.RegisterWorkflow(workflow.CSWorkflow)
+	w.RegisterWorkflow(workflow.PeopleWorkflow)
+	w.RegisterWorkflow(workflow.FinanceWorkflow)
+	w.RegisterWorkflow(workflow.ChiefOfStaffWorkflow)
+	w.RegisterActivity(workflow.SendToDLQActivity)
+
 	log.Printf("Worker listening on task queue: %s", *taskQueue)
 
 	// Start worker in goroutine

@@ -26,7 +26,7 @@ type WorkflowDetails struct {
 	Input      interface{}      `json:"input,omitempty"`
 	Result     interface{}      `json:"result,omitempty"`
 	Error      string           `json:"error,omitempty"`
-	Activities []ActivityDetail  `json:"activities"`
+	Activities []ActivityDetail `json:"activities"`
 }
 
 // ActivityDetail represents detailed activity information.
@@ -89,12 +89,12 @@ func GetWorkflowEvents(ctx context.Context, c *temporal.Client, workflowID strin
 
 // WorkflowEvent represents a workflow event.
 type WorkflowEvent struct {
-	EventID      int64           `json:"event_id"`
-	EventType    string          `json:"event_type"`
-	Timestamp    time.Time       `json:"timestamp"`
-	ActivityID   string          `json:"activity_id,omitempty"`
-	ActivityType string          `json:"activity_type,omitempty"`
-	Duration     time.Duration   `json:"duration,omitempty"`
+	EventID      int64         `json:"event_id"`
+	EventType    string        `json:"event_type"`
+	Timestamp    time.Time     `json:"timestamp"`
+	ActivityID   string        `json:"activity_id,omitempty"`
+	ActivityType string        `json:"activity_type,omitempty"`
+	Duration     time.Duration `json:"duration,omitempty"`
 }
 
 // ExtractActivities extracts activity information from workflow events.
@@ -106,7 +106,7 @@ func ExtractActivities(events []WorkflowEvent) []ActivityDetail {
 		case "ActivityTaskScheduled":
 			activities[e.ActivityID] = &ActivityDetail{
 				ActivityID:    e.ActivityID,
-				ActivityType: e.ActivityType,
+				ActivityType:  e.ActivityType,
 				ScheduledTime: e.Timestamp,
 				Status:        "scheduled",
 			}

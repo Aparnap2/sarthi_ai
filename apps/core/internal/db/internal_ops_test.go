@@ -46,17 +46,17 @@ func cleanupTable(t *testing.T, db *sql.DB, table string) {
 
 	// Whitelist of allowed tables for cleanup
 	allowedTables := map[string]bool{
-		"finance_ops":   true,
-		"people_ops":    true,
-		"legal_ops":     true,
-		"it_assets":     true,
-		"admin_events":  true,
-		"founders":      true,
-		"trigger_log":   true,
-		"memory_snapshot": true,
+		"finance_ops":       true,
+		"people_ops":        true,
+		"legal_ops":         true,
+		"it_assets":         true,
+		"admin_events":      true,
+		"founders":          true,
+		"trigger_log":       true,
+		"memory_snapshot":   true,
 		"weekly_reflection": true,
-		"company_context": true,
-		"commitment":    true,
+		"company_context":   true,
+		"commitment":        true,
 	}
 
 	if !allowedTables[table] {
@@ -75,11 +75,11 @@ func createTestFounder(t *testing.T, db *sql.DB, ctx context.Context, slackUserI
 	t.Helper()
 	var founderID uuid.UUID
 	err := db.QueryRowContext(ctx, `
-		INSERT INTO founders (slack_user_id, name, stage)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (slack_user_id) DO UPDATE SET name = $2
+		INSERT INTO founders (slack_user_id, slack_team_id, name, stage)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (slack_user_id) DO UPDATE SET name = $3
 		RETURNING id
-	`, slackUserID, "Test User", "building").Scan(&founderID)
+	`, slackUserID, "test-team-id", "Test User", "building").Scan(&founderID)
 	require.NoError(t, err, "Failed to create test founder")
 	return founderID
 }
@@ -265,13 +265,13 @@ func TestPeopleOpsCRUD(t *testing.T) {
 
 	// READ
 	var (
-		id          uuid.UUID
-		retFounder  uuid.UUID
-		retType     string
-		retEmpName  string
-		retStatus   string
+		id           uuid.UUID
+		retFounder   uuid.UUID
+		retType      string
+		retEmpName   string
+		retStatus    string
 		retEventDate time.Time
-		retComplete *time.Time
+		retComplete  *time.Time
 	)
 
 	err = db.QueryRowContext(ctx, `
@@ -501,12 +501,12 @@ func TestITAssetsCRUD(t *testing.T) {
 
 	// READ
 	var (
-		id       uuid.UUID
+		id         uuid.UUID
 		retFounder uuid.UUID
-		retType  string
-		retName  string
-		retCost  float64
-		retStatus string
+		retType    string
+		retName    string
+		retCost    float64
+		retStatus  string
 	)
 
 	err = db.QueryRowContext(ctx, `
@@ -629,13 +629,13 @@ func TestAdminEventsCRUD(t *testing.T) {
 
 	// READ
 	var (
-		id        uuid.UUID
+		id         uuid.UUID
 		retFounder uuid.UUID
-		retType   string
-		retTitle  string
+		retType    string
+		retTitle   string
 		retMeeting time.Time
-		retAction []byte
-		retSOP    string
+		retAction  []byte
+		retSOP     string
 	)
 
 	err = db.QueryRowContext(ctx, `

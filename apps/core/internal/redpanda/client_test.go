@@ -27,8 +27,8 @@ func uniqueTopic(t *testing.T) string {
 
 func skipIfRedpandaDown(t *testing.T) {
 	t.Helper()
-	c := redpanda.NewClient([]string{"localhost:9094"}, "health-check")
-	if c == nil {
+	c, err := redpanda.NewClient([]string{"localhost:9094"}, "health-check")
+	if err != nil || c == nil {
 		t.Skip("Redpanda client creation failed")
 		return
 	}

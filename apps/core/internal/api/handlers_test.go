@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -22,7 +23,6 @@ import (
 	"iterateswarm-core/internal/temporal"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/redis/go-redis/v9"
 )
 
 func TestNewHandler(t *testing.T) {
@@ -31,8 +31,9 @@ func TestNewHandler(t *testing.T) {
 	repo := db.NewRepository(nil)
 	var rp *redpanda.Client
 	var tm *temporal.Client
+	var dbConn *sql.DB
 
-	handler := api.NewHandler(rp, tm, repo)
+	handler := api.NewHandler(rp, tm, repo, dbConn)
 	assert.NotNil(t, handler)
 }
 
@@ -117,16 +118,16 @@ func TestParseCustomID(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			action, workflowID, err := api.ParseCustomID(tc.customID)
+			signalData, err := api.ParseCustomID(tc.customID)
 
 			if tc.expectError {
 				assert.Error(t, err, tc.description)
-				assert.Empty(t, action, "Action should be empty on error")
-				assert.Empty(t, workflowID, "WorkflowID should be empty on error")
+				assert.Empty(t, signalData.Action, "Action should be empty on error")
+				assert.Empty(t, signalData.WorkflowID, "WorkflowID should be empty on error")
 			} else {
 				assert.NoError(t, err, tc.description)
-				assert.Equal(t, tc.expectedAction, action, "Action mismatch")
-				assert.Equal(t, tc.expectedID, workflowID, "WorkflowID mismatch")
+				assert.Equal(t, tc.expectedAction, signalData.Action, "Action mismatch")
+				assert.Equal(t, tc.expectedID, signalData.WorkflowID, "WorkflowID mismatch")
 			}
 		})
 	}
@@ -140,9 +141,9 @@ func TestParseCustomIDAllowedActions(t *testing.T) {
 	for _, action := range allowedActions {
 		t.Run("Valid action: "+action, func(t *testing.T) {
 			customID := action + "_workflow-123"
-			parsedAction, _, err := api.ParseCustomID(customID)
+			signalData, err := api.ParseCustomID(customID)
 			assert.NoError(t, err)
-			assert.Equal(t, action, parsedAction)
+			assert.Equal(t, action, signalData.Action)
 		})
 	}
 
@@ -153,7 +154,7 @@ func TestParseCustomIDAllowedActions(t *testing.T) {
 		}
 		t.Run("Invalid action: "+action, func(t *testing.T) {
 			customID := action + "_workflow-123"
-			_, _, err := api.ParseCustomID(customID)
+			_, err := api.ParseCustomID(customID)
 			assert.Error(t, err, "Should reject invalid action: %s", action)
 		})
 	}
@@ -170,8 +171,8 @@ func setupTestApp(t *testing.T) (*fiber.App, *testDeps) {
 	repo := db.NewRepository(nil)
 	var rp *redpanda.Client
 	var tm *temporal.Client
-	var rdb *redis.Client
-	handler := api.NewHandler(rp, tm, repo, rdb)
+	var dbConn *sql.DB
+	handler := api.NewHandler(rp, tm, repo, dbConn)
 	app := fiber.New()
 	app.Post("/webhooks/discord", handler.HandleDiscordWebhook)
 	app.Post("/webhooks/slack", handler.HandleSlackWebhook)
@@ -190,11 +191,15 @@ func getLastStoredContent(t *testing.T, repo *db.Repository) string {
 	// Query last feedback content
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	feedbacks, err := repo.GetFeedback(ctx)
-	if err != nil || len(feedbacks) == 0 {
+	feedback, err := repo.GetFeedback(ctx, "")
+	if err != nil || feedback == nil {
 		return ""
 	}
-	return feedbacks[0].Content
+	// feedback is map[string]interface{}
+	if fb, ok := feedback["content"].(string); ok {
+		return fb
+	}
+	return ""
 }
 
 func countMessagesInTopic(t *testing.T, topic, body string) int {
@@ -242,7 +247,7 @@ func TestDiscordWebhook_SQLInjection(t *testing.T) {
 	if deps.repo != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_, err := deps.repo.GetFeedback(ctx)
+		_, err := deps.repo.GetFeedback(ctx, "")
 		assert.NoError(t, err, "feedback table must still exist after SQL injection attempt")
 	}
 }

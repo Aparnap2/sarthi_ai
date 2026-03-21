@@ -13,22 +13,22 @@ import (
 
 // TopicMetadata represents Kafka topic metadata.
 type TopicMetadata struct {
-	Name              string            `json:"name"`
-	Partitions        int               `json:"partitions"`
-	ReplicationFactor int               `json:"replication_factor"`
-	MessagesCount     int64             `json:"messages_count"`
-	PartitionsInfo    []PartitionInfo   `json:"partitions_info,omitempty"`
+	Name              string          `json:"name"`
+	Partitions        int             `json:"partitions"`
+	ReplicationFactor int             `json:"replication_factor"`
+	MessagesCount     int64           `json:"messages_count"`
+	PartitionsInfo    []PartitionInfo `json:"partitions_info,omitempty"`
 }
 
 // PartitionInfo represents metadata for a single partition.
 type PartitionInfo struct {
-	PartitionID      int       `json:"partition_id"`
-	LeaderID         int       `json:"leader_id"`
-	LeaderHost       string    `json:"leader_host,omitempty"`
-	LeaderPort       int       `json:"leader_port,omitempty"`
-	ReplicaCount     int       `json:"replica_count"`
-	ISRCount         int       `json:"isr_count"`
-	OfflineReplicas  int       `json:"offline_replicas,omitempty"`
+	PartitionID     int    `json:"partition_id"`
+	LeaderID        int    `json:"leader_id"`
+	LeaderHost      string `json:"leader_host,omitempty"`
+	LeaderPort      int    `json:"leader_port,omitempty"`
+	ReplicaCount    int    `json:"replica_count"`
+	ISRCount        int    `json:"isr_count"`
+	OfflineReplicas int    `json:"offline_replicas,omitempty"`
 }
 
 // KafkaMessage represents a Kafka message for the API.
@@ -162,10 +162,10 @@ func PublishTestMessage(ctx context.Context, client *redpanda.Client, topic, mes
 	}
 
 	event := map[string]interface{}{
-		"test_id":     fmt.Sprintf("test-%d", time.Now().UnixNano()),
-		"message":     message,
-		"source":      "lite-debug",
-		"timestamp":   time.Now().UTC().Format(time.RFC3339),
+		"test_id":   fmt.Sprintf("test-%d", time.Now().UnixNano()),
+		"message":   message,
+		"source":    "lite-debug",
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 
 	data, err := json.Marshal(event)

@@ -70,7 +70,7 @@ func main() {
 		}
 	}
 	defer pgDB.Close()
-	
+
 	// Initialize pgxpool for advanced features (SSE, async operations)
 	var pool *pgxpool.Pool
 	ctx := context.Background()
@@ -153,12 +153,12 @@ func main() {
 	webHandler := web.NewHandler(pgDB)
 	webHandler.RegisterRoutes(app)
 	webHandler.RegisterAdminRoutes(app)
-	
+
 	// Founder Dashboard routes
 	if pool != nil {
 		founderDashboardHandler := web.NewFounderDashboardHandler(pool)
 		founderReflectionHandler := web.NewReflectionHandler(pool, redpandaClient)
-		
+
 		// Founder routes (public for demo)
 		app.Get("/founder/dashboard", founderDashboardHandler.FounderDashboard)
 		app.Get("/founder/dashboard/summary", founderDashboardHandler.FounderDashboardPartial)

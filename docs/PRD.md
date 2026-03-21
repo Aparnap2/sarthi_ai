@@ -1,792 +1,777 @@
-# Sarthi.ai — Canonical PRD v4.2
+# Sarthi — Product Requirements Document
+## Version 1.0 | Portfolio Build + Future Product
 
-**Version:** 4.2
-**Date:** March 2026
-**Status:** Single Source of Truth
+**Last Updated:** March 21, 2026  
+**Status:** Ready for implementation
 
 ---
 
-## 1. The One-Line Definition
+## Table of Contents
 
-```text
-Sarthi is the internal operations virtual office for Seed to Series A startups.
-
-It does not find you customers.
-It makes sure your company doesn't collapse while you do.
-
-13 virtual employees. 6 desks. Zero external-facing work.
-Finance. HR. Legal. Internal BI. IT & Tools. Admin.
-All of it. Running continuously. In the background.
-Delivered as a message — not a login.
+```
+├── 1. Executive Summary
+├── 2. Problem Statement
+├── 3. Solution Overview
+├── 4. Target Users & ICP
+├── 5. Agent Specifications
+│   ├── 5.1 Finance Agent
+│   └── 5.2 BI Agent
+├── 6. System Architecture
+├── 7. Low-Level Design
+├── 8. Workflows & SOP
+├── 9. Test Strategy
+├── 10. Build Checklist
+├── 11. Metrics & KPIs
+└── 12. Timeline + Demo Script
 ```
 
 ---
 
-## 2. The One Design Rule
+## 1. Executive Summary
 
-**A virtual employee exists in Sarthi IF AND ONLY IF:**
+**Sarthi** is an ops memory layer for software startup founders. Two agents only: **Finance Monitor** + **BI Agent**. Everything else is cut for speed.
 
-1. The work happens **INSIDE** the company
-2. It is repetitive, predictable, and operationally necessary
-3. Missing it causes real pain (money lost, team blocked, founder stressed)
-4. It does **NOT** require going outside the platform to generate, acquire, or influence external parties
+| Differentiator | Detail |
+|---|---|
+| **2 focused agents** | Finance + BI — scoped, not bloated |
+| **Qdrant episodic memory** | Context compounds with every event |
+| **Temporal durable workflows** | Survives crashes, restarts, failures |
+| **LangGraph ReAct** | Not just automation — actual decisions |
+| **Go + Python polyglot** | Right language for each job |
+| **Langfuse observability** | Every LLM call traced and scored |
+| **DSPy compiled prompts** | Systematic, not hand-tuned |
+| **HITL via Telegram** | Human approves escalations, agent learns |
 
-### What We DO (Internal Ops)
-
-✅ Finance (CFO, bookkeeping, AR/AP, payroll)
-✅ HR (onboarding, leave, internal recruiting)
-✅ Legal (contracts, compliance)
-✅ Internal BI (unit economics, churn signals)
-✅ IT & Tools (SaaS audits, cloud spend)
-✅ Admin (meeting prep, SOPs, knowledge management)
-
-### What We DO NOT Do (Forever Out of Scope)
-
-❌ RevOps / GTM / CRM outreach
-❌ Customer success / support
-❌ External market intelligence (competitors, pricing)
-❌ Content generation / marketing
-❌ Cap table management (too complex)
-❌ Tax filing (too jurisdiction-heavy)
-❌ Grant applications (external)
-
-**Why this boundary?**
-
-Internal ops is painful enough. We solve that completely. Internal data is structured and controllable. We replace ₹3.5L–₹7.5L/month in admin costs immediately. Enterprise tools ignore Seed startups. Startup tools ignore ops depth. That's our moat.
+**Portfolio Goal:** Production-grade agentic AI SaaS demonstrating 9+ technologies.  
+**Product Goal:** Virtual ops brain for software startups (2–20 people) at ₹9,999/month.
 
 ---
 
-## 3. The Problem
+## 2. Problem Statement
 
-| What a Startup Needs | What They Actually Have |
-|---------------------|------------------------|
-| CFO | Founder checking a spreadsheet at 11pm |
-| Head of HR | Founder copying an offer letter template |
-| Legal counsel | Founder ignoring the contract renewal email |
-| BI analyst | Founder not knowing what they don't know |
-| COO | Founder doing everything manually |
+Every software startup that reaches ₹50L ARR hits the same wall — **context evaporation**. Knowledge lives in the founder's head. When they scale, hire, or burn out, deals fall through, anomalies go unnoticed, and bad decisions compound silently.
 
-**The result:** 15–20 hours/week of founder time eaten by back-office work that doesn't require their unique judgment. That is ~3 months/year of product and growth time permanently lost.
+**The specific acute pain:**
+- "Our AWS bill doubled and I found out 3 weeks later."
+- "I don't know our exact runway right now."
+- "Why did revenue dip in March? I have no idea."
+- "That deal went cold and I forgot to follow up."
 
-**The hidden cost:** ₹3.5L–₹7.5L/month in fractional admin services (CFO, bookkeeper, HR coordinator, legal retainer) that startups can't afford but desperately need.
+**What exists today and why it fails:**
 
----
+| Tool | Problem |
+|---|---|
+| Tableau / Looker | Requires a data team, nobody maintains it |
+| PagerDuty alerts | Fire without context or memory of the past |
+| HubSpot CRM | Manually updated, always stale |
+| Excel runway models | Static, disconnected from live data |
 
-## 4. The ICP
-
-### Who Sarthi Is For
-
-| Attribute | Value |
-|-----------|-------|
-| **Stage** | Pre-seed → Series A |
-| **Team size** | 1–25 people |
-| **Type** | Product/tech startup (B2B SaaS, D2C, marketplace, fintech, edtech) |
-| **Geography** | India (beachhead) → US → UK → EU → SEA |
-
-### What Defines Them
-
-- Tech-literate — they know what an API is
-- Already using tools (Notion, Linear, Razorpay, Google Workspace, Zoho Books/QuickBooks)
-- Do NOT have dedicated ops/finance/HR/legal hires
-- The founder IS the back-office right now
-
-### What They Feel
-
-- "I'm spending all my time on admin, not product"
-- "I don't know if my numbers are okay"
-- "I almost missed a GST deadline last month"
-- "I have to write the same follow-up emails every single week"
-
-### What They Need
-
-- Not the best financial firm
-- Not another dashboard
-- Someone (something) to hold their hand, handle the grunt work, and tell them the one thing that matters right now
+**The gap:** No system exists that watches your data continuously, reasons about anomalies with memory of the past, answers natural language questions about your business, and gets smarter with every event — at a price below one junior hire.
 
 ---
 
-## 5. The Interface
+## 3. Solution Overview
 
-### Primary: Telegram Bot
-
-Free, no per-message cost, async, file-capable, inline keyboards for HITL approvals. Works globally.
-
-### What Founders Send Sarthi
-
-- **Text questions:** "What's my runway?"
-- **CSV/Excel files:** Bank statement export from net banking
-- **PDF files:** Contracts, notices, invoices
-- **Photos:** Tax notices, receipts, whiteboards
-- **/commands:** `/status` `/runway` `/decisions` `/weekly`
-
-### What Sarthi Sends Founders
-
-- **Proactive alerts** (unprompted, when score > threshold)
-- **Task reports:** "Done: sent 3 payment reminders"
-- **HITL requests:** "Send this to Raju? [Yes / Edit / No]"
-- **Weekly briefing:** Every Monday 9am local time
-- **Deadline alerts:** 14-day advance warning on all compliance
-
----
-
-## 6. The Agent Architecture — 6 Desks, 13 Virtual Employees
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 0 — KERNEL (Go + Temporal + Graphiti)                     │
-│  BusinessOSWorkflow: orchestrates all agents, manages state     │
-│  enforces HITL gates, temporal knowledge graph                  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 1 — CHIEF OF STAFF (1 agent)                              │
-│  The only agent that talks to the founder.                      │
-│  Routes work to 6 desks. Synthesizes intelligence.              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 2 — 6 DESKS (13 Virtual Employees)                        │
-│                                                                  │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐               │
-│  │ Finance     │ │ People      │ │ Legal       │               │
-│  │ Desk        │ │ Desk        │ │ Desk        │               │
-│  │ • CFO       │ │ • HR Coord  │ │ • Contracts │               │
-│  │ • Bookkeeper│ │ • Recruiter │ │ • Compliance│               │
-│  │ • AR/AP     │ │             │ │             │               │
-│  │ • Payroll   │ │             │ │             │               │
-│  └─────────────┘ └─────────────┘ └─────────────┘               │
-│                                                                  │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐               │
-│  │ Intelligence│ │ IT & Tools  │ │ Admin       │               │
-│  │ Desk        │ │ Desk        │ │ Desk        │               │
-│  │ • BI Analyst│ │ • IT Admin  │ │ • EA        │               │
-│  │ • Policy    │ │             │ │ • Knowledge │               │
-│  │  Watcher    │ │             │ │  Manager    │               │
-│  └─────────────┘ └─────────────┘ └─────────────┘               │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  TIER 3 — DATA LAYER (ingest + memory, never surfaces)          │
-│  Ingestion | Memory (Qdrant + Neo4j) | Connector                │
-└─────────────────────────────────────────────────────────────────┘
+**Core flow:**
+```
+External Event (payment / expense / NL query)
+  → Go Webhook (HMAC validated)
+    → Redpanda (event bus)
+      → Temporal Workflow (durable)
+        → LangGraph Agent (ReAct reasoning)
+          → Tools (PostgreSQL + Qdrant + code exec)
+            → Output (Telegram alert / chart / answer)
+              → Qdrant Memory (written back, compounds)
 ```
 
----
+**Two agents, one system:**
 
-## 7. The Complete Desk Hierarchy (v4.2)
+| Agent | Watches | Does | Output |
+|-------|---------|------|--------|
+| **Finance** | Razorpay, bank feed, expenses | Burn/runway tracking, anomaly detection, spend pattern memory | Telegram alerts + weekly digest |
+| **BI** | PostgreSQL, Sheets, GA4, Mixpanel | NL → SQL → chart → narrative, proactive insights | Charts + narrative + Telegram |
 
-### Tier 1: Chief of Staff Agent
+**Cross-agent trigger:** Finance anomaly detected → BI Agent auto-queries "break down this cost" → combined alert: anomaly + chart + causal context.
 
-**Role:** The face of Sarthi. Routes work to 6 desks, synthesizes intelligence, manages the relationship.
+**Value delivered:**
 
-**Output:**
-- "Here's what I found + one action"
-- "I handled X — here's what I did"
-- "I need your decision on X — here's context"
-- "Weekly briefing: X handled, Y needs you"
-
-**HITL Gate:**
-- **LOW RISK** → auto-execute + notify after
-- **MEDIUM RISK** → 1-tap Telegram inline keyboard
-- **HIGH RISK** → explicit confirm with context
-
----
-
-### Tier 2: The 6 Desks (13 Virtual Employees)
-
-#### 📊 Finance Desk (4 employees)
-
-**CFO Agent**
-- 13-week rolling cash flow forecast
-- Burn rate + runway calculation (alert < 90 days)
-- Unit economics: CAC, LTV, payback
-- Scenario modeling: "what if we hire in March?"
-- **Fires when:** Runway < 6 months, burn spikes >15%, margin goes negative
-
-**Bookkeeper Agent**
-- Expense categorization (auto)
-- Bank vs books reconciliation
-- Monthly P&L narrative generation
-- GST/VAT return data prep
-- **HITL:** Auto-categorize, manual review for uncategorized
-
-**AR/AP Clerk Agent**
-- Invoice generation + payment reminders
-- Accounts receivable aging report
-- Vendor payment timing optimization
-- **Fires when:** Invoice >30 days overdue, payment due in 7 days
-
-**Payroll Clerk Agent**
-- Payroll data preparation
-- PF/ESIC/pension filing reminders
-- Salary slip generation
-- **Fires when:** Payroll deadline <7 days, new hire onboarded
+| Metric | Before | After |
+|---|---|---|
+| Anomaly detection | 3 weeks (if ever) | < 5 minutes |
+| Runway accuracy | Monthly manual calc | Real-time |
+| BI query time | 2–4 hrs (analyst) | < 30 seconds |
+| Context on alerts | None | Episodic memory |
+| Weekly digest | Manual assembly | Auto-generated |
+| Cost | ₹50,000+/month (human) | ₹9,999/month |
 
 ---
 
-#### 👥 People Desk (2 employees)
+## 4. Target Users & ICP
 
-**HR Coordinator Agent**
-- Onboarding checklist execution
-- Offer letter generation (templates)
-- Leave balance tracking
-- Performance review scheduling
-- **Fires when:** New hire start date, leave balance <5 days, review due
+**Primary ICP:**
+- **Who:** Software startup founder
+- **Stage:** Seed to Series A (₹50L – ₹10Cr ARR)
+- **Size:** 2–20 employees
+- **Type:** B2B SaaS, B2C app, D2C, marketplace
+- **Pain:** No dedicated analyst or finance ops person
+- **Budget:** Already spending ₹15k–₹50k/month on equivalent human work
 
-**Internal Recruiter Agent**
-- Job description drafting
-- Interview scheduling coordination
-- Candidate communication templates
-- Offer letter preparation
-- **Fires when:** Requisition approved, interview scheduled
-
----
-
-#### ⚖️ Legal Desk (2 employees)
-
-**Contracts Coordinator Agent**
-- NDA generation (templates)
-- Contract review summary (plain language)
-- Contract expiry tracking (90-day warning)
-- eSign workflow management
-- **Fires when:** Contract expires <30 days, new contract needs drafting
-
-**Compliance Tracker Agent**
-- GST, TDS, advance tax deadlines (India)
-- VAT, Corporation Tax, PAYE (UK)
-- PF, ESIC, PT compliance
-- DPDP Act / GDPR compliance checklist
-- MCA/Companies House filing reminders
-- **Fires when:** Deadline <14 days, regulatory change detected
+| Persona | Core Pain |
+|---|---|
+| Solo founder | Wears all hats, no time for analysis |
+| Technical CTO | Has data but no pipeline to insights |
+| D2C operator | Revenue lumpy, expenses hard to track |
+| B2B SaaS CEO | Needs investor-ready metrics instantly |
 
 ---
 
-#### 📈 Intelligence Desk (2 employees)
+## 5. Agent Specifications
 
-**BI Analyst Agent (Internal-Only)**
-- Customer cohort analysis (retention, churn)
-- Revenue concentration risk (single customer >30%)
-- Anomaly detection across all data sources
-- Cross-source pattern correlation
-- Unit economics tracking
-- **Fires when:** Churn pattern detected, one customer >30% revenue, usage predicts churn
+### 5.1 Finance Agent
 
-**Policy Watcher Agent**
-- Regulatory change monitoring (jurisdiction-specific)
-- Tax law updates affecting THIS company
-- Compliance requirement changes
-- **Fires when:** New regulation affects company, deadline changes
+**Purpose:** Continuously monitors financial events. Detects anomalies. Tracks burn and runway. Remembers context. Alerts with explanation.
 
----
+**Input event types:**
 
-#### 🖥️ IT & Tools Desk (1 employee)
+| Event | Source |
+|---|---|
+| `PAYMENT_SUCCESS` | Razorpay webhook |
+| `PAYMENT_REFUND` | Razorpay webhook |
+| `SUBSCRIPTION_CREATED` | Razorpay webhook |
+| `SUBSCRIPTION_CANCELED` | Razorpay webhook |
+| `EXPENSE_RECORDED` | Bank webhook / manual |
+| `BANK_TRANSACTION` | Bank feed webhook |
+| `TIME_TICK_DAILY` | Temporal cron 9 AM IST |
+| `TIME_TICK_WEEKLY` | Temporal cron Mon 9 AM |
 
-**IT Admin Agent**
-- SaaS subscription audit + optimization
-- Cloud spend analysis (AWS/GCP/Azure)
-- Tool access provisioning/deprovisioning
-- Software license tracking
-- Vendor contract renewal tracking
-- **Fires when:** Unused subscription detected, renewal due <60 days, spend anomaly
-
----
-
-#### 📋 Admin Desk (2 employees)
-
-**Executive Assistant Agent**
-- Meeting prep (pulls context, agenda)
-- Action item extraction from meeting notes
-- Internal announcement drafts
-- Calendar coordination
-- **Fires when:** Meeting scheduled, action items extracted
-
-**Knowledge Manager Agent**
-- SOP documentation from observed workflows
-- Internal wiki organization
-- Process improvement suggestions
-- Company handbook maintenance
-- **Fires when:** New process observed, SOP outdated >90 days
-
----
-
-### Tier 3: Data Layer (Invisible)
-
-**Ingestion Agent**
-- **CSV/Excel:** pandas + openpyxl (Bank detection: HDFC/ICICI/SBI/Axis/Kotak)
-- **PDF (digital):** pdfplumber
-- **PDF (scanned):** Docling accurate mode
-- **PDF (fallback):** Azure Document Intelligence (500 pages/mo free tier)
-- **Photos:** Docling vision mode
-- All normalised → standard transaction schema
-- PostgreSQL write + Qdrant embed + Neo4j episode
-
-**Memory Agent (Qdrant — semantic)**
-- Manages Qdrant collection: `sarthi-founder-memory`
-- Embeddings: text-embedding-3-small (1536d)
-- Founder isolation enforced at filter level
-- Conflict detection on contradicting writes
-- Stale memory compression after 90 days
-- Pattern detection: archetype classification
-
-**Graph Memory Agent (Neo4j + Graphiti — relational)**
-- Temporal knowledge graph via Graphiti (Zep)
-- Every reflection, commitment, signal, decision is an episode
-- Answers questions Qdrant cannot:
-  - "Has this founder broken this commitment 3 weeks running?"
-  - "What happened to revenue AFTER missed customer calls?"
-  - "Which interventions did this founder respond to?"
-- Hybrid search: semantic + graph traversal (RRF)
-
-**Connector Agent**
-- Manages OAuth token health for all integrations
-- Token refresh, sync schedule
-- Falls back to polling if webhook fails
-- Alerts CoS if integration goes dark
-
----
-
-## 8. The Self-Correcting Loop
-
-```text
-1. Agent acts      (e.g. Bookkeeper categorizes AWS expense)
-2. Outcome seen    (Founder confirms category is correct)
-3. MemoryAgent writes to Qdrant:
-   "AWS expenses: categorized as 'Cloud Infrastructure'"
-4. GraphMemoryAgent writes episode to Neo4j:
-   Entity: AWS → RELATION: category → Cloud Infrastructure
-5. Future: Auto-categorize similar expenses, flag anomalies
-6. Context drift:  CoS detects macro pattern across
-   all memory and surfaces unprompted:
-   "Cloud spend up 40% MoM. New deployment or pricing change?"
-
-The system gets smarter about THIS company specifically.
-Not generic AI. Company-specific intelligence that compounds.
-```
-
----
-
-## 9. The Technology Stack
-
-### Infrastructure ($0 — Docker, self-hosted)
-
-| Component | Technology | Port | Purpose |
-|-----------|------------|------|---------|
-| Workflow engine | Temporal | 7233/8088 | Durable execution |
-| Message queue | Redpanda | 19092 | Event bus |
-| Primary DB | PostgreSQL | 5432 | State, founders |
-| Vector DB | Qdrant | 6333 | Semantic memory |
-| Graph DB | Neo4j | 7687 | Relational memory |
-| LLM observability | Langfuse | 3001 | Tracing + evals |
-| Isolated exec | Sandbox (alpine) | 5001 | CFO charts/math |
-
-### Go Core (`apps/core`)
-
-| Technology | Purpose |
-|------------|---------|
-| Go 1.24 + Fiber | API gateway, webhook hub |
-| Temporal Go SDK | BusinessOSWorkflow definition |
-| franz-go | Redpanda producer/consumer |
-| sqlc | Type-safe PostgreSQL queries |
-| htmx + Go tmpl | Ops dashboard (internal) |
-| go-telegram-bot | Telegram webhook + send DM |
-
-### Python AI Worker (`apps/ai`)
-
-| Technology | Purpose |
-|------------|---------|
-| Python 3.11 + uv | Package management |
-| LangGraph | Agent state machines (all tiers) |
-| DSPy | Prompt optimization per agent node |
-| Pydantic v2 | Output contracts + jargon validator |
-| Langfuse SDK | Auto-trace every LangGraph node |
-| Temporal Python | Activity worker |
-| Qdrant Client | Semantic memory read/write |
-| Graphiti (Zep) | Neo4j temporal knowledge graph |
-| neo4j | Neo4j Python driver |
-
-### THE ONE SDK RULE — ABSOLUTE
-
+**LangGraph State:**
 ```python
-# apps/ai/src/config/llm.py
-# THE ONLY FILE WHERE THE LLM CLIENT IS CREATED.
-# Every agent imports from here. No exceptions. Ever.
+class FinanceState(TypedDict):
+    tenant_id:            str
+    event:                dict
+    monthly_revenue:      float
+    monthly_expense:      float
+    burn_rate:            float
+    runway_months:        float
+    vendor_baselines:     dict  # vendor → 90d avg
+    anomaly_detected:     bool
+    anomaly_score:        float  # 0.0 – 1.0
+    anomaly_explanation:  str
+    past_context:         list  # from Qdrant
+    action:               str   # ALERT | DIGEST | SKIP
+    output_message:       str
+```
 
-from openai import AzureOpenAI   # ← ALWAYS for Azure. Use factory pattern.
+**LangGraph Nodes (ReAct loop):**
 
-def get_llm_client() -> AzureOpenAI:
-    return AzureOpenAI(
-        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-        api_key=os.environ["AZURE_OPENAI_KEY"],
-        api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01"),
-    )
+```
+1. INGEST_EVENT       → Validate schema, normalize, classify
+2. UPDATE_SNAPSHOT    → Query PostgreSQL: revenue, expense, burn, runway
+3. LOAD_VENDOR_BASELINE → IF expense: query 90d avg for this vendor
+4. DETECT_ANOMALY     → Score-based rules (spike, first-time, runway)
+5. QUERY_MEMORY       → Qdrant: "similar anomaly for {vendor}"
+6. REASON_AND_EXPLAIN → LLM (DSPy): 1–3 sentence explanation
+7. DECIDE_ACTION      → ALERT (>0.7) | DIGEST (weekly) | SKIP
+8. WRITE_MEMORY       → Qdrant: event + explanation + outcome
+9. EMIT_OUTPUT        → Telegram alert or weekly digest
+```
 
-# Provider Configuration:
-# Set environment variables:
-#   - AZURE_OPENAI_ENDPOINT: https://{resource}.openai.azure.com/
-#   - AZURE_OPENAI_KEY: Your Azure OpenAI API key
-#   - AZURE_OPENAI_API_VERSION: API version (default: 2024-02-01)
-#   - AZURE_OPENAI_CHAT_DEPLOYMENT: Chat model deployment name
-#   - EMBEDDING_MODEL: Embedding model name (optional)
+**HITL Flow:**
+```
+Founder taps [Investigate]
+  → Temporal signal fires
+    → BI Agent triggered: "Break down {vendor} costs"
+      → Chart + breakdown returned to Telegram
+
+Founder taps [Dismiss]
+  → Qdrant updated: "founder dismissed — not anomalous"
+  → Future anomaly_score threshold raised for this vendor
+```
+
+---
+
+### 5.2 BI Agent
+
+**Purpose:** Answers natural language questions about business data. Proactively surfaces insights on a schedule. Executes SQL and Python safely. Remembers past queries and answers.
+
+**Inputs:**
+
+| Input | Trigger |
+|---|---|
+| `NL_QUERY` | Telegram message / API call |
+| `TIME_TICK_WEEKLY` | Monday proactive insight |
+| `FINANCE_ANOMALY` | Cross-agent trigger from Finance |
+
+**LangGraph State:**
 ```python
-
-### Document Processing ($0 OSS)
-
-| Tool | When Used |
-|------|-----------|
-| pandas + openpyxl | CSV/Excel bank statements |
-| pdfplumber | Digital PDFs (text-selectable) |
-| Docling (IBM OSS, accurate) | Scanned PDFs (image-based OCR) |
-| Azure Document Intelligence | Fallback only (500 pages/mo free) |
-
-### External Integrations (all free for dev)
-
-| Service | API | Cost |
-|---------|-----|------|
-| Telegram Bot | python-telegram-bot | $0 forever |
-| Zoho Books | REST API | $0 free tier |
-| QuickBooks Online | Sandbox API | $0 dev |
-| Razorpay | Webhooks + API | $0 setup |
-| HubSpot CRM | API | $0 free tier |
-| Leegality / Digio | eSign API | $0 sandbox |
-
----
-
-## 10. The Tone Contract
-
-### BANNED IN ALL OUTPUT (every agent, every message)
-
-```text
-EBITDA, DSO, bps, YoY, MoM, liquidity,
-working capital, CAGR, accounts receivable,
-burn multiple, runway compression, NWC,
-cash conversion cycle, churn cohort delta,
-basis points, net margin, gross margin,
-accounts payable, amortization, depreciation,
-optimize, leverage, synergy, streamline,
-actionable insights, KPIs, metrics, data-driven
+class BIState(TypedDict):
+    tenant_id:      str
+    query:          str  # natural language
+    query_type:     str  # ADHOC | SCHEDULED | TRIGGERED
+    data_sources:   list
+    generated_sql:  str
+    sql_result:     dict
+    generated_code: str  # Plotly Python
+    chart_path:     str  # PNG path
+    past_queries:   list  # from Qdrant
+    narrative:      str
+    output_message: str
 ```
 
-### REQUIRED IN ALL OUTPUT
+**LangGraph Nodes (ReAct loop):**
 
-- Lead with human reality, not the metric
-- Max 3 sentences of explanation
-- End with exactly ONE action
-- Warm, direct — trusted friend, not consultant
-- If bad news: acknowledge before data
-- If good news: celebrate explicitly first
-
-### Example
-
-**BAD:** "Your EBITDA margin compressed 340bps MoM due to elevated SG&A spend."
-
-**GOOD:** "You kept less money from every rupee you earned this month — costs grew faster than revenue. The main culprit is [specific line]. This week: cut or pause [specific item]."
-
-**Enforced via:**
-1. Pydantic validator on every output model
-2. DSPy-compiled ToneFilter (compiled weights in git)
-3. Langfuse scores every output — <0.7 is flagged
-
----
-
-## 11. The HITL Gate Model
-
-| Risk Level | Examples | Approval Flow |
-|------------|----------|--------------|
-| **LOW RISK** (auto-execute + notify after) | Categorize a transaction, Update a record, Log a compliance deadline, Generate a draft document (not yet sent) | Auto |
-| **MEDIUM RISK** (1-tap Telegram inline keyboard) | Send a message to a client, Send a payment reminder, Book a meeting, Share a document externally | 1-tap |
-| **HIGH RISK** (explicit confirm + reason shown) | File a GST return, Send a legal document, Make a payment, Delete or archive data | Explicit confirm |
-
-**PRINCIPLE:** Powerful but never autonomous where it matters. The founder always controls the wheel. They just don't have to steer on empty roads.
-
----
-
-## 12. The Data Flow
-
-```text
-EVENT: Founder sends HDFC CSV to Telegram bot
-         │
-         ▼
-[Go Fiber] TelegramWebhookHandler
-  → Validates, authenticates founder
-  → Produces to Redpanda: "sarthi.business.events"
-         │
-         ▼
-[Temporal] BusinessOSWorkflow (long-running, never stops)
-  → Classifies event: "bank_statement_upload"
-  → Spawns: IngestionAgent
-         │
-         ├──▶ IngestionAgent: detects HDFC format
-         │    → pandas normalize → standard schema
-         │    → PostgreSQL write (transactions table)
-         │    → Qdrant upsert (memory + embedding)
-         │    → Neo4j episode via Graphiti
-         │    → Signals: "ingestion_complete"
-         │
-         ├──▶ Finance Desk agents fire:
-         │    BookkeeperAgent.categorize(new_transactions)
-         │    CFOAgent.analyze(cash_position)
-         │    AR APAgent.check_receivables()
-         │
-         ├──▶ Each agent → typed Pydantic finding
-         │    (validated at output boundary)
-         │    (Langfuse traces every node)
-         │
-         └──▶ ChiefOfStaffAgent receives ALL findings
-              → Queries Qdrant: semantic context
-              → Queries Neo4j: relational patterns
-              → Scores: what to surface right now?
-              → ToneFilter: jargon → plain language
-              → Drafts ONE Telegram message
-              → HITL gate: medium/high risk queued
-              → Go activity: send via Telegram Bot API
-                         │
-                         ▼
-              Founder's Telegram:
-              "Got your HDFC statement (March 1–15).
-               Money in: ₹2,34,000 | Out: ₹1,87,000
-               One thing I noticed: AWS costs up ₹23k
-               vs last month. Anything new deployed?
-               [It's fine] [Let me check]"
+```
+1. UNDERSTAND_QUERY    → Classify: aggregation/trend/breakdown
+2. SELECT_DATASOURCE   → Revenue → payments, Users → users table
+3. GENERATE_SQL        → LLM (DSPy): NL → SQL
+4. EXECUTE_SQL         → PostgreSQL (read-only), retry on error
+5. DECIDE_VISUALIZATION → line/bar/pie/text based on query type
+6. GENERATE_CODE       → Plotly Python in sandboxed subprocess
+7. GENERATE_NARRATIVE  → LLM (DSPy): 2–4 sentence plain English
+8. WRITE_MEMORY        → Qdrant: query + SQL + narrative
+9. EMIT_OUTPUT         → Telegram with chart + narrative
 ```
 
+**Proactive Monday Queries (auto-run weekly):**
+1. "How did revenue change this week vs last week?"
+2. "What are the top 3 expense categories this month?"
+3. "Which user cohort has the lowest 7-day retention?"
+
 ---
 
-## 13. Pydantic Output Contracts
+## 6. System Architecture
 
-```python
-# apps/ai/src/schemas/findings.py
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   EXTERNAL TRIGGERS                          │
+│  Razorpay ──┐                                               │
+│  Bank Feed ─┼──→ Go Fiber API ──→ Redpanda ──→ Temporal    │
+│  Telegram  ─┘  (HMAC Validated)  (Event Bus)  (Workflows)  │
+└─────────────────────────────────────────────────────────────┘
+                                              │
+                       ┌──────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 PYTHON AI WORKER                             │
+│                                                             │
+│  Temporal Activity: RunLangGraphAgent(agent, event)         │
+│               │                                             │
+│      ┌────────┴────────┐                                   │
+│      ▼                 ▼                                   │
+│  FinanceAgent      BIAgent                                  │
+│  (LangGraph)       (LangGraph)                              │
+│      │                 │                                   │
+│  PostgreSQL         PostgreSQL                              │
+│  Qdrant             Qdrant                                  │
+└─────────────────────────────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  OUTPUT LAYER                                │
+│  Telegram ← alerts, charts, digests, HITL buttons          │
+│  Langfuse  ← all LLM traces, scores, costs                 │
+│  htmx UI   ← admin dashboard (Week 5, optional)            │
+└─────────────────────────────────────────────────────────────┘
+```
 
-BANNED_JARGON = {
-    "EBITDA","DSO","bps","YoY","MoM","liquidity",
-    "working capital","CAGR","accounts receivable",
-    "burn multiple","runway compression","NWC",
-    "cash conversion cycle","churn cohort delta",
-    "basis points","net margin","gross margin",
-    "accounts payable","amortization","depreciation",
-}
+**Tech Stack:**
 
-def validate_no_jargon(text: str) -> str:
-    for term in BANNED_JARGON:
-        if re.search(rf"\b{re.escape(term)}\b", text, re.IGNORECASE):
-            raise ValueError(f"Jargon violation: '{term}'")
-    return text
+| Layer | Technology | Why |
+|---|---|---|
+| API Gateway | Go + Fiber | High concurrency, low latency |
+| Event Bus | Redpanda | Kafka-compatible, persistent |
+| Workflow Engine | Temporal | Durable execution, HITL signals |
+| Agent Framework | LangGraph (Python) | ReAct graphs, state machines |
+| LLM | Ollama (qwen3:0.6b) | Local, no API keys, fast |
+| Prompt Compiler | DSPy | Systematic, not hand-tuned |
+| Memory | Qdrant | Semantic + episodic search |
+| Primary DB | PostgreSQL + sqlc | Type-safe queries |
+| Observability | Langfuse | LLM trace + eval scoring |
+| Notifications | Telegram Bot API | Zero-friction HITL |
+| Charts | Plotly Python | Code-executed, shareable PNG |
+| Deploy | Docker Compose | Local dev + Hetzner |
 
-class HitlRisk(str, Enum):
-    LOW    = "low"
-    MEDIUM = "medium"
-    HIGH   = "high"
+**Polyglot split:**
 
-class CFOFinding(BaseModel):
-    headline:     str    # max 10 words, plain language
-    what_is_true: str    # 2-3 sentences, ₹ amounts, no jargon
-    do_this:      str    # exactly ONE action
-    urgency:      str    # "today" | "this week" | "this month"
-    rupee_impact: Optional[int]
-    hitl_risk:    HitlRisk
-    trigger_type: str
-    is_good_news: bool = False
+| Language | Owns |
+|---|---|
+| Go | Webhook ingestion, Redpanda producer, Temporal workflow definitions, Telegram activity, htmx dashboard |
+| Python | Temporal activity worker, LangGraph graphs, Qdrant read/write, SQL execution, chart generation, DSPy, Langfuse |
 
-    @validator("headline", "what_is_true", "do_this")
-    def no_jargon(cls, v): return validate_no_jargon(v)
+---
 
-    @validator("do_this")
-    def single_action(cls, v):
-        if any(c in v for c in ["\n-", "\n•", "\n1.", "\n2."]):
-            raise ValueError("do_this must be a single action")
-        return v
+## 7. Low-Level Design
 
-class BIFinding(BaseModel):
-    headline:     str
-    pattern:      str
-    evidence:     str
-    do_this:      str
-    hitl_risk:    HitlRisk
-    is_good_news: bool = False
+### 7.1 Repo Structure
 
-class RiskAlert(BaseModel):
-    title:       str
-    deadline:    str    # "March 28 — 16 days away"
-    consequence: str    # plain language: "₹X penalty if missed"
-    do_this:     str
-    days_until:  int
-    hitl_risk:   HitlRisk = HitlRisk.HIGH
-
-class FinanceFinding(BaseModel):
-    category:      str
-    amount:        float
-    anomaly:       bool
-    do_this:       Optional[str]
-    hitl_risk:     HitlRisk = HitlRisk.LOW
-
-class HRFinding(BaseModel):
-    action_type:   str    # "onboarding" | "leave" | "payroll"
-    employee:      str
-    deadline:      Optional[str]
-    do_this:       str
-    hitl_risk:     HitlRisk
-
-class LegalFinding(BaseModel):
-    document_type: str
-    deadline:      Optional[str]
-    risk_level:    str    # "low" | "medium" | "high"
-    do_this:       str
-    hitl_risk:     HitlRisk
-
-class ITFinding(BaseModel):
-    category:      str    # "unused_subscription" | "renewal" | "spike"
-    vendor:        str
-    amount:        Optional[float]
-    do_this:       str
-    hitl_risk:     HitlRisk
+```
+sarthi/
+├── apps/
+│   ├── core/                      # Go Modular Monolith
+│   │   ├── cmd/
+│   │   │   ├── server/            # HTTP server entrypoint
+│   │   │   └── worker/            # Temporal Go worker
+│   │   ├── internal/
+│   │   │   ├── api/               # Webhook handlers
+│   │   │   ├── config/            # Config management
+│   │   │   ├── db/                # sqlc generated queries
+│   │   │   ├── redpanda/          # franz-go producer
+│   │   │   ├── temporal/          # Temporal SDK wrapper
+│   │   │   ├── telegram/          # Bot send activity
+│   │   │   └── workflow/          # Workflow definitions
+│   │   ├── web/templates/         # htmx admin dashboard
+│   │   ├── go.mod
+│   │   └── Dockerfile
+│   │
+│   └── ai/                        # Python AI Worker
+│       ├── src/
+│       │   ├── worker.py          # Temporal activity worker
+│       │   ├── agents/
+│       │   │   ├── finance/
+│       │   │   │   ├── graph.py   # LangGraph definition
+│       │   │   │   ├── nodes.py   # All node functions
+│       │   │   │   ├── state.py   # FinanceState TypedDict
+│       │   │   │   └── prompts.py # DSPy signatures
+│       │   │   └── bi/
+│       │   │       ├── graph.py
+│       │   │       ├── nodes.py
+│       │   │       ├── state.py
+│       │   │       └── prompts.py
+│       │   ├── activities/
+│       │   │   ├── run_finance_agent.py
+│       │   │   ├── run_bi_agent.py
+│       │   │   ├── query_postgres.py
+│       │   │   ├── upsert_qdrant.py
+│       │   │   └── execute_code.py
+│       │   └── services/
+│       │       ├── qdrant_client.py
+│       │       ├── postgres_client.py
+│       │       └── langfuse_client.py
+│       ├── tests/
+│       │   ├── unit/
+│       │   ├── e2e/
+│       │   └── evals/
+│       ├── pyproject.toml
+│       └── Dockerfile
+│
+├── infra/
+│   ├── docker-compose.yml         # Local dev stack
+│   ├── docker-compose.prod.yml    # Hetzner production
+│   └── migrations/                # SQL migrations
+│
+├── scripts/
+│   ├── simulate_payment.sh        # Fake Razorpay event
+│   ├── simulate_query.sh          # Fake BI query
+│   ├── smoke_test.sh              # Post-deploy check
+│   └── seed_data.sql              # Demo data
+│
+└── docs/
+    ├── prd.md
+    ├── adr/
+    └── demo_script.md
 ```
 
 ---
 
-## 14. Testing Architecture
+### 7.2 Database Schema
 
-**PRINCIPLE:** Real Docker. Real LLM. No mocks. Always.
+```sql
+-- Tenants
+CREATE TABLE tenants (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-| Layer | Tool | What Is Tested |
-|-------|------|---------------|
-| **Infra** | conftest.py poison pill | All 12 Docker containers reachable before any test. LLM confirmed live. Mock patches on LLM BLOCKED |
-| **Agent graphs** | LangGraph + pytest-asyncio | Graph completes all nodes. State transitions valid. Error nodes reachable |
-| **Output contracts** | Pydantic v2 | Every finding typed. Jargon validator fires. Structure enforced at boundary |
-| **Prompt quality** | DSPy + BootstrapFewShot + compiled JSON | Score ≥ 0.7 on holdout examples. CFO runway within ±15 days. ToneFilter jargon-free |
-| **Observability** | Langfuse self-hosted | Every LangGraph node traced. Scores logged per run. Trace visible in UI |
-| **E2E flows** | Full stack | Telegram → Go → Redpanda → Temporal → Python agent → Pydantic output → Langfuse trace → Telegram delivery |
+-- All financial transactions (normalized)
+CREATE TABLE transactions (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id   UUID REFERENCES tenants(id),
+  vendor      TEXT,
+  amount      NUMERIC(12,2) NOT NULL,
+  currency    TEXT DEFAULT 'INR',
+  type        TEXT,        -- REVENUE | EXPENSE | REFUND
+  source      TEXT,        -- razorpay | bank | manual
+  raw_payload JSONB,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
 
-### Test Count Targets
+-- Vendor spend baselines (rolling 90-day)
+CREATE TABLE vendor_baselines (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id         UUID REFERENCES tenants(id),
+  vendor            TEXT NOT NULL,
+  avg_30d           NUMERIC(12,2),
+  avg_90d           NUMERIC(12,2),
+  transaction_count INT,
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(tenant_id, vendor)
+);
 
-| Suite | Tests | Type |
-|-------|-------|------|
-| Infrastructure health | 6 | Docker + LLM connectivity |
-| Memory agent (Qdrant) | 10 | write/read/isolation |
-| Graph memory agent (Neo4j) | 12 | episodes/search/patterns |
-| Chief of Staff | 8 | routing + tone |
-| Bank parser | 8 | HDFC/ICICI/SBI/scanned PDF |
-| Finance Desk (4 agents) | 25 | LangGraph E2E + Pydantic |
-| People Desk (2 agents) | 12 | onboarding + HR flows |
-| Legal Desk (2 agents) | 12 | contracts + compliance |
-| Intelligence Desk (2 agents) | 15 | BI + policy watching |
-| IT & Tools Desk (1 agent) | 10 | SaaS audit + spend |
-| Admin Desk (2 agents) | 12 | EA + knowledge mgmt |
-| Tone filter | 14 | jargon + DSPy + Hindi |
-| Sandbox client | 10 | isolated exec + charts |
-| E2E flows | 20 | full stack Telegram → output |
-| LLM evals (DSPy) | 15 | scoring + LLM-as-judge |
-| **Total** | **~189** | **Real LLM, real Docker** |
+-- Agent output audit log
+CREATE TABLE agent_outputs (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id      UUID REFERENCES tenants(id),
+  agent          TEXT,    -- finance | bi
+  trigger_type   TEXT,
+  input_payload  JSONB,
+  output_message TEXT,
+  anomaly_score  FLOAT,
+  action_taken   TEXT,    -- ALERT | DIGEST | SKIP
+  langfuse_trace TEXT,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
 
----
-
-## 15. Infrastructure — All Containers
-
-```yaml
-# docker-compose.yml — 12 containers total
-services:
-  # Core Infrastructure
-  temporal:          # Workflow orchestration
-  postgres:          # Primary database
-  redpanda:          # Event streaming
-  
-  # Memory Layer
-  qdrant:            # Vector embeddings
-  neo4j:             # Knowledge graph
-  
-  # Observability
-  langfuse:          # LLM tracing
-  
-  # Application
-  sarthi-core:       # Go service (Fiber + Temporal worker)
-  sarthi-ai:         # Python AI worker (LangGraph agents)
-  
-  # Utilities
-  sandbox:           # Isolated code execution
-```yaml
-
----
-
-## 16. ROI & Pricing
-
-### What Sarthi Replaces
-
-| Role | Fractional Cost (₹/month) | Sarthi Desk |
-|------|--------------------------|-------------|
-| Fractional CFO | ₹75,000–₹1,50,000 | Finance Desk |
-| Bookkeeper | ₹25,000–₹40,000 | Finance Desk |
-| HR Coordinator | ₹30,000–₹50,000 | People Desk |
-| Legal Retainer | ₹50,000–₹1,00,000 | Legal Desk |
-| EA/Admin | ₹20,000–₹35,000 | Admin Desk |
-| **Total** | **₹2,00,000–₹3,75,000** | **6 Desks** |
-
-### Sarthi Pricing
-
-| Tier | Price (₹/month) | Desks Included |
-|------|-----------------|----------------|
-| Starter | ₹5,000 | Finance + Admin |
-| Growth | ₹10,000 | All 6 Desks |
-| Scale | ₹15,000 | All 6 Desks + Priority |
-
-**ROI:** 20x–50x return. Replace ₹3.5L–₹7.5L/month in fractional admin costs with ₹5K–₹15K/month.
-
-### The Moat
-
-After 6 months with a founder:
-- We know their approval patterns
-- We know their vendor relationships
-- We know their team dynamics
-- We have institutional memory in Neo4j
-
-A competitor starting fresh cannot replicate this.
+-- BI query history
+CREATE TABLE bi_queries (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id     UUID REFERENCES tenants(id),
+  query_text    TEXT NOT NULL,
+  generated_sql TEXT,
+  row_count     INT,
+  chart_path    TEXT,
+  narrative     TEXT,
+  qdrant_id     TEXT,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+```
 
 ---
 
-## 17. v4.2 Roadmap
+### 7.3 API Endpoints
 
-### Phase 1 (IN PROGRESS)
-- [ ] LLM unification (`get_llm_client` everywhere)
-- [ ] Graphiti + Neo4j full integration
-- [ ] 125 tests passing
+```
+WEBHOOKS (Go — HMAC validated):
+  POST  /webhooks/razorpay          Razorpay payment events
+  POST  /webhooks/bank              Bank transaction feed
+  POST  /webhooks/telegram          Incoming Telegram messages
+  POST  /webhooks/manual-expense    Manual expense entry
 
-### Phase 2
-- [ ] Finance Desk (CFO + Bookkeeper + AR/AP + Payroll)
-- [ ] People Desk (HR + Internal Recruiter)
-- [ ] Legal Desk (Contracts + Compliance)
-- [ ] 150 tests passing
+INTERNAL (HITL signals → Temporal):
+  POST  /internal/hitl/investigate  Founder tapped Investigate
+  POST  /internal/hitl/dismiss      Founder tapped Dismiss
+  POST  /internal/query             Direct BI query (API/UI)
 
-### Phase 3
-- [ ] Intelligence Desk (BI + Policy Watcher)
-- [ ] IT & Tools Desk (IT Admin)
-- [ ] Admin Desk (EA + Knowledge Manager)
-- [ ] 175 tests passing
+ADMIN (Go + htmx):
+  GET   /                           Dashboard home
+  GET   /finance                    Finance agent status
+  GET   /bi                         BI query history
+  GET   /memory                     Qdrant memory browser
 
-### Phase 4
-- [ ] Chief of Staff routing (internal-only)
-- [ ] BusinessOS workflow (Go + Temporal)
-- [ ] HITL gate E2E test
-- [ ] 20/20 E2E tests green
-
-### Phase 5: v4.2.0
-- [ ] One real founder onboards
-- [ ] Uses at least 2 desks
-- [ ] Reports "This saved me admin time"
-- → **TAG v4.2.0**
+HEALTH:
+  GET   /health                     Infra health check
+  GET   /metrics                    Prometheus metrics
+```
 
 ---
 
-## 18. Documentation
+### 7.4 Qdrant Collections
 
-| Doc | Purpose |
-|-----|---------|
-| [PRD](./PRD.md) | Complete product requirements, agent specs (v4.2) |
-| [INTERNAL_OPS_SCOPE](./INTERNAL_OPS_SCOPE.md) | What we do / don't do boundary |
-| [TESTING](./TESTING_ARCHITECTURE.md) | Testing strategy, ~189 test targets |
-| [Architecture](./architecture/) | System design, data flow |
-| [API Docs](./api/) | All endpoints, request/response schemas |
+**`finance_memory`**
+- Vector: 1536-dim (nomic-embed-text via Ollama)
+- Payload: `tenant_id`, `event_type`, `vendor`, `amount`, `anomaly_score`, `explanation`, `action_taken`, `date`
+- Use: "what happened last time this vendor spiked?"
+
+**`bi_memory`**
+- Vector: 1536-dim
+- Payload: `tenant_id`, `query_text`, `sql`, `narrative`, `metric`, `date`
+- Use: "has this been asked before?" → return cached + diff
 
 ---
 
-**Last Updated:** 2026-03-13
-**Version:** 4.2.0-alpha — Internal Ops Virtual Office Only
+## 8. Workflows & SOP
+
+### Workflow 1 — Finance Anomaly (end-to-end)
+
+```
+Razorpay fires webhook
+  → Go validates HMAC → FAIL: 401 stop | PASS: continue
+  → Normalize to InternalEvent{tenant_id, type, payload}
+  → Publish to Redpanda: sarthi.events.raw
+  → Temporal FinanceWorkflow starts
+    → RunLangGraphFinanceAgent(event)
+      → 9-node ReAct loop executes
+    → SendTelegram(output_message)
+      → IF ALERT: [Investigate][Dismiss] buttons
+    → UpsertQdrant(memory_payload)
+    → LogToPostgres(agent_output)
+  → Founder receives alert < 5 minutes
+
+  IF [Investigate] tapped:
+    → /internal/hitl/investigate → Temporal signal
+    → BIWorkflow: "Break down {vendor} costs 30d"
+    → Chart + narrative → Telegram < 30 seconds
+
+  IF [Dismiss] tapped:
+    → Qdrant updated: "dismissed — not anomalous"
+    → Future score threshold raised for vendor
+```
+
+### Workflow 2 — BI Adhoc Query
+
+```
+Founder: "What was our MRR last month by plan?"
+  → Telegram webhook → Redpanda: sarthi.queries.raw
+  → Temporal BIWorkflow starts
+    → RunLangGraphBIAgent(query)
+      → 9-node ReAct loop executes
+    → SendTelegramWithChart(chart_png, narrative)
+    → UpsertQdrant(bi_memory_payload)
+  → Founder receives chart + narrative < 30 seconds
+```
+
+### Workflow 3 — Monday Weekly Digest
+
+```
+Temporal cron fires: Monday 9 AM IST
+  ├── FinanceWorkflow (TIME_TICK_WEEKLY)
+  │     → MRR, burn, runway WoW comparison
+  │     → Draft finance digest
+  └── BIWorkflow (TIME_TICK_WEEKLY)
+        → Run 3 proactive queries
+        → Bundle into Monday briefing
+  → Combined Telegram message by 9:05 AM
+```
+
+---
+
+## 9. Test Strategy
+
+### Unit Tests (40+ target)
+
+**Finance Agent nodes (14 tests):**
+```
+test_ingest_event_normalizes_razorpay_payload
+test_ingest_event_rejects_unknown_event_type
+test_update_snapshot_calculates_burn_correctly
+test_update_snapshot_calculates_runway_correctly
+test_load_vendor_baseline_returns_90d_avg
+test_detect_anomaly_scores_2x_spend_correctly
+test_detect_anomaly_scores_first_vendor_spike
+test_detect_anomaly_skips_normal_transaction
+test_detect_anomaly_flags_low_runway
+test_reason_and_explain_returns_non_empty_string
+test_decide_action_alerts_on_high_score
+test_decide_action_digests_on_weekly_tick
+test_decide_action_skips_on_low_score
+test_write_memory_payload_has_required_fields
+```
+
+**BI Agent nodes (10 tests):**
+```
+test_understand_query_classifies_revenue_query
+test_understand_query_classifies_trend_query
+test_generate_sql_produces_valid_sql
+test_generate_sql_handles_time_range_filter
+test_execute_sql_returns_rows
+test_execute_sql_retries_on_syntax_error
+test_decide_visualization_line_for_timeseries
+test_decide_visualization_bar_for_categorical
+test_generate_narrative_references_data_values
+test_write_memory_deduplicates_same_query
+```
+
+**Go webhook handlers (5+ tests):**
+```
+TestRazorpayWebhook_ValidHMAC_Returns200
+TestRazorpayWebhook_InvalidHMAC_Returns401
+TestRazorpayWebhook_PublishesToRedpanda
+TestBankWebhook_NormalizesPayload
+TestHealthEndpoint_Returns200
+```
+
+### E2E Tests (8+ target, real services — no mocks)
+
+```
+test_finance_anomaly_full_flow
+  1. Seed 90 days baseline spend
+  2. POST /webhooks/razorpay (2.3x vendor spike)
+  3. Assert: Redpanda consumed, Temporal COMPLETED,
+     anomaly_detected=True, Telegram sent,
+     Qdrant doc written, PostgreSQL row created
+  4. POST /internal/hitl/investigate
+  5. Assert: BIWorkflow triggered, chart created,
+     Telegram receives chart
+
+test_bi_adhoc_query_full_flow
+  1. Seed 6 months transactions
+  2. Telegram: "What was MRR last month?"
+  3. Assert: BIWorkflow COMPLETED, SQL valid,
+     result > 0 rows, narrative has number,
+     Qdrant written, second identical query cached
+
+test_weekly_digest_full_flow
+  1. Seed 4 weeks data
+  2. Manual Temporal cron trigger
+  3. Assert: digest + 3 proactive queries executed,
+     combined Telegram sent with MRR/burn/runway
+
+test_qdrant_memory_compounds
+  1. Trigger AWS anomaly → dismiss
+  2. Trigger same anomaly again
+  3. Assert: past_context has "dismissed" entry,
+     anomaly_score lower than first time
+
+test_infra_health
+  Temporal CONNECTED | Redpanda CONNECTED
+  PostgreSQL CONNECTED | Qdrant CONNECTED
+  Langfuse traces appearing
+```
+
+### LLM Evals (DSPy + Langfuse)
+
+| Eval | Dataset | Metric | Target |
+|---|---|---|---|
+| Anomaly explanation quality | 20 scripted scenarios + gold narratives | Correctness, no hallucination, < 60 words | > 80% |
+| Text-to-SQL accuracy | 15 NL queries + gold SQL | SQL valid, correct row count, column match | > 85% |
+| BI narrative quality | 10 SQL results + gold narratives | Data grounded, no hallucination, actionable | > 75% |
+
+All evals logged to Langfuse with input, output, expected, score, model, tokens, latency, and DSPy compile before/after comparison.
+
+---
+
+## 10. Build Checklist
+
+### Week 1 — Finance Agent
+- [ ] `docker-compose.yml` with Temporal, Redpanda, PostgreSQL, Qdrant
+- [ ] Go Fiber: `POST /webhooks/razorpay` with HMAC validation
+- [ ] Redpanda topic: `sarthi.events.raw`
+- [ ] Temporal `FinanceWorkflow` skeleton
+- [ ] Python worker: `RunLangGraphFinanceAgent` activity
+- [ ] LangGraph `FinanceAgent`: all 9 nodes
+- [ ] PostgreSQL migrations: 4 tables
+- [ ] Qdrant: `finance_memory` collection created
+- [ ] Telegram: anomaly alert with `[Investigate][Dismiss]`
+- [ ] Langfuse: trace appearing per agent run
+- [ ] `simulate_payment.sh` triggers full flow
+- [ ] 14 finance node unit tests passing
+- [ ] `test_finance_anomaly_full_flow` E2E passing
+
+### Week 2 — BI Agent
+- [ ] Redpanda topic: `sarthi.queries.raw`
+- [ ] Telegram webhook routes NL query to `BIWorkflow`
+- [ ] Temporal `BIWorkflow` skeleton
+- [ ] Python worker: `RunLangGraphBIAgent` activity
+- [ ] LangGraph `BIAgent`: all 9 nodes
+- [ ] Read-only PostgreSQL connection for SQL execution
+- [ ] Plotly chart generation in sandboxed subprocess
+- [ ] Qdrant: `bi_memory` collection created
+- [ ] `simulate_query.sh` triggers full flow
+- [ ] 10 BI node unit tests passing
+- [ ] `test_bi_adhoc_query_full_flow` E2E passing
+
+### Week 3 — Integration + Memory
+- [ ] Finance anomaly → triggers BI agent (cross-agent)
+- [ ] `[Investigate]` → BIWorkflow with vendor query
+- [ ] `[Dismiss]` → Qdrant memory updated
+- [ ] `test_qdrant_memory_compounds` passing
+- [ ] Monday weekly digest cron working
+- [ ] `test_weekly_digest_full_flow` passing
+- [ ] DSPy: compile finance + BI prompts
+- [ ] LLM evals: all 3 eval sets running in Langfuse
+
+### Week 4 — Production Polish
+- [ ] `docker-compose.prod.yml` for Hetzner deploy
+- [ ] Go tests: 5+ webhook handler tests passing
+- [ ] Python tests: 40+ unit + 8 E2E passing
+- [ ] `smoke_test.sh` all checks green
+- [ ] `README.md`: architecture + demo flow + test results
+- [ ] Langfuse dashboard screenshot for portfolio
+- [ ] 3-minute demo video recorded
+- [ ] GitHub: public repo, proper `.gitignore`
+- [ ] LinkedIn post drafted
+
+### Week 5 (Optional) — htmx Dashboard
+- [ ] Go templates: finance + BI + memory pages
+- [ ] SSE: live agent output feed
+- [ ] Screenshot for portfolio README
+
+---
+
+## 11. Metrics & KPIs
+
+**Portfolio metrics (what gets you hired):**
+
+| Metric | Target |
+|---|---|
+| Unit tests passing | 40+ |
+| E2E tests passing | 8+ (real services, no mocks) |
+| LLM eval sets | 3 (with before/after DSPy scores) |
+| Technologies demonstrated | 9 |
+| Demo duration | < 3 minutes, no setup |
+| Deploy | Live on Hetzner, real URL |
+| Observability | Langfuse dashboard with real traces |
+
+**Technical metrics:**
+
+| Metric | Target |
+|---|---|
+| Finance alert latency | < 5 min from webhook to Telegram |
+| BI query latency | < 30 seconds from query to chart |
+| SQL accuracy (eval set) | > 85% |
+| Anomaly precision (eval set) | > 80% |
+| Memory recall | > 70% relevant context returned |
+
+---
+
+## 12. Timeline
+
+| Week | Dates | Deliverable |
+|---|---|---|
+| 1 | Mar 21–27 | Finance Agent end-to-end |
+| 2 | Mar 28–Apr 3 | BI Agent end-to-end |
+| 3 | Apr 4–10 | Cross-agent integration + memory |
+| 4 | Apr 11–17 | Production deploy + portfolio polish |
+| 5 | Apr 18–24 | htmx dashboard (optional) |
+| 6 | Apr 25+ | User interviews → productization decision |
+
+---
+
+## Appendix: 3-Minute Demo Script
+
+```
+[0:00] "Sarthi is a multi-agent agentic AI system — the
+        ops memory brain for software startups."
+
+[0:20] Run: ./scripts/simulate_payment.sh
+       "Just fired a fake Razorpay webhook —
+        AWS bill 2.3x higher than the 90-day baseline."
+
+[0:35] Open Temporal UI → FinanceWorkflow RUNNING
+       "Temporal ensures this survives any crash.
+        Durable execution — not a cron job."
+
+[0:50] "LangGraph ReAct loop: Ingest → Load baseline
+        → Detect anomaly → Query Qdrant → Reason → Alert"
+
+[1:10] Show Qdrant returning memory:
+       "Similar AWS spike. October 2025.
+        Cause: undeleted staging environment."
+       "It didn't just detect it — it remembered."
+
+[1:30] Show Telegram alert:
+       "AWS bill 2.3x usual. First spike since October.
+        Check recent deployments. [Investigate][Dismiss]"
+
+[1:50] Tap [Investigate]
+       "Temporal receives the signal. BI Agent activates.
+        Generates SQL, executes it, builds a chart."
+       Show chart arriving in Telegram (< 30 seconds)
+
+[2:20] Open Langfuse:
+       "Every LLM call traced: input, output, tokens,
+        latency, score. Production observability."
+
+[2:45] "Two agents. Nine technologies.
+        Temporal durable workflows. LangGraph ReAct.
+        Qdrant episodic memory. Deployed. Tested.
+        Observable. This is Sarthi."
+
+[3:00] END
+```
+
+---
+
+**Document Version:** 1.0  
+**Last Updated:** March 21, 2026  
+**Status:** Ready for implementation

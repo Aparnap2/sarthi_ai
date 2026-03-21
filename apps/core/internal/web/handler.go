@@ -503,7 +503,7 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	// Main dashboard
 	app.Get("/", h.Dashboard)
 	app.Get("/dashboard", h.Dashboard)
-	
+
 	// Founder routes
 	app.Get("/founder/dashboard", h.FounderDashboard)
 
@@ -511,7 +511,7 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	app.Post("/api/feedback", h.HandleFeedback)
 	app.Get("/api/stats", h.HandleStats)
 	app.Get("/api/metrics", h.HandleMetrics)
-	
+
 	// Founder API endpoints
 	app.Get("/founder/dashboard/summary", func(c *fiber.Ctx) error {
 		// This will be handled by FounderDashboardHandler

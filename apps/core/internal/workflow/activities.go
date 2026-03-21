@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"iterateswarm-core/internal/agents"
+	"iterateswarm-core/internal/events"
 	"iterateswarm-core/internal/logging"
 	"iterateswarm-core/internal/memory"
 	"iterateswarm-core/internal/retry"
@@ -688,7 +689,7 @@ type RouteInternalEventInput struct {
 
 // RouteInternalEventOutput is output from event routing.
 type RouteInternalEventOutput struct {
-	DeskType  *DeskType          `json:"desk_type"`
+	DeskType  *DeskType           `json:"desk_type"`
 	HITLLevel *HITLClassification `json:"hitl_level"`
 }
 
@@ -700,15 +701,15 @@ func (a *Activities) RouteInternalEvent(ctx context.Context, input RouteInternal
 	// Deterministic routing map (mirrors Python CoS agent)
 	routingMap := map[string]DeskType{
 		// Finance Desk events
-		"bank_statement":        DeskFinance,
+		"bank_statement":          DeskFinance,
 		"transaction_categorized": DeskFinance,
-		"invoice_overdue":       DeskFinance,
-		"payment_received":      DeskFinance,
-		"payroll_due":           DeskFinance,
-		"reconciliation_needed": DeskFinance,
-		"ar_reminder":           DeskFinance,
-		"ap_due":                DeskFinance,
-		"payroll_prep":          DeskFinance,
+		"invoice_overdue":         DeskFinance,
+		"payment_received":        DeskFinance,
+		"payroll_due":             DeskFinance,
+		"reconciliation_needed":   DeskFinance,
+		"ar_reminder":             DeskFinance,
+		"ap_due":                  DeskFinance,
+		"payroll_prep":            DeskFinance,
 
 		// People Desk events
 		"new_hire":            DeskPeople,
@@ -769,21 +770,21 @@ func (a *Activities) RouteInternalEvent(ctx context.Context, input RouteInternal
 func determineHITLLevel(eventType string, payload map[string]interface{}) HITLClassification {
 	// HIGH: Financial transactions > threshold, legal contracts, security issues
 	highEvents := map[string]bool{
-		"bank_statement":     true,
-		"contract_uploaded":  true,
-		"security_audit":     true,
-		"compliance_due":     true,
-		"regulatory_filing":  true,
+		"bank_statement":    true,
+		"contract_uploaded": true,
+		"security_audit":    true,
+		"compliance_due":    true,
+		"regulatory_filing": true,
 	}
 
 	// MEDIUM: Payroll, hiring, anomalies
 	mediumEvents := map[string]bool{
-		"payroll_due":           true,
-		"hiring_request":        true,
-		"revenue_anomaly":       true,
-		"churn_detected":        true,
-		"invoice_overdue":       true,
-		"contract_expiry":       true,
+		"payroll_due":     true,
+		"hiring_request":  true,
+		"revenue_anomaly": true,
+		"churn_detected":  true,
+		"invoice_overdue": true,
+		"contract_expiry": true,
 	}
 
 	if highEvents[eventType] {
@@ -797,9 +798,9 @@ func determineHITLLevel(eventType string, payload map[string]interface{}) HITLCl
 	return HITLLow
 }
 
-// ProcessFinanceOpsInput is input for Finance Desk processing.
+// ProcessFinanceOpsInput is input for Finance Desk processing (v1.0 schema).
 type ProcessFinanceOpsInput struct {
-	FounderID    string                 `json:"founder_id"`
+	TenantID     string                 `json:"tenant_id"`
 	EventType    string                 `json:"event_type"`
 	EventPayload map[string]interface{} `json:"event_payload"`
 }
@@ -814,7 +815,7 @@ type ProcessFinanceOpsOutput struct {
 // ProcessFinanceOps processes events through Finance Desk (gRPC to Python).
 func (a *Activities) ProcessFinanceOps(ctx context.Context, input ProcessFinanceOpsInput) (*ProcessFinanceOpsOutput, error) {
 	a.logger.Info("processing finance ops",
-		"founder_id", input.FounderID,
+		"tenant_id", input.TenantID,
 		"event_type", input.EventType,
 	)
 
@@ -833,7 +834,7 @@ func (a *Activities) ProcessFinanceOps(ctx context.Context, input ProcessFinance
 
 // ProcessPeopleOpsInput is input for People Desk processing.
 type ProcessPeopleOpsInput struct {
-	FounderID    string                 `json:"founder_id"`
+	TenantID     string                 `json:"tenant_id"`
 	EventType    string                 `json:"event_type"`
 	EventPayload map[string]interface{} `json:"event_payload"`
 }
@@ -848,7 +849,7 @@ type ProcessPeopleOpsOutput struct {
 // ProcessPeopleOps processes events through People Desk (gRPC to Python).
 func (a *Activities) ProcessPeopleOps(ctx context.Context, input ProcessPeopleOpsInput) (*ProcessPeopleOpsOutput, error) {
 	a.logger.Info("processing people ops",
-		"founder_id", input.FounderID,
+		"tenant_id", input.TenantID,
 		"event_type", input.EventType,
 	)
 
@@ -867,7 +868,7 @@ func (a *Activities) ProcessPeopleOps(ctx context.Context, input ProcessPeopleOp
 // ProcessLegalOps processes events through Legal Desk (gRPC to Python).
 func (a *Activities) ProcessLegalOps(ctx context.Context, input ProcessLegalOpsInput) (*ProcessLegalOpsOutput, error) {
 	a.logger.Info("processing legal ops",
-		"founder_id", input.FounderID,
+		"tenant_id", input.TenantID,
 		"event_type", input.EventType,
 	)
 
@@ -885,7 +886,7 @@ func (a *Activities) ProcessLegalOps(ctx context.Context, input ProcessLegalOpsI
 
 // ProcessLegalOpsInput is input for Legal Desk processing.
 type ProcessLegalOpsInput struct {
-	FounderID    string                 `json:"founder_id"`
+	TenantID     string                 `json:"tenant_id"`
 	EventType    string                 `json:"event_type"`
 	EventPayload map[string]interface{} `json:"event_payload"`
 }
@@ -900,7 +901,7 @@ type ProcessLegalOpsOutput struct {
 // ProcessIntelligenceOps processes events through Intelligence Desk (gRPC to Python).
 func (a *Activities) ProcessIntelligenceOps(ctx context.Context, input ProcessIntelligenceOpsInput) (*ProcessIntelligenceOpsOutput, error) {
 	a.logger.Info("processing intelligence ops",
-		"founder_id", input.FounderID,
+		"tenant_id", input.TenantID,
 		"event_type", input.EventType,
 	)
 
@@ -918,7 +919,7 @@ func (a *Activities) ProcessIntelligenceOps(ctx context.Context, input ProcessIn
 
 // ProcessIntelligenceOpsInput is input for Intelligence Desk processing.
 type ProcessIntelligenceOpsInput struct {
-	FounderID    string                 `json:"founder_id"`
+	TenantID     string                 `json:"tenant_id"`
 	EventType    string                 `json:"event_type"`
 	EventPayload map[string]interface{} `json:"event_payload"`
 }
@@ -933,7 +934,7 @@ type ProcessIntelligenceOpsOutput struct {
 // ProcessITOps processes events through IT Desk (gRPC to Python).
 func (a *Activities) ProcessITOps(ctx context.Context, input ProcessITOpsInput) (*ProcessITOpsOutput, error) {
 	a.logger.Info("processing IT ops",
-		"founder_id", input.FounderID,
+		"tenant_id", input.TenantID,
 		"event_type", input.EventType,
 	)
 
@@ -951,7 +952,7 @@ func (a *Activities) ProcessITOps(ctx context.Context, input ProcessITOpsInput) 
 
 // ProcessITOpsInput is input for IT Desk processing.
 type ProcessITOpsInput struct {
-	FounderID    string                 `json:"founder_id"`
+	TenantID     string                 `json:"tenant_id"`
 	EventType    string                 `json:"event_type"`
 	EventPayload map[string]interface{} `json:"event_payload"`
 }
@@ -966,7 +967,7 @@ type ProcessITOpsOutput struct {
 // ProcessAdminOps processes events through Admin Desk (gRPC to Python).
 func (a *Activities) ProcessAdminOps(ctx context.Context, input ProcessAdminOpsInput) (*ProcessAdminOpsOutput, error) {
 	a.logger.Info("processing admin ops",
-		"founder_id", input.FounderID,
+		"tenant_id", input.TenantID,
 		"event_type", input.EventType,
 	)
 
@@ -984,7 +985,7 @@ func (a *Activities) ProcessAdminOps(ctx context.Context, input ProcessAdminOpsI
 
 // ProcessAdminOpsInput is input for Admin Desk processing.
 type ProcessAdminOpsInput struct {
-	FounderID    string                 `json:"founder_id"`
+	TenantID     string                 `json:"tenant_id"`
 	EventType    string                 `json:"event_type"`
 	EventPayload map[string]interface{} `json:"event_payload"`
 }
@@ -1009,7 +1010,7 @@ func (a *Activities) callPythonDeskAgent(ctx context.Context, deskType string, i
 
 // PersistInternalOpsResultInput is input for persisting internal ops results.
 type PersistInternalOpsResultInput struct {
-	FounderID    string                 `json:"founder_id"`
+	TenantID     string                 `json:"tenant_id"`
 	EventType    string                 `json:"event_type"`
 	DeskType     string                 `json:"desk_type"`
 	Result       map[string]interface{} `json:"result"`
@@ -1020,7 +1021,7 @@ type PersistInternalOpsResultInput struct {
 // PersistInternalOpsResult persists internal ops results to database.
 func (a *Activities) PersistInternalOpsResult(ctx context.Context, input PersistInternalOpsResultInput) error {
 	a.logger.Info("persisting internal ops result",
-		"founder_id", input.FounderID,
+		"tenant_id", input.TenantID,
 		"desk_type", input.DeskType,
 	)
 
@@ -1033,18 +1034,18 @@ func (a *Activities) PersistInternalOpsResult(ctx context.Context, input Persist
 
 // CreateHITLRecordInput is input for creating HITL records.
 type CreateHITLRecordInput struct {
-	FounderID  string                 `json:"founder_id"`
-	EventType  string                 `json:"event_type"`
-	DeskType   string                 `json:"desk_type"`
-	HITLLevel  string                 `json:"hitl_level"`
-	Result     map[string]interface{} `json:"result"`
-	ChannelID  string                 `json:"channel_id"`
+	TenantID  string                 `json:"tenant_id"`
+	EventType string                 `json:"event_type"`
+	DeskType  string                 `json:"desk_type"`
+	HITLLevel string                 `json:"hitl_level"`
+	Result    map[string]interface{} `json:"result"`
+	ChannelID string                 `json:"channel_id"`
 }
 
 // CreateHITLRecord creates a HITL approval record.
 func (a *Activities) CreateHITLRecord(ctx context.Context, input CreateHITLRecordInput) error {
 	a.logger.Info("creating HITL record",
-		"founder_id", input.FounderID,
+		"tenant_id", input.TenantID,
 		"desk_type", input.DeskType,
 		"hitl_level", input.HITLLevel,
 	)
@@ -1088,4 +1089,64 @@ func PersistInternalOpsResult(ctx context.Context, input PersistInternalOpsResul
 
 func CreateHITLRecord(ctx context.Context, input CreateHITLRecordInput) error {
 	return globalActivities.CreateHITLRecord(ctx, input)
+}
+
+// =============================================================================
+// SOP Executor Activity
+// =============================================================================
+
+// ExecuteSOPActivity calls Python SOP executor via gRPC
+func ExecuteSOPActivity(ctx context.Context, envelope events.EventEnvelope) (*SOPActivityResult, error) {
+	// Get gRPC client from context
+	client, ok := ctx.Value("grpc_client").(aiv1.SOPExecutorClient)
+	if !ok {
+		// Try to create a new client
+		grpcAddr := "localhost:50051" // Default address
+		conn, err := grpc.NewClient(
+			grpcAddr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if err != nil {
+			return &SOPActivityResult{
+				Success: false,
+				Message: "gRPC client not available: " + err.Error(),
+			}, nil
+		}
+		defer conn.Close()
+		client = aiv1.NewSOPExecutorClient(conn)
+	}
+
+	// Convert envelope to protobuf (v1.0 schema)
+	protoEnv := &aiv1.EventEnvelope{
+		TenantId:       envelope.TenantID,
+		EventType:      envelope.EventType,
+		Source:         string(envelope.Source),
+		PayloadRef:     envelope.PayloadRef,
+		PayloadHash:    envelope.PayloadHash,
+		OccurredAt:     envelope.OccurredAt.Unix(),
+		ReceivedAt:     envelope.ReceivedAt.Unix(),
+		TraceId:        envelope.TraceID,
+		IdempotencyKey: envelope.IdempotencyKey,
+	}
+
+	// Call Python SOP executor with timeout
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	resp, err := client.ExecuteSOP(callCtx, &aiv1.ExecuteSOPRequest{
+		Envelope: protoEnv,
+	})
+
+	if err != nil {
+		return &SOPActivityResult{
+			Success: false,
+			Message: err.Error(),
+		}, err
+	}
+
+	return &SOPActivityResult{
+		Success:   resp.Success,
+		Message:   resp.Message,
+		FireAlert: resp.FireAlert,
+	}, nil
 }

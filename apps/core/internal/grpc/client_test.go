@@ -71,7 +71,7 @@ func TestGRPCClient_HappyPath(t *testing.T) {
 func TestGRPCClient_ServerUnavailable(t *testing.T) {
 	// No skip — this test must work even without a running gRPC server
 	c, err := grpc.NewClient("localhost:50099") // nothing here
-	require.NoError(t, err) // gRPC connection is lazy — no error at dial
+	require.NoError(t, err)                     // gRPC connection is lazy — no error at dial
 	defer c.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

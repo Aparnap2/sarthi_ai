@@ -13,13 +13,13 @@ import (
 
 // Trace represents a distributed trace.
 type Trace struct {
-	TraceID       string      `json:"trace_id"`
-	Spans         []Span      `json:"spans"`
-	Duration      time.Duration `json:"duration"`
-	StartTime     time.Time   `json:"start_time"`
-	EndTime       time.Time   `json:"end_time"`
-	ServiceName   string      `json:"service_name"`
-	Status        string      `json:"status"`
+	TraceID     string        `json:"trace_id"`
+	Spans       []Span        `json:"spans"`
+	Duration    time.Duration `json:"duration"`
+	StartTime   time.Time     `json:"start_time"`
+	EndTime     time.Time     `json:"end_time"`
+	ServiceName string        `json:"service_name"`
+	Status      string        `json:"status"`
 }
 
 // Span represents a single trace span.
@@ -34,7 +34,7 @@ type Span struct {
 	Duration      time.Duration     `json:"duration"`
 	Tags          map[string]string `json:"tags,omitempty"`
 	Logs          []SpanLog         `json:"logs,omitempty"`
-	References    []SpanReference  `json:"references,omitempty"`
+	References    []SpanReference   `json:"references,omitempty"`
 	Children      []string          `json:"children,omitempty"`
 }
 
@@ -54,14 +54,14 @@ type SpanReference struct {
 
 // TraceDetail represents detailed trace information for the API.
 type TraceDetail struct {
-	TraceID      string          `json:"trace_id"`
-	Spans        []Span          `json:"spans"`
-	SpanCount    int             `json:"span_count"`
-	Duration     string          `json:"duration"`
-	StartTime    string          `json:"start_time"`
-	Services     []string        `json:"services"`
-	Status       string          `json:"status"`
-	Errors       []string        `json:"errors,omitempty"`
+	TraceID   string   `json:"trace_id"`
+	Spans     []Span   `json:"spans"`
+	SpanCount int      `json:"span_count"`
+	Duration  string   `json:"duration"`
+	StartTime string   `json:"start_time"`
+	Services  []string `json:"services"`
+	Status    string   `json:"status"`
+	Errors    []string `json:"errors,omitempty"`
 }
 
 // JaegerTraceResponse represents the response from Jaeger API.
@@ -74,31 +74,31 @@ type JaegerTraceResponse struct {
 
 // JaegerTrace represents a trace from Jaeger.
 type JaegerTrace struct {
-	TraceID   string     `json:"traceID"`
-	Spans     []JaegerSpan `json:"spans"`
+	TraceID   string                   `json:"traceID"`
+	Spans     []JaegerSpan             `json:"spans"`
 	Processes map[string]JaegerProcess `json:"processes"`
-	Warnings  []string   `json:"warnings,omitempty"`
+	Warnings  []string                 `json:"warnings,omitempty"`
 }
 
 // JaegerSpan represents a span from Jaeger.
 type JaegerSpan struct {
-	TraceID    string         `json:"traceID"`
-	SpanID     string         `json:"spanID"`
-	ParentSpanID string       `json:"parentSpanID,omitempty"`
-	OperationName string     `json:"operationName"`
-	References []JaegerRef   `json:"references,omitempty"`
-	StartTime  int64          `json:"startTime"`
-	Duration   int64          `json:"duration"`
-	Tags       []JaegerTag   `json:"tags,omitempty"`
-	Logs       []JaegerLog   `json:"logs,omitempty"`
-	Process    JaegerProcess `json:"process,omitempty"`
+	TraceID       string        `json:"traceID"`
+	SpanID        string        `json:"spanID"`
+	ParentSpanID  string        `json:"parentSpanID,omitempty"`
+	OperationName string        `json:"operationName"`
+	References    []JaegerRef   `json:"references,omitempty"`
+	StartTime     int64         `json:"startTime"`
+	Duration      int64         `json:"duration"`
+	Tags          []JaegerTag   `json:"tags,omitempty"`
+	Logs          []JaegerLog   `json:"logs,omitempty"`
+	Process       JaegerProcess `json:"process,omitempty"`
 }
 
 // JaegerRef represents a span reference in Jaeger.
 type JaegerRef struct {
-	RefType    string `json:"refType"`
-	TraceID    string `json:"traceID"`
-	SpanID     string `json:"spanID"`
+	RefType string `json:"refType"`
+	TraceID string `json:"traceID"`
+	SpanID  string `json:"spanID"`
 }
 
 // JaegerTag represents a tag in Jaeger.
@@ -110,7 +110,7 @@ type JaegerTag struct {
 
 // JaegerLog represents a log entry in Jaeger.
 type JaegerLog struct {
-	Timestamp int64       `json:"timestamp"`
+	Timestamp int64            `json:"timestamp"`
 	Fields    []JaegerLogField `json:"fields"`
 }
 
@@ -170,11 +170,11 @@ func GetTraceDetails(ctx context.Context, jaegerURL, traceID string) (*TraceDeta
 // convertJaegerTrace converts a Jaeger trace to our TraceDetail format.
 func convertJaegerTrace(jaegerTrace JaegerTrace) *TraceDetail {
 	detail := &TraceDetail{
-		TraceID:   jaegerTrace.TraceID,
-		Spans:     make([]Span, 0, len(jaegerTrace.Spans)),
-		Services:  make([]string, 0),
-		Status:    "ok",
-		Errors:    make([]string, 0),
+		TraceID:  jaegerTrace.TraceID,
+		Spans:    make([]Span, 0, len(jaegerTrace.Spans)),
+		Services: make([]string, 0),
+		Status:   "ok",
+		Errors:   make([]string, 0),
 	}
 
 	serviceSet := make(map[string]bool)
@@ -334,12 +334,12 @@ func SearchTraces(ctx context.Context, jaegerURL, service, operation string, lim
 
 // TraceSummary represents a summary of a trace for listing.
 type TraceSummary struct {
-	TraceID      string   `json:"trace_id"`
-	SpanCount    int      `json:"span_count"`
-	OperationName string  `json:"operation_name"`
-	StartTime    string  `json:"start_time"`
-	Duration     time.Duration `json:"duration"`
-	Services     []string `json:"services"`
+	TraceID       string        `json:"trace_id"`
+	SpanCount     int           `json:"span_count"`
+	OperationName string        `json:"operation_name"`
+	StartTime     string        `json:"start_time"`
+	Duration      time.Duration `json:"duration"`
+	Services      []string      `json:"services"`
 }
 
 // ListServices lists available services from Jaeger.

@@ -8,7 +8,20 @@ import (
 	"time"
 
 	"github.com/segmentio/kafka-go"
+	"iterateswarm-core/internal/events"
 )
+
+// Producer interface for publishing events
+type Producer interface {
+	Publish(value []byte) error
+	PublishToTopic(topic string, value []byte) error
+	ProduceMessage(topic string, message map[string]interface{}) error
+	PublishFeedback(data []byte) error
+	PublishEnvelope(topic string, envelope events.EventEnvelope) error
+	Consume(ctx context.Context, topic string) <-chan kafka.Message
+	Close() error
+	Health(ctx context.Context) error
+}
 
 // Client wraps the Kafka client.
 type Client struct {
@@ -21,9 +34,9 @@ type Client struct {
 func NewClient(brokers []string, topic string) (*Client, error) {
 	log.Printf("Connecting to Kafka at %v", brokers)
 
+	// Don't set Topic on Writer - we'll set it on each message for flexibility
 	writer := &kafka.Writer{
 		Addr:         kafka.TCP(brokers...),
-		Topic:        topic,
 		Balancer:     &kafka.LeastBytes{},
 		BatchTimeout: 10 * time.Millisecond,
 	}
@@ -79,6 +92,7 @@ func (c *Client) Publish(value []byte) error {
 	defer cancel()
 
 	msg := kafka.Message{
+		Topic: c.topic,
 		Value: value,
 		Key:   []byte(time.Now().Format(time.RFC3339)),
 	}
@@ -128,6 +142,15 @@ func (c *Client) PublishFeedback(data []byte) error {
 	return c.Publish(data)
 }
 
+// PublishEnvelope publishes an event envelope to the specified topic
+func (c *Client) PublishEnvelope(topic string, envelope events.EventEnvelope) error {
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		return fmt.Errorf("failed to marshal envelope: %w", err)
+	}
+	return c.PublishToTopic(topic, data)
+}
+
 // Consume consumes messages from a topic.
 func (c *Client) Consume(ctx context.Context, topic string) <-chan kafka.Message {
 	records := make(chan kafka.Message, 100)
@@ -169,7 +192,7 @@ func (c *Client) Close() error {
 
 // Health checks if the client is healthy.
 func (c *Client) Health(ctx context.Context) error {
-conn, err := kafka.Dial("tcp", c.writer.Addr.String())
+	conn, err := kafka.Dial("tcp", c.writer.Addr.String())
 	if err != nil {
 		return err
 	}

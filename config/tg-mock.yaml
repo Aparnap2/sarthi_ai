@@ -1,0 +1,48 @@
+# tg-mock configuration for Sarthi
+server:
+  port: 8081
+  verbose: true
+  faker_seed: 12345  # Fixed seed for reproducible tests
+
+storage:
+  dir: /tmp/tg-mock-files
+
+# Use Telegram-format tokens (numeric:alphanumeric)
+tokens:
+  "123456789:ABC-xyz":
+    status: active
+    bot_name: MockBot
+  
+  "987654321:ZYX-cba":
+    status: active
+    bot_name: SarthiTestBot
+    webhook:
+      url: "http://localhost:8080/webhooks/telegram"
+      secret_token: "sarthi-webhook-secret"
+      max_connections: 40
+      allowed_updates: ["message", "callback_query", "channel_post"]
+
+scenarios:
+  # Error scenario for rate limiting
+  - method: sendMessage
+    match:
+      chat_id: 999
+    response:
+      error_code: 429
+      description: "Too Many Requests: retry after 30"
+  
+  # Success override for getMe
+  - method: getMe
+    response_data:
+      id: 123456789
+      first_name: "Sarthi"
+      username: "sarthi_test_bot"
+      is_bot: true
+  
+  # Chat not found error
+  - method: sendMessage
+    match:
+      chat_id: 888
+    response:
+      error_code: 400
+      description: "Bad Request: chat not found"

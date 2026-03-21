@@ -25,14 +25,14 @@ var OnboardingQuestions = []struct {
 
 // OnboardingResult represents the result of processing an onboarding answer
 type OnboardingResult struct {
-	QuestionID      string  `json:"question_id"`
-	QuestionText    string  `json:"question_text"`
-	ContextType     string  `json:"context_type"`
-	Content         string  `json:"content"`
-	Confidence      float64 `json:"confidence"`
-	QdrantPointID   string  `json:"qdrant_point_id"`
+	QuestionID          string   `json:"question_id"`
+	QuestionText        string   `json:"question_text"`
+	ContextType         string   `json:"context_type"`
+	Content             string   `json:"content"`
+	Confidence          float64  `json:"confidence"`
+	QdrantPointID       string   `json:"qdrant_point_id"`
 	ImplicitConstraints []string `json:"implicit_constraints,omitempty"`
-	Keywords        []string `json:"keywords,omitempty"`
+	Keywords            []string `json:"keywords,omitempty"`
 }
 
 // handleOnboardingReply processes a founder's answer during onboarding
@@ -97,7 +97,7 @@ func (h *Handler) handleOnboardingReply(founderID, slackUserID, answer, threadTS
 		// Detect archetype (simplified for v1 - in v2 this calls Python agent)
 		archetype := detectArchetypeFromAnswers(ctx, h.db, founderID)
 		threshold := getThresholdForArchetype(archetype)
-		
+
 		_, err = h.db.ExecContext(ctx, `
 			UPDATE founders 
 			SET onboarding_complete = true, 
@@ -118,8 +118,8 @@ func (h *Handler) handleOnboardingReply(founderID, slackUserID, answer, threadTS
 			logger.Error("failed to send completion message", err)
 		}
 
-		logger.Info("onboarding complete", 
-			"founder_id", founderID, 
+		logger.Info("onboarding complete",
+			"founder_id", founderID,
 			"archetype", archetype,
 			"threshold", threshold)
 		return nil
@@ -135,8 +135,8 @@ func (h *Handler) handleOnboardingReply(founderID, slackUserID, answer, threadTS
 			logger.Error("failed to send next question", err)
 			return err
 		}
-		logger.Info("sent next onboarding question", 
-			"founder_id", founderID, 
+		logger.Info("sent next onboarding question",
+			"founder_id", founderID,
 			"question_num", questionNum,
 			"question_id", nextQuestion.ID)
 	}
@@ -154,14 +154,14 @@ func (h *Handler) startOnboarding(slackUserID string) (string, error) {
 	err := h.db.QueryRowContext(ctx, `
 		SELECT id FROM founders WHERE slack_user_id = $1
 	`, slackUserID).Scan(&founderID)
-	
+
 	if err == nil {
 		// Founder exists, check if onboarding complete
 		var onboardingComplete bool
 		err = h.db.QueryRowContext(ctx, `
 			SELECT onboarding_complete FROM founders WHERE id = $1
 		`, founderID).Scan(&onboardingComplete)
-		
+
 		if err == nil && onboardingComplete {
 			logger.Info("founder already onboarded", "founder_id", founderID)
 			return "", fmt.Errorf("founder already onboarded")
@@ -233,7 +233,7 @@ func getNextQuestion(answeredIDs []string) *struct {
 func detectArchetypeFromAnswers(ctx context.Context, db *sql.DB, founderID string) string {
 	// Simplified archetype detection for v1
 	// In v2, this would call the Python ContextInterviewAgent.detect_archetype()
-	
+
 	var answers []string
 	rows, err := db.QueryContext(ctx, `
 		SELECT raw_answer FROM onboarding_answers WHERE founder_id = $1
@@ -342,11 +342,11 @@ func (h *Handler) sendSlackMessage(slackUserID, text string) error {
 	// For v1, this is a stub that logs the message
 	// In v2, this would use the Slack Bolt API to send actual DMs
 	logger := logging.NewLogger("slack")
-	logger.Info("would send Slack message", 
-		"user_id", slackUserID, 
+	logger.Info("would send Slack message",
+		"user_id", slackUserID,
 		"text", text,
 		"channel_type", "im")
-	
+
 	// TODO: Implement actual Slack API call using bolt-go or slack-go
 	// For now, just log it
 	return nil
