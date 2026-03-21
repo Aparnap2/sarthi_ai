@@ -28,7 +28,7 @@ from .prompts import AnomalyExplainer, FinanceDigestWriter
 
 # ── Environment ───────────────────────────────────────────────────
 DATABASE_URL      = os.getenv("DATABASE_URL",
-    "postgresql://sarthi:sarthi @localhost:5433/sarthi")
+    "postgresql://iterateswarm:iterateswarm@localhost:5433/iterateswarm")
 QDRANT_URL        = os.getenv("QDRANT_URL", "http://localhost:6333")
 OLLAMA_BASE_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "qwen3:0.6b")
