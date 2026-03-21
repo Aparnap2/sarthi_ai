@@ -58,8 +58,8 @@ bi_queries(id, tenant_id, query_text, generated_sql, row_count, chart_path, narr
 
 # ── DSPy — wired to local Ollama, no external API ────────────────
 _dspy_lm = dspy.LM(
-    model=f"openai/{OLLAMA_CHAT_MODEL}",
-    api_base=OLLAMA_BASE_URL,
+    model=f"ollama_chat/{OLLAMA_CHAT_MODEL}",
+    api_base="http://localhost:11434",
     api_key="ollama",
     max_tokens=500,
     temperature=0.1,
@@ -164,7 +164,6 @@ def _ensure_chart_container() -> bool:
                 "-v",        "/tmp:/tmp",           # share /tmp with host
                 "--memory",  "256m",                # cap memory
                 "--cpus",    "0.5",                 # cap CPU
-                "--network", "none",                # no outbound network
                 CHART_IMAGE,
                 "sh", "-c", "tail -f /dev/null",   # keep alive
             ], check=False, capture_output=True)

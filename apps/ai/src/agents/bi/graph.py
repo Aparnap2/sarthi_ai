@@ -10,6 +10,7 @@ SQL Retry Edge:
   - Otherwise → continue to decide_viz
 """
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 
 from .state import BIState
 from .nodes import (
@@ -49,7 +50,7 @@ def _should_retry_sql(state: BIState) -> str:
 
 def build_bi_graph() -> StateGraph:
     """
-    Build and compile the BI Agent LangGraph.
+    Build and compile the BI Agent LangGraph with MemorySaver checkpointer.
 
     Graph structure:
       understand_query → generate_sql → execute_sql ↔ (retry loop)
@@ -59,7 +60,7 @@ def build_bi_graph() -> StateGraph:
                                         generate_narrative → write_memory → emit_output → END
 
     Returns:
-        Compiled StateGraph ready for invocation
+        Compiled StateGraph ready for invocation (with HITL support)
     """
     g = StateGraph(BIState)
 
@@ -97,7 +98,9 @@ def build_bi_graph() -> StateGraph:
     g.add_edge("write_memory", "emit_output")
     g.add_edge("emit_output", END)
 
-    return g.compile()
+    # MemorySaver checkpointer for HITL signals (Phase 4+)
+    checkpointer = MemorySaver()
+    return g.compile(checkpointer=checkpointer)
 
 
 # Module-level singleton — imported by Temporal worker

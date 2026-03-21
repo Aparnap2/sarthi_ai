@@ -9,6 +9,7 @@ The graph is a linear pipeline — anomaly detection is score-based
 inside node_detect_anomaly, branching is in node_decide_action.
 """
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 
 from .state import FinanceState
 from .nodes import (
@@ -26,10 +27,10 @@ from .nodes import (
 
 def build_finance_graph() -> StateGraph:
     """
-    Build and compile the Finance Agent LangGraph.
-    
+    Build and compile the Finance Agent LangGraph with MemorySaver checkpointer.
+
     Returns:
-        Compiled StateGraph ready for invocation
+        Compiled StateGraph ready for invocation (with HITL support)
     """
     g = StateGraph(FinanceState)
 
@@ -57,7 +58,9 @@ def build_finance_graph() -> StateGraph:
     g.add_edge("write_memory", "emit_output")
     g.add_edge("emit_output", END)
 
-    return g.compile()
+    # MemorySaver checkpointer for HITL signals (Phase 4+)
+    checkpointer = MemorySaver()
+    return g.compile(checkpointer=checkpointer)
 
 
 # Module-level singleton — imported by Temporal worker
