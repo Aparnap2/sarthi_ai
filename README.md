@@ -310,6 +310,108 @@ iterate_swarm/
 
 ---
 
+## HTMX UI
+
+**Access:** http://localhost:8080/founder/dashboard
+
+### Features
+
+| Feature | Description | Refresh |
+|---------|-------------|---------|
+| **Real-time Founder Dashboard** | SSE streaming with live updates | Every 30s |
+| **Live Event Feed** | Streaming events from Redpanda | Real-time (SSE) |
+| **HITL Approval Queue** | Human-in-the-loop for finance anomalies | Every 5s |
+| **Agent Status Map** | SVG topology visualization | Every 10s |
+| **Task Board** | Kanban-style task tracking | Every 10s |
+| **Finance Alerts** | Recent finance anomalies from Finance Agent | Every 30s |
+| **BI Query Results** | Recent BI agent query results | Every 60s |
+| **Configuration Panel** | System configuration management | On-demand |
+| **Telemetry Dashboard** | Observability metrics (SigNoz, HyperDX) | Every 30s |
+
+### Routes
+
+#### Founder Dashboard
+- `/founder/dashboard` — Main founder dashboard
+- `/founder/dashboard/summary` — HTMX partial (dashboard summary cards)
+- `/founder/dashboard/stream` — SSE event stream for live updates
+- `/founder/reflection` — Weekly reflection submission
+
+#### API Endpoints
+- `/api/live-feed` — SSE event stream from Redpanda
+- `/api/finance/alerts` — Recent finance anomalies
+- `/api/bi/recent` — Recent BI query results
+- `/api/approvals/pending` — HITL approval queue
+- `/api/approvals/:id/approve` — Approve pending item
+- `/api/approvals/:id/reject` — Reject pending item
+- `/api/agent-map` — Agent topology visualization
+- `/api/agents/status` — All agents status
+- `/api/agents/:agent/status` — Specific agent status
+- `/api/tasks/board` — Full task board
+- `/api/tasks/queued` — Queued tasks
+- `/api/tasks/analyzing` — Tasks in analysis
+- `/api/tasks/awaiting-hitl` — Tasks awaiting human review
+- `/api/tasks/completed` — Completed tasks
+- `/api/config` — System configuration
+- `/api/config/panel` — Configuration panel UI
+- `/api/telemetry/panel` — Telemetry dashboard
+- `/api/telemetry/overview` — Telemetry overview metrics
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    HTMX Frontend                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │  Dashboard  │  │  Live Feed  │  │  HITL Queue │         │
+│  │   (SSE)     │  │   (SSE)     │  │  (Polling)  │         │
+│  └─────────────┘  └─────────────┘  └─────────────┘         │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ HTTP + HTMX
+┌──────────────────────────▼──────────────────────────────────┐
+│                    Go Fiber Backend                          │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │  Handlers   │  │   Templates │  │   Events    │         │
+│  │  (1,223 LoC)│  │  (12 files) │  │  (PostgreSQL)│        │
+│  └─────────────┘  └─────────────┘  └─────────────┘         │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                    Data Layer                                │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │ PostgreSQL  │  │  Redpanda   │  │  Qdrant     │         │
+│  │ (sqlc)      │  │  (Events)   │  │  (Vector)   │         │
+│  └─────────────┘  └─────────────┘  └─────────────┘         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Templates
+
+| Template | Lines | Purpose |
+|----------|-------|---------|
+| `founder_dashboard.html` | 294 | Main founder dashboard with reflection form |
+| `dashboard.html` | 223 | Admin dashboard with 6 panels |
+| `agent_map.html` | 276 | SVG agent topology visualization |
+| `task_board.html` | 263 | Kanban-style task board |
+| `hitl_queue.html` | 150 | HITL approval queue |
+| `live_feed.html` | 157 | SSE streaming event feed |
+| `config_panel.html` | 272 | System configuration form |
+| `telemetry_panel.html` | 302 | Observability dashboard |
+| `partials/finance_alerts.html` | NEW | Finance agent anomaly alerts |
+| `partials/bi_queries.html` | NEW | BI query results display |
+
+### Quick Start
+
+```bash
+# Start Go server
+cd apps/core
+go run cmd/server/main.go
+
+# Open browser
+# http://localhost:8080/founder/dashboard
+```
+
+---
+
 ## Production Checklist
 
 - [x] Type safety (mypy --strict, tsc --noEmit)

@@ -120,12 +120,27 @@ type Approval struct {
 
 // GetPendingApprovals returns pending HITL approvals from PostgreSQL
 func (h *Handler) GetPendingApprovals(c *fiber.Ctx) error {
-	// Query HITL queue from PostgreSQL
+	// Query HITL queue from PostgreSQL - includes both hitl_queue and agent_outputs
 	rows, err := h.db.Query(`
-		SELECT task_id, issue_title, issue_body, severity, created_at
-		FROM hitl_queue
-		WHERE status = 'pending' AND expires_at > NOW()
-		ORDER BY created_at DESC
+		SELECT 
+			COALESCE(hq.task_id, ao.id) as task_id,
+			COALESCE(hq.issue_title, ao.headline) as title,
+			COALESCE(hq.issue_body, ao.output_json->>'reasoning') as body,
+			COALESCE(hq.severity, ao.urgency) as severity,
+			COALESCE(hq.created_at, ao.created_at) as created_at,
+			CASE 
+				WHEN hq.task_id IS NOT NULL THEN 'hitl_queue'
+				ELSE 'agent_outputs'
+			END as source
+		FROM hitl_queue hq
+		FULL OUTER JOIN agent_outputs ao 
+			ON ao.agent_name = 'finance' 
+			AND ao.hitl_sent = true
+			AND ao.output_type = 'anomaly_alert'
+		WHERE (hq.status = 'pending' AND hq.expires_at > NOW())
+			OR (ao.id IS NOT NULL AND ao.hitl_sent = true)
+		ORDER BY COALESCE(hq.created_at, ao.created_at) DESC
+		LIMIT 20
 	`)
 	if err != nil {
 		// Return empty list on error
@@ -137,17 +152,19 @@ func (h *Handler) GetPendingApprovals(c *fiber.Ctx) error {
 
 	var approvals []Approval
 	for rows.Next() {
-		var taskID, title, body, severity string
+		var taskID, title, body, severity, source string
 		var createdAt time.Time
-		if err := rows.Scan(&taskID, &title, &body, &severity, &createdAt); err != nil {
+		if err := rows.Scan(&taskID, &title, &body, &severity, &createdAt, &source); err != nil {
 			continue
 		}
 		approvals = append(approvals, Approval{
 			ID:        taskID,
-			PRNumber:  0, // TODO: Get actual PR number
 			Type:      severity,
 			Reasoning: body,
 			CreatedAt: createdAt.Format(time.RFC3339),
+			Metadata: map[string]interface{}{
+				"source": source,
+			},
 		})
 	}
 
@@ -491,6 +508,173 @@ func (h *Handler) GetLogsData(c *fiber.Ctx) error {
 	})
 }
 
+// ============== Sarthi Enhancements ==============
+
+// FinanceAlert represents a finance anomaly alert
+type FinanceAlert struct {
+	ID        string    `json:"id"`
+	TenantID  string    `json:"tenant_id"`
+	Vendor    string    `json:"vendor"`
+	Amount    float64   `json:"amount"`
+	Expected  float64   `json:"expected"`
+	Multiple  float64   `json:"multiple"`
+	Urgency   string    `json:"urgency"` // low, medium, high, critical
+	Headline  string    `json:"headline"`
+	CreatedAt time.Time `json:"created_at"`
+	HITLSent  bool      `json:"hitl_sent"`
+}
+
+// GetFinanceAlerts returns recent finance anomalies from agent_outputs
+func (h *Handler) GetFinanceAlerts(c *fiber.Ctx) error {
+	// Query agent_outputs table for finance alerts
+	rows, err := h.db.Query(`
+		SELECT 
+			id,
+			tenant_id,
+			output_json->>'vendor_name' as vendor,
+			(output_json->>'amount')::float as amount,
+			(output_json->>'expected_amount')::float as expected,
+			(output_json->>'multiple')::float as multiple,
+			urgency,
+			headline,
+			hitl_sent,
+			created_at
+		FROM agent_outputs
+		WHERE agent_name = 'finance'
+			AND output_type = 'anomaly_alert'
+		ORDER BY created_at DESC
+		LIMIT 10
+	`)
+	if err != nil {
+		// Return empty list on error
+		return Render(c, "partials/finance_alerts", fiber.Map{
+			"Alerts": []FinanceAlert{},
+		})
+	}
+	defer rows.Close()
+
+	var alerts []FinanceAlert
+	for rows.Next() {
+		var alert FinanceAlert
+		var vendor, headline sql.NullString
+		var expected, multiple sql.NullFloat64
+		var hitlSent sql.NullBool
+
+		if err := rows.Scan(
+			&alert.ID,
+			&alert.TenantID,
+			&vendor,
+			&alert.Amount,
+			&expected,
+			&multiple,
+			&alert.Urgency,
+			&headline,
+			&hitlSent,
+			&alert.CreatedAt,
+		); err != nil {
+			continue
+		}
+
+		if vendor.Valid {
+			alert.Vendor = vendor.String
+		}
+		if expected.Valid {
+			alert.Expected = expected.Float64
+		}
+		if multiple.Valid {
+			alert.Multiple = multiple.Float64
+		}
+		if headline.Valid {
+			alert.Headline = headline.String
+		}
+		if hitlSent.Valid {
+			alert.HITLSent = hitlSent.Bool
+		}
+
+		alerts = append(alerts, alert)
+	}
+
+	return Render(c, "partials/finance_alerts", fiber.Map{
+		"Alerts": alerts,
+	})
+}
+
+// BIQueryResult represents a BI query result
+type BIQueryResult struct {
+	ID        string    `json:"id"`
+	TenantID  string    `json:"tenant_id"`
+	Query     string    `json:"query"`
+	Result    string    `json:"result"`
+	ChartURL  string    `json:"chart_url"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// GetRecentBIQueries returns recent BI query results
+func (h *Handler) GetRecentBIQueries(c *fiber.Ctx) error {
+	// Query agent_outputs for BI query results
+	rows, err := h.db.Query(`
+		SELECT 
+			id,
+			tenant_id,
+			output_json->>'query' as query,
+			output_json->>'result_summary' as result,
+			output_json->>'chart_url' as chart_url,
+			created_at
+		FROM agent_outputs
+		WHERE agent_name = 'bi'
+			AND output_type = 'query_result'
+		ORDER BY created_at DESC
+		LIMIT 5
+	`)
+	if err != nil {
+		// Return empty list on error
+		return Render(c, "partials/bi_queries", fiber.Map{
+			"queries": []BIQueryResult{},
+		})
+	}
+	defer rows.Close()
+
+	var queries []BIQueryResult
+	for rows.Next() {
+		var query BIQueryResult
+		var queryText, result, chartURL sql.NullString
+
+		if err := rows.Scan(
+			&query.ID,
+			&query.TenantID,
+			&queryText,
+			&result,
+			&chartURL,
+			&query.CreatedAt,
+		); err != nil {
+			continue
+		}
+
+		if queryText.Valid {
+			query.Query = queryText.String
+		}
+		if result.Valid {
+			query.Result = result.String
+		}
+		if chartURL.Valid {
+			query.ChartURL = chartURL.String
+		}
+
+		queries = append(queries, query)
+	}
+
+	// Check if this is an HTMX request
+	if c.Get("HX-Request") == "true" {
+		return Render(c, "partials/bi_queries", fiber.Map{
+			"queries": queries,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"queries": queries,
+	})
+}
+
 // FounderDashboard serves the founder dashboard page
 func (h *Handler) FounderDashboard(c *fiber.Ctx) error {
 	return Render(c, "founder_dashboard", fiber.Map{
@@ -560,4 +744,8 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	app.Get("/api/telemetry/hyperdx", h.GetHyperDXData)
 	app.Get("/api/telemetry/metrics", h.GetMetricsData)
 	app.Get("/api/telemetry/logs", h.GetLogsData)
+
+	// Sarthi Enhancements
+	app.Get("/api/finance/alerts", h.GetFinanceAlerts)
+	app.Get("/api/bi/recent", h.GetRecentBIQueries)
 }

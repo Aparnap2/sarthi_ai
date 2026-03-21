@@ -1,0 +1,59 @@
+<!-- BI Query Results Partial - Recent BI Agent Queries -->
+<div class="space-y-3" id="bi-queries-container">
+    {{if .queries}}
+        {{range .queries}}
+        <div class="query-item bg-white border border-blue-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
+             id="query-{{.ID}}">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                            <i class="fas fa-database mr-1"></i>BI Query
+                        </span>
+                        <span class="text-xs text-gray-500">
+                            <i class="fas fa-clock mr-1"></i>{{.CreatedAt.Format "Jan 02, 15:04"}}
+                        </span>
+                    </div>
+
+                    <p class="font-mono text-sm text-blue-900 mb-2 bg-blue-50 p-2 rounded">
+                        {{.Query}}
+                    </p>
+
+                    <p class="text-sm text-gray-700 mb-2">
+                        {{.Result}}
+                    </p>
+
+                    {{if .ChartURL}}
+                    <div class="mt-2">
+                        <a href="{{.ChartURL}}" target="_blank" class="text-xs text-blue-600 hover:underline">
+                            <i class="fas fa-chart-line mr-1"></i>View Chart
+                        </a>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+        {{end}}
+    {{else}}
+        <!-- Empty state -->
+        <div class="text-center py-8">
+            <i class="fas fa-chart-bar text-5xl text-blue-300 mb-3"></i>
+            <h4 class="text-lg font-semibold text-gray-700 mb-1">No Recent Queries</h4>
+            <p class="text-gray-500 text-sm">BI query results will appear here</p>
+            <p class="text-xs text-gray-400 mt-2">
+                <i class="fas fa-info-circle mr-1"></i>
+                Ask Saarathi a question to see results
+            </p>
+        </div>
+    {{end}}
+</div>
+
+<style>
+.query-item {
+    transition: all 0.2s ease;
+}
+
+.query-item:hover {
+    border-color: #3B82F6;
+}
+</style>
