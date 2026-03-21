@@ -48,6 +48,14 @@ class LoggingConfig(BaseModel):
     format: str = "json"
 
 
+class TelegramConfig(BaseModel):
+    """Telegram mock server configuration."""
+
+    api_base: str = "http://localhost:8085"
+    bot_token: str = "test-bot-token"
+    chat_id: str = "sarthi-alerts"
+
+
 class AppConfig(BaseModel):
     """Application configuration."""
 
@@ -61,6 +69,7 @@ class Config(BaseModel):
     temporal: TemporalConfig = TemporalConfig()
     ollama: OllamaConfig = OllamaConfig()
     qdrant: QdrantConfig = QdrantConfig()
+    telegram: TelegramConfig = TelegramConfig()
     logging: LoggingConfig = LoggingConfig()
     app: AppConfig = AppConfig()
 

@@ -9,7 +9,7 @@ The graph is a linear pipeline — anomaly detection is score-based
 inside node_detect_anomaly, branching is in node_decide_action.
 """
 from typing import Any
-from langgraph.graph import StateGraph, END, CompiledStateGraph
+from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from .state import FinanceState
@@ -26,7 +26,7 @@ from .nodes import (
 )
 
 
-def build_finance_graph() -> CompiledStateGraph[FinanceState, Any, dict, dict]:
+def build_finance_graph() -> Any:
     """
     Build and compile the Finance Agent LangGraph with MemorySaver checkpointer.
 
