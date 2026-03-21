@@ -100,9 +100,8 @@ func TestMigration003_IndexesCreated(t *testing.T) {
     
     indexes := []string{
         "idx_bi_queries_tenant",
-        "idx_transactions_vendor",
-        "idx_vendor_baselines_tenant_vendor",
-        "idx_agent_outputs_tenant_agent",
+        "idx_vendor_baselines_tenant_vendor_name",
+        "idx_agent_outputs_tenant_agent_name",
     }
     
     for _, idxName := range indexes {
@@ -124,10 +123,13 @@ func TestMigration003_InsertBiQuery(t *testing.T) {
     db := getTestDB(t)
     defer db.Close()
     
+    // Generate a UUID for tenant_id
+    tenantID := "550e8400-e29b-41d4-a716-446655440000"
+    
     _, err := db.Exec(`
         INSERT INTO bi_queries (tenant_id, query_text, generated_sql, row_count, narrative)
         VALUES ($1, $2, $3, $4, $5)
-    `, "test-tenant", "What was MRR?", "SELECT SUM(amount)...", 1, "MRR was $50k")
+    `, tenantID, "What was MRR?", "SELECT SUM(amount)...", 1, "MRR was $50k")
     
     require.NoError(t, err, "Should be able to insert into bi_queries")
 }
@@ -139,9 +141,9 @@ func TestMigration003_UpdateVendorBaseline(t *testing.T) {
     
     // First insert a test row
     _, err := db.Exec(`
-        INSERT INTO vendor_baselines (tenant_id, vendor, avg_30d, avg_90d, transaction_count)
+        INSERT INTO vendor_baselines (tenant_id, vendor_name, avg_30d, avg_90d, transaction_count)
         VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (tenant_id, vendor) DO UPDATE SET
+        ON CONFLICT (tenant_id, vendor_name) DO UPDATE SET
             avg_30d = $3, avg_90d = $4, transaction_count = $5
     `, "test-tenant", "AWS", 18000.0, 18500.0, 12)
     
@@ -153,7 +155,7 @@ func TestMigration003_UpdateVendorBaseline(t *testing.T) {
     err = db.QueryRow(`
         SELECT avg_30d, avg_90d, transaction_count 
         FROM vendor_baselines 
-        WHERE tenant_id = 'test-tenant' AND vendor = 'AWS'
+        WHERE tenant_id = 'test-tenant' AND vendor_name = 'AWS'
     `).Scan(&avg30d, &avg90d, &txCount)
     
     require.NoError(t, err)

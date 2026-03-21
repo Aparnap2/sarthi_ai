@@ -34,14 +34,11 @@ ALTER TABLE agent_outputs
 CREATE INDEX IF NOT EXISTS idx_bi_queries_tenant
     ON bi_queries(tenant_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_transactions_vendor
-    ON transactions(tenant_id, vendor, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vendor_baselines_tenant_vendor_name
+    ON vendor_baselines(tenant_id, vendor_name);
 
-CREATE INDEX IF NOT EXISTS idx_vendor_baselines_tenant_vendor
-    ON vendor_baselines(tenant_id, vendor);
-
-CREATE INDEX IF NOT EXISTS idx_agent_outputs_tenant_agent
-    ON agent_outputs(tenant_id, agent, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_outputs_tenant_agent_name
+    ON agent_outputs(tenant_id, agent_name, created_at DESC);
 
 -- ── Comments for Documentation ───────────────────────────────────
 COMMENT ON TABLE bi_queries IS 'BI Agent query history with SQL, charts, and narratives';
