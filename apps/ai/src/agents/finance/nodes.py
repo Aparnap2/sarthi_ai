@@ -25,6 +25,7 @@ from typing import List, Dict, Any
 
 from .state import FinanceState
 from .prompts import AnomalyExplainer, FinanceDigestWriter
+from ...services.langfuse_client import start_trace, end_trace, score_trace
 
 # ── Environment ───────────────────────────────────────────────────
 DATABASE_URL      = os.getenv("DATABASE_URL",
@@ -151,6 +152,13 @@ def node_ingest_event(state: FinanceState) -> Dict:
     Raises:
         ValueError: If event missing required fields or tenant mismatch
     """
+    # Start Langfuse trace on first node
+    trace_id = start_trace(
+        name="finance_agent_execution",
+        tenant_id=state["tenant_id"],
+        metadata={"event_type": state["event"].get("event_type", "")},
+    )
+    
     event = state["event"]
     required = {"event_type", "tenant_id"}
     missing = required - set(event.keys())
@@ -168,7 +176,7 @@ def node_ingest_event(state: FinanceState) -> Dict:
     if "amount" in event:
         event = {**event, "amount": float(event["amount"])}
 
-    return {**state, "event": event}
+    return {**state, "event": event, "langfuse_trace_id": trace_id}
 
 
 def node_update_snapshot(state: FinanceState) -> Dict:
@@ -482,14 +490,14 @@ def node_write_memory(state: FinanceState) -> Dict:
 def node_emit_output(state: FinanceState) -> Dict:
     """
     N9: Format output_message for Telegram.
-    
+
     ALERT: 🔴 or 🟡 Finance Alert with explanation
     DIGEST: 📊 Weekly Finance Brief with numbers
     SKIP: Empty message
-    
+
     Args:
         state: Current FinanceState
-        
+
     Returns:
         Updated FinanceState with output_message
     """
@@ -502,6 +510,7 @@ def node_emit_output(state: FinanceState) -> Dict:
     runway  = state.get("runway_months", 99)
     burn    = state.get("burn_rate", 0)
     revenue = state.get("monthly_revenue", 0)
+    trace_id = state.get("langfuse_trace_id", "")
 
     if action == "ALERT":
         icon = "🔴" if score >= 0.8 else "🟡"
@@ -520,5 +529,10 @@ def node_emit_output(state: FinanceState) -> Dict:
         )
     else:
         msg = ""
+
+    # Score and end Langfuse trace on last node
+    if trace_id:
+        score_trace(trace_id, "anomaly_score", score, comment=f"Action: {action}")
+        end_trace(trace_id, output={"action": action, "output_message": msg})
 
     return {**state, "output_message": msg}

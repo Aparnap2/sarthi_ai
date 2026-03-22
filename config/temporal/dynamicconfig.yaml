@@ -1,0 +1,32 @@
+# Temporal dynamic config for single-node production deployment
+# See: https://docs.temporal.io/clusters/#dynamic-configuration-file
+
+limit.maxIDLength:
+  - value: 255
+    constraints: {}
+
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}
+
+# Enable UI
+system.enableUI:
+  - value: true
+    constraints: {}
+
+# Worker persistence rate limit
+worker.persistenceRateLimit:
+  - value:
+      maxPollRate: 1000
+      maxQPS: 1000
+    constraints: {}
+
+# History server RPS limit
+history.historyServerMaximumPollRPS:
+  - value: 1000
+    constraints: {}
+
+# Matching long poll timeout
+history.matchingLongPollTimeout:
+  - value: "30s"
+    constraints: {}

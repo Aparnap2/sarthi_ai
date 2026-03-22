@@ -30,6 +30,7 @@ import requests
 
 from .state import BIState
 from .prompts import TextToSQL, NarrativeWriter, PlotlyCodeGen
+from ...services.langfuse_client import start_trace, end_trace, score_trace
 
 # ── Environment ───────────────────────────────────────────────────
 DATABASE_URL      = os.getenv("DATABASE_URL",
@@ -329,6 +330,13 @@ def node_understand_query(state: BIState) -> Dict:
     Returns:
         Updated BIState with query_type, query_category, past_queries
     """
+    # Start Langfuse trace on first node
+    trace_id = start_trace(
+        name="bi_agent_execution",
+        tenant_id=state["tenant_id"],
+        metadata={"query": state.get("query", "")},
+    )
+    
     query = state.get("query", "").lower()
     tenant_id = state["tenant_id"]
 
@@ -367,6 +375,7 @@ def node_understand_query(state: BIState) -> Dict:
         "query_category": query_category,
         "past_queries": past_queries,
         "data_sources": ["transactions", "vendor_baselines", "finance_snapshots"],
+        "langfuse_trace_id": trace_id,
     }
 
 
@@ -788,15 +797,20 @@ def node_emit_bi_output(state: BIState) -> Dict:
     rows = sql_result.get("rows", [])
     chart_path = state.get("chart_path", "")
     error = state.get("error", "")
+    trace_id = state.get("langfuse_trace_id", "")
 
     # Handle errors
     if error:
         msg = f"❌ *Query Error*\n\n{error[:500]}"
+        if trace_id:
+            end_trace(trace_id, output={"error": error[:500]})
         return {**state, "output_message": msg}
 
     # Handle empty results
     if not rows:
         msg = f"📊 *BI Query*\n\n*Q:* {query}\n\nNo data found."
+        if trace_id:
+            end_trace(trace_id, output={"query": query, "result": "no_data"})
         return {**state, "output_message": msg}
 
     # Build message with key metrics
@@ -813,5 +827,10 @@ def node_emit_bi_output(state: BIState) -> Dict:
     # Add chart indicator
     if chart_path:
         msg += f"\n📈 Chart: {chart_path}"
+
+    # End Langfuse trace on last node
+    if trace_id:
+        score_trace(trace_id, "query_success", 1.0, comment=f"Rows: {len(rows)}")
+        end_trace(trace_id, output={"query": query, "row_count": len(rows), "chart": chart_path != ""})
 
     return {**state, "output_message": msg}
