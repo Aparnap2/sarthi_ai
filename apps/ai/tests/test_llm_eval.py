@@ -144,58 +144,9 @@ I've prepared the line-item breakdown if you want to see it."""
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# EVAL 3: ContextInterviewAgent (3 evals)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-class TestLLMEval_ContextInterview:
-
-    def test_extracted_context_matches_answer_intent(self):
-        """llm_eval_10: Extracted context must match answer intent."""
-        from src.agents.context_interview_agent import ContextInterviewAgent
-        agent = ContextInterviewAgent()
-        
-        result = agent.process_answer(
-            founder_id="test-founder",
-            question_id="mission",
-            question_text="What problem are you solving?",
-            raw_answer="Solo technical founders waste months building the wrong thing because they have no one to challenge their assumptions."
-        )
-        
-        assert "founder" in result.content.lower() or "technical" in result.content.lower()
-        assert result.confidence > 0.5
-
-    def test_confidence_below_0_8_for_vague_answers(self):
-        """llm_eval_11: Vague answers must have confidence < 0.8."""
-        from src.agents.context_interview_agent import ContextInterviewAgent
-        agent = ContextInterviewAgent()
-        
-        result = agent.process_answer(
-            founder_id="test-founder",
-            question_id="mission",
-            question_text="What problem are you solving?",
-            raw_answer="Not sure yet, still figuring it out."
-        )
-        
-        assert result.confidence < 0.8
-
-    def test_icp_context_type_correct(self):
-        """llm_eval_12: ICP question must extract context_type='icp'."""
-        from src.agents.context_interview_agent import ContextInterviewAgent
-        agent = ContextInterviewAgent()
-        
-        result = agent.process_answer(
-            founder_id="test-founder",
-            question_id="icp",
-            question_text="Describe the one customer who, if you had 100 of them, would make this company successful.",
-            raw_answer="Small D2C brands doing ₹5-10L/month, struggling with customer retention."
-        )
-        
-        assert result.context_type == "icp"
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # EVAL 4: MemoryAgent Pattern Detection (3 evals)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Note: EVAL 3 (ContextInterviewAgent) was removed in Phase 10 cleanup
 
 class TestLLMEval_MemoryAgent:
 
