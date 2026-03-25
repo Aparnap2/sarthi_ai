@@ -67,10 +67,25 @@ _dspy_lm = dspy.LM(
     max_tokens=500,
     temperature=0.1,
 )
-dspy.configure(lm=_dspy_lm)
-text_to_sql = dspy.ChainOfThought(TextToSQL)
-narrative_writer = dspy.ChainOfThought(NarrativeWriter)
-plotly_codegen = dspy.ChainOfThought(PlotlyCodeGen)
+
+# Initialize DSPy tools with LM directly (avoids global configure issues)
+def text_to_sql(**kwargs):
+    """Run TextToSQL DSPy module with provided arguments."""
+    module = dspy.ChainOfThought(TextToSQL)
+    with dspy.context(lm=_dspy_lm):
+        return module(**kwargs)
+
+def narrative_writer(**kwargs):
+    """Run NarrativeWriter DSPy module with provided arguments."""
+    module = dspy.ChainOfThought(NarrativeWriter)
+    with dspy.context(lm=_dspy_lm):
+        return module(**kwargs)
+
+def plotly_codegen(**kwargs):
+    """Run PlotlyCodeGen DSPy module with provided arguments."""
+    module = dspy.ChainOfThought(PlotlyCodeGen)
+    with dspy.context(lm=_dspy_lm):
+        return module(**kwargs)
 
 # ── Postgres helper ───────────────────────────────────────────────
 @contextmanager
