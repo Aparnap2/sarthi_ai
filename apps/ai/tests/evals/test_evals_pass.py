@@ -16,8 +16,8 @@ import os
 import sys
 import pytest
 
-# Add tests to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from evals.run_evals import (
     run_anomaly_evals,

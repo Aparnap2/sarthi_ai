@@ -2,6 +2,17 @@
 
 from .llm import get_llm_client, get_chat_model, get_embedding_model, reset_client
 from .llm_guard import enforce_llm_factory, scan_directory_for_violations
+from .config_module import (
+    Config,
+    TemporalConfig,
+    OllamaConfig,
+    QdrantConfig,
+    LoggingConfig,
+    TelegramConfig,
+    AppConfig,
+    get_config,
+    load_config,
+)
 
 # Backward compatibility alias
 get_model = get_chat_model
@@ -14,4 +25,14 @@ __all__ = [
     "reset_client",
     "enforce_llm_factory",
     "scan_directory_for_violations",
+    # Config classes
+    "Config",
+    "TemporalConfig",
+    "OllamaConfig",
+    "QdrantConfig",
+    "LoggingConfig",
+    "TelegramConfig",
+    "AppConfig",
+    "get_config",
+    "load_config",
 ]

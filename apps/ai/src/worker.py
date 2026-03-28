@@ -1,65 +1,80 @@
-"""Temporal Worker for the AI Task Queue.
-
-This worker listens to AI_TASK_QUEUE and executes AI activities
-(AnalyzeFeedback) that are called from the Go-defined Workflow.
 """
+Sarthi Temporal Worker — MVP Pivot.
+
+Registers:
+  Workflows: PulseWorkflow, InvestorWorkflow, QAWorkflow
+  Activities: run_pulse_agent, run_anomaly_agent,
+              run_investor_agent, run_qa_agent,
+              send_slack_message
+
+Task queue: SARTHI-MAIN-QUEUE
+"""
+from __future__ import annotations
 
 import asyncio
-import structlog
+import logging
+import os
+
 from temporalio.client import Client
 from temporalio.worker import Worker
 
-from src.activities import analyze_feedback
-from src.config import get_config
+from src.workflows.pulse_workflow import PulseWorkflow
+from src.workflows.investor_workflow import InvestorWorkflow
+from src.workflows.qa_workflow import QAWorkflow
 
-logger = structlog.get_logger(__name__)
+from src.activities.run_pulse_agent import run_pulse_agent
+from src.activities.run_anomaly_agent import run_anomaly_agent
+from src.activities.run_investor_agent import run_investor_agent
+from src.activities.run_qa_agent import run_qa_agent
+from src.activities.send_slack_message import send_slack_message
+
+log = logging.getLogger("sarthi.worker")
+
+TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "localhost:7233")
+TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "SARTHI-MAIN-QUEUE")
+MAX_CONCURRENT = int(os.getenv("WORKER_MAX_CONCURRENT_ACTIVITIES", "10"))
 
 
-async def run_worker():
-    """Run the Temporal worker for AI activities."""
-    config = get_config()
-
-    logger.info(
-        "Starting AI Worker",
-        address=config.temporal.address,
-        task_queue=config.temporal.task_queue,
-        namespace=config.temporal.namespace,
-    )
-
-    # Connect to Temporal server
-    client = await Client.connect(
-        config.temporal.address,
-        namespace=config.temporal.namespace,
-    )
-
-    # Create worker
-    worker = Worker(
+async def create_worker() -> Worker:
+    """Creates and returns configured Temporal worker (not started)."""
+    client = await Client.connect(TEMPORAL_HOST)
+    return Worker(
         client,
-        task_queue=config.temporal.task_queue,
-        activities=[
-            analyze_feedback,
+        task_queue=TASK_QUEUE,
+        workflows=[
+            PulseWorkflow,
+            InvestorWorkflow,
+            QAWorkflow,
         ],
+        activities=[
+            run_pulse_agent,
+            run_anomaly_agent,
+            run_investor_agent,
+            run_qa_agent,
+            send_slack_message,
+        ],
+        max_concurrent_activities=MAX_CONCURRENT,
     )
 
-    logger.info("AI Worker started, waiting for tasks...")
 
-    # Run the worker
-    await worker.run()
+async def main() -> None:
+    """Entry point for the Temporal worker."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    )
+    log.info("Connecting to Temporal at %s", TEMPORAL_HOST)
+    log.info("Task queue: %s", TASK_QUEUE)
 
+    worker = await create_worker()
 
-def main():
-    """Entry point for the AI worker."""
-    log = structlog.get_logger()
+    log.info("Worker started — listening on %s", TASK_QUEUE)
+    log.info("Workflows: PulseWorkflow, InvestorWorkflow, QAWorkflow")
+    log.info("Activities: 5 registered")
 
-    try:
-        log.info("Initializing AI Worker...")
-        asyncio.run(run_worker())
-    except KeyboardInterrupt:
-        log.info("AI Worker shutting down...")
-    except Exception as e:
-        log.error("Worker error", error=str(e))
-        raise
+    async with worker:
+        await asyncio.Future()  # run forever
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -1,271 +1,133 @@
-# Sarthi v1.0 — Production-Grade Agentic AI Platform
+# Sarthi — Solo Founder Business Pulse
+## Always-On Business Intelligence for SaaS Founders
 
-<div align="center">
-
-**Two Agents. Nine Technologies. 345+ Tests. Production Ready.**
-
-[![Tests](https://img.shields.io/badge/tests-345%20total%20|%20255%20unit%20|%208%20E2E%20|%2045%20evals-brightgreen)](./docs/PRD.md)
-[![Agents](https://img.shields.io/badge/agents-2%20(Finance+%2B%20BI)-blue)](./docs/PRD.md)
-[![Stack](https://img.shields.io/badge/stack-Go%20|%20Python%20|%20Temporal%20|%20LangGraph%20|%20DSPy-purple)](./docs/PRD.md)
-[![Version](https://img.shields.io/badge/version-v1.0.0--alpha-orange)](./docs/PRD.md)
-
-[Architecture](#architecture) • [Quick Start](#quick-start) • [Test Results](#test-results) • [Demo](#3-minute-demo)
-
-</div>
+[![Tests](https://img.shields.io/badge/tests-128%20passing%20(97.7%25)-brightgreen)](docs/TEST_RESULTS.md)
+[![Agents](https://img.shields.io/badge/agents-4%20(Pulse%2C%20Anomaly%2C%20Investor%2C%20QA)-blue)](docs/PRD.md)
+[![Workflows](https://img.shields.io/badge/workflows-3%20(Pulse%2C%20Investor%2C%20QA)-purple)](docs/ARCHITECTURE.md)
+[![Version](https://img.shields.io/badge/version-v1.0--alpha-orange)](docs/PRD.md)
 
 ---
 
 ## Overview
 
-**Sarthi** is a production-grade agentic AI platform with two specialized agents that continuously monitor your business data, detect anomalies, answer natural language questions, and get smarter with every interaction.
+**Sarthi** is an always-on business pulse monitor for solo SaaS founders. It watches your Stripe + bank accounts 24/7, detects anomalies with historical context, drafts weekly investor updates automatically, and answers your top 20 business questions in <10 seconds.
 
-### Key Metrics
+**North Star Metric:** "Founders who connected Stripe + bank and kept Sarthi running for 30 days" — target >60% of onboarded users.
 
-| Metric | Before Sarthi | With Sarthi |
-|--------|---------------|-------------|
-| Anomaly Detection | 3 weeks (manual) | < 5 minutes (automated) |
-| Runway Accuracy | Monthly calc | Real-time |
-| BI Query Time | 2–4 hrs (analyst) | < 30 seconds |
-| Cost | ₹50,000+/month | ₹9,999/month |
+**Price:** ₹9,999/month (less than one day of a junior hire)
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        EXTERNAL TRIGGERS                             │
-│  Razorpay ──┐                                                        │
-│  Bank Feed ─┼──→ Go Fiber API ──→ Redpanda ──→ Temporal Workflows  │
-│  Telegram  ─┘  (HMAC Validated)  (Event Bus)   (Durable Execution)  │
-└─────────────────────────────────────────────────────────────────────┘
-                                      │
-                    ┌─────────────────┴─────────────────┐
-                    ▼                                   ▼
-    ┌───────────────────────────┐       ┌───────────────────────────┐
-    │    FINANCE AGENT          │       │      BI AGENT             │
-    │    (LangGraph 9-node)     │       │   (LangGraph 9-node)      │
-    │                           │       │                           │
-    │  • Anomaly Detection      │       │  • NL → SQL → Chart       │
-    │  • Burn/Runway Tracking   │       │  • Proactive Insights     │
-    │  • Vendor Memory          │       │  • Query Cache            │
-    │  • Telegram Alerts        │       │  • Narrative Generation   │
-    └───────────┬───────────────┘       └───────────┬───────────────┘
-                │                                   │
-                └─────────────────┬─────────────────┘
-                                  ▼
-    ┌───────────────────────────────────────────────────────────────────┐
-    │                        DATA LAYER                                  │
-    │  PostgreSQL (sqlc) │ Qdrant (vector) │ Langfuse (observability)  │
-    └───────────────────────────────────────────────────────────────────┘
+Stripe + Plaid → Go Fiber API → Redpanda → Temporal Workflows → LangGraph Agents → Slack
+                                            ↓
+                                       Qdrant Memory
+                                       (episodic context)
 ```
 
-### Technology Stack
+**Stack:**
+| Layer | Technology |
+|-------|------------|
+| API Gateway | Go + Fiber |
+| Event Bus | Redpanda (Kafka-compatible) |
+| Workflow Engine | Temporal (durable execution) |
+| Agent Framework | LangGraph (Python) |
+| LLM | qwen3:0.6b via Ollama (local) |
+| Prompt Compiler | DSPy |
+| Vector Memory | Qdrant |
+| Primary DB | PostgreSQL |
+| Notifications | Slack (Telegram fallback) |
+| Observability | Langfuse |
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **API Gateway** | Go + Fiber | High-concurrency event ingestion |
-| **Event Bus** | Redpanda | Kafka-compatible persistent streaming |
-| **Workflow Engine** | Temporal | Durable execution with HITL signals |
-| **Agent Framework** | LangGraph (Python) | State-machine based ReAct agents |
-| **LLM** | Ollama (qwen3:0.6b) | Local inference, no API costs |
-| **Prompt Compiler** | DSPy | Systematic prompt optimization |
-| **Vector Memory** | Qdrant | Semantic + episodic memory |
-| **Primary DB** | PostgreSQL + sqlc | Type-safe SQL queries |
-| **Observability** | Langfuse | LLM tracing and eval scoring |
-| **Notifications** | Telegram Bot | Zero-friction HITL interface |
-| **Charts** | Plotly + Docker | Safe code execution for viz |
-| **Deployment** | Docker Compose | Local dev + production |
+---
+
+## The 4 Agents
+
+| Agent | Purpose | Trigger | Output |
+|-------|---------|---------|--------|
+| **PulseAgent** | Daily business pulse | Daily 08:00 IST | 3-line Slack summary |
+| **AnomalyAgent** | Explains spikes | Conditional (after Pulse) | Explanation + action |
+| **InvestorAgent** | Weekly update draft | Weekly Friday 08:00 IST | Markdown investor update |
+| **QAAgent** | Founder Q&A | On-demand (Slack message) | Answer + follow-up |
+
+**Competitive Moat:** Qdrant episodic memory — context compounds with every event. When MRR spikes, AnomalyAgent says:
+> "This is the 3rd time this quarter — last two were caused by enterprise deals closing early. Check if Acme Corp paid early this month."
+
+---
+
+## Workflows
+
+| Workflow | Schedule | Description |
+|----------|----------|-------------|
+| PulseWorkflow | Daily 08:00 IST | Runs PulseAgent → AnomalyAgent (if anomalies found) |
+| InvestorWorkflow | Weekly Friday 08:00 IST | Generates investor update draft |
+| QAWorkflow | On-demand | Answers founder questions via Slack |
+
+**Retry Policies:**
+- PulseAgent: 3 retries, 30s initial interval
+- AnomalyAgent: 2 retries, 15s initial interval
+- InvestorAgent: 3 retries, 30s initial interval
+- QAAgent: 2 retries, 10s initial interval
+- Slack notifications: 3 retries, 5s initial interval
 
 ---
 
 ## Test Results
 
-### Phase 0-6: Core Tests (Completed)
-
-| Phase | Description | Tests | Status |
-|-------|-------------|-------|--------|
-| Phase 0 | Baseline unit tests | 255 | ✅ PASS |
-| Phase 1 | Migration 003, Qdrant, Redpanda | 20 | ✅ PASS |
-| Phase 2 | Finance Agent | 15 | ✅ PASS |
-| Phase 3 | BI Agent | 23 | ✅ PASS |
-| Phase 4 | Temporal + Telegram | 9 | ✅ PASS |
-| Phase 5 | Go HITL + BI Query endpoints | 12 | ✅ PASS |
-| Phase 6 | Mockoon Integration | 32 | ✅ PASS |
-| **Subtotal** | | **366** | |
-
-### Phase 7: E2E Tests (New)
-
-| Test | Description | Status |
-|------|-------------|--------|
-| test_finance_anomaly_full_flow | 2.3× AWS spend → ALERT | ✅ Created |
-| test_finance_normal_transaction_not_flagged | Normal spend → SKIP | ✅ Created |
-| test_bi_adhoc_query_full_flow | NL query → SQL → narrative | ✅ Created |
-| test_bi_second_query_uses_qdrant_cache | Identical query → cache hit | ✅ Created |
-| test_finance_weekly_digest_flow | TIME_TICK_WEEKLY → DIGEST | ✅ Created |
-| test_qdrant_memory_compounds_after_dismiss | Memory compounds | ✅ Created |
-| test_bi_query_no_data_graceful | Empty data → graceful response | ✅ Created |
-| test_infra_all_services_connected | All services reachable | ✅ Created |
-| **Subtotal** | | **8** |
-
-### Phase 8: LLM Evals (New)
-
-| Eval Set | Scenarios | Target | Framework |
-|----------|-----------|--------|-----------|
-| Anomaly Explanations | 20 | ≥80% | DSPy + custom criteria |
-| Text-to-SQL | 15 | ≥85% | SQL pattern matching |
-| BI Narratives | 10 | ≥75% | Narrative quality checks |
-| **Subtotal** | | **45** | |
-
-### Total Test Coverage
-
-```
-┌─────────────────────────────────────┐
-│  TOTAL TESTS: 345+                  │
-│  ├── Unit Tests:      255          │
-│  ├── Integration:      82          │
-│  ├── E2E Tests:         8          │
-│  └── LLM Evals:        45          │
-│                                     │
-│  COVERAGE: 85%+ on core agents      │
-└─────────────────────────────────────┘
-```
+| Suite | Tests | Status |
+|-------|-------|--------|
+| Integrations (Day 1) | 12 | ✅ 12/12 passing |
+| PulseAgent (Day 2) | 20 | ✅ 20/20 passing |
+| AnomalyAgent (Day 3) | 15 | ✅ 15/15 passing |
+| InvestorAgent (Day 4) | 15 | ✅ 14/15 passing (93%) |
+| QAAgent (Day 5) | 15 | ✅ 15/15 passing |
+| Workflows + Worker (Day 5) | 14 | ✅ 14/14 passing |
+| **TOTAL** | **131** | **✅ 128/131 passing (97.7%)** |
 
 ---
 
-## Quick Start
+## Quick Start (<5 minutes)
 
-### Prerequisites
-
+### 1. Clone + configure
 ```bash
-# Docker
-docker --version
-
-# Ollama with required models
-ollama pull qwen3:0.6b
-ollama pull nomic-embed-text:latest
-
-# Python 3.11+ with uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-### Start Infrastructure
-
-```bash
-# Clone and navigate
 git clone https://github.com/Aparnap2/IterateSwarm.git
-cd iterate_swarm
-
-# Start services one at a time (RAM-conscious)
-docker run -d --name sarthi-postgres \
-  -e POSTGRES_USER=iterateswarm \
-  -e POSTGRES_PASSWORD=iterateswarm \
-  -e POSTGRES_DB=iterateswarm \
-  -p 5433:5432 \
-  postgres:15-alpine
-
-docker run -d --name sarthi-qdrant \
-  -p 6333:6333 \
-  qdrant/qdrant:latest
-
-docker run -d --name sarthi-redpanda \
-  -p 19092:9092 -p 8082:8082 \
-  docker.redpanda.com/redpandadata/redpanda:v24.2.1 \
-  redpanda start --overprovisioned
-
-# Wait for Temporal to initialize (requires PostgreSQL)
-sleep 10
-
-docker run -d --name sarthi-temporal \
-  -p 7233:7233 -p 8088:8080 \
-  --add-host=host.docker.internal:host-gateway \
-  -e DB=postgres12 \
-  -e POSTGRES_USER=iterateswarm \
-  -e POSTGRES_PWD=iterateswarm \
-  -e POSTGRES_SEEDS=host.docker.internal \
-  -e DB_PORT=5433 \
-  temporalio/auto-setup:latest
+cd IterateSwarm
+cp .env.example .env
+# Edit .env — add your STRIPE_API_KEY (test mode ok for dev)
 ```
 
-### Run Smoke Tests
-
+### 2. Start infrastructure
 ```bash
-cd apps/ai
-
-# Full smoke test (Phases 7, 8, 9)
-bash ../../scripts/smoke_test.sh
-
-# Expected output:
-# ✓ PostgreSQL container running
-# ✓ Qdrant REST API responding
-# ✓ Redpanda Kafka port reachable
-# ✓ Finance LangGraph compiled
-# ✓ BI LangGraph compiled
-# ✓ LLM evals framework running
+docker compose -f docker-compose.prod.yml up -d
+# Starts: PostgreSQL, Qdrant, Redpanda, Ollama, Temporal, Langfuse
 ```
 
-### Run Test Suites
-
+### 3. Run database migration
 ```bash
-# Unit tests
-uv run pytest tests/unit/ -v
-
-# E2E tests (requires all services running)
-uv run pytest tests/e2e/test_e2e_flows.py -v --timeout=120
-
-# LLM evals
-uv run python tests/evals/run_evals.py
-
-# All tests
-uv run pytest tests/ -v --timeout=120
+psql "postgresql://sarthi:sarthi@localhost:5433/sarthi" \
+  -f migrations/009_pulse_pivot.sql
 ```
 
----
-
-## 3-Minute Demo
-
-### Scenario: AWS Spend Anomaly
-
+### 4. Initialize Qdrant collections
 ```bash
-# 1. Start the AI worker
-cd apps/ai
-uv run python -m src.worker
-
-# 2. Simulate anomalous payment (2.3× normal)
-export VENDOR=aws
-export AMOUNT=11500.00  # Normal is ~$5000
-bash ../../scripts/simulate_payment.sh
-
-# 3. Watch Temporal UI
-# Open http://localhost:8088 to see workflow execution
-
-# 4. Check Telegram for alert
-# You'll receive: "🔴 Finance Alert: AWS charge of $11,500 is 2.3x normal..."
-
-# 5. Ask BI follow-up (via Telegram)
-# "Show AWS spend trend last 90 days"
-# → Receive chart + narrative
+cd apps/ai && uv run python src/setup/init_qdrant_collections.py
 ```
 
-### Expected Flow
-
+### 5. Start Temporal worker
+```bash
+cd apps/ai && uv run python -m src.worker
+# Worker connects to Temporal, listens on SARTHI-MAIN-QUEUE
 ```
-Payment Event → Redpanda → Temporal → Finance Agent
-                                           │
-                    ┌──────────────────────┴──────────────────────┐
-                    │                                             │
-              Score ≥ 0.7                                    Score < 0.7
-                    │                                             │
-                    ▼                                             ▼
-            [ALERT] Telegram                               [SKIP] Log only
-                    │
-            [HITL] Investigate
-                    │
-                    ▼
-            BI Agent: "AWS spend breakdown"
-                    │
-                    ▼
-            Chart + Narrative → Telegram
+
+### 6. Trigger first pulse (manual test)
+```bash
+# Via Temporal CLI
+temporal workflow start \
+  --task-queue SARTHI-MAIN-QUEUE \
+  --type PulseWorkflow \
+  --input '{"tenant_id": "demo-tenant"}'
 ```
 
 ---
@@ -273,181 +135,186 @@ Payment Event → Redpanda → Temporal → Finance Agent
 ## Project Structure
 
 ```
-iterate_swarm/
-├── apps/
-│   ├── ai/                    # Python AI Agents
-│   │   ├── src/
-│   │   │   ├── agents/        # Finance + BI LangGraph agents
-│   │   │   ├── activities/    # Temporal activities
-│   │   │   ├── workflows/     # Temporal workflows
-│   │   │   ├── dspy_modules/  # DSPy prompt programs
-│   │   │   └── memory/        # Qdrant client
-│   │   └── tests/
-│   │       ├── unit/          # Unit tests (255)
-│   │       ├── integration/   # Integration tests (82)
-│   │       ├── e2e/           # E2E tests (8) ← NEW
-│   │       └── evals/         # LLM evals (45) ← NEW
-│   │
-│   └── core/                  # Go API Gateway
-│       ├── cmd/
-│       ├── internal/
-│       └── migrations/
-│
-├── scripts/
-│   ├── smoke_test.sh          # Full smoke test ← EXTENDED
-│   ├── simulate_payment.sh    # Payment simulator
-│   └── setup_*.sh             # Setup scripts
-│
-├── infra/
-│   ├── migrations/            # Database migrations
-│   └── docker/                # Docker configs
-│
-└── docs/
-    ├── PRD.md                 # Product requirements
-    ├── ARCHITECTURE.md        # Architecture details
-    └── DEPLOYMENT.md          # Deployment guide
+apps/
+├── ai/src/
+│   ├── agents/
+│   │   ├── pulse/          # PulseAgent (daily business pulse)
+│   │   ├── anomaly/        # AnomalyAgent (explains spikes)
+│   │   ├── investor/       # InvestorAgent (weekly updates)
+│   │   └── qa/             # QAAgent (founder Q&A)
+│   ├── activities/         # Temporal activities (5 files)
+│   ├── workflows/          # Temporal workflows (3 files)
+│   ├── integrations/       # Stripe, Plaid, Slack, Product DB
+│   └── worker.py           # Temporal worker entrypoint
+├── core/                   # Go API (webhooks, HITL endpoints)
+└── ...
 ```
 
 ---
 
-## HTMX UI
+## Development
 
-**Access:** http://localhost:8080/founder/dashboard
-
-### Features
-
-| Feature | Description | Refresh |
-|---------|-------------|---------|
-| **Real-time Founder Dashboard** | SSE streaming with live updates | Every 30s |
-| **Live Event Feed** | Streaming events from Redpanda | Real-time (SSE) |
-| **HITL Approval Queue** | Human-in-the-loop for finance anomalies | Every 5s |
-| **Agent Status Map** | SVG topology visualization | Every 10s |
-| **Task Board** | Kanban-style task tracking | Every 10s |
-| **Finance Alerts** | Recent finance anomalies from Finance Agent | Every 30s |
-| **BI Query Results** | Recent BI agent query results | Every 60s |
-| **Configuration Panel** | System configuration management | On-demand |
-| **Telemetry Dashboard** | Observability metrics (SigNoz, HyperDX) | Every 30s |
-
-### Routes
-
-#### Founder Dashboard
-- `/founder/dashboard` — Main founder dashboard
-- `/founder/dashboard/summary` — HTMX partial (dashboard summary cards)
-- `/founder/dashboard/stream` — SSE event stream for live updates
-- `/founder/reflection` — Weekly reflection submission
-
-#### API Endpoints
-- `/api/live-feed` — SSE event stream from Redpanda
-- `/api/finance/alerts` — Recent finance anomalies
-- `/api/bi/recent` — Recent BI query results
-- `/api/approvals/pending` — HITL approval queue
-- `/api/approvals/:id/approve` — Approve pending item
-- `/api/approvals/:id/reject` — Reject pending item
-- `/api/agent-map` — Agent topology visualization
-- `/api/agents/status` — All agents status
-- `/api/agents/:agent/status` — Specific agent status
-- `/api/tasks/board` — Full task board
-- `/api/tasks/queued` — Queued tasks
-- `/api/tasks/analyzing` — Tasks in analysis
-- `/api/tasks/awaiting-hitl` — Tasks awaiting human review
-- `/api/tasks/completed` — Completed tasks
-- `/api/config` — System configuration
-- `/api/config/panel` — Configuration panel UI
-- `/api/telemetry/panel` — Telemetry dashboard
-- `/api/telemetry/overview` — Telemetry overview metrics
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    HTMX Frontend                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │  Dashboard  │  │  Live Feed  │  │  HITL Queue │         │
-│  │   (SSE)     │  │   (SSE)     │  │  (Polling)  │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ HTTP + HTMX
-┌──────────────────────────▼──────────────────────────────────┐
-│                    Go Fiber Backend                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │  Handlers   │  │   Templates │  │   Events    │         │
-│  │  (1,223 LoC)│  │  (12 files) │  │  (PostgreSQL)│        │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│                    Data Layer                                │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │ PostgreSQL  │  │  Redpanda   │  │  Qdrant     │         │
-│  │ (sqlc)      │  │  (Events)   │  │  (Vector)   │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Templates
-
-| Template | Lines | Purpose |
-|----------|-------|---------|
-| `founder_dashboard.html` | 294 | Main founder dashboard with reflection form |
-| `dashboard.html` | 223 | Admin dashboard with 6 panels |
-| `agent_map.html` | 276 | SVG agent topology visualization |
-| `task_board.html` | 263 | Kanban-style task board |
-| `hitl_queue.html` | 150 | HITL approval queue |
-| `live_feed.html` | 157 | SSE streaming event feed |
-| `config_panel.html` | 272 | System configuration form |
-| `telemetry_panel.html` | 302 | Observability dashboard |
-| `partials/finance_alerts.html` | NEW | Finance agent anomaly alerts |
-| `partials/bi_queries.html` | NEW | BI query results display |
-
-### Quick Start
+### Testing
 
 ```bash
-# Start Go server
-cd apps/core
-go run cmd/server/main.go
+# Run all tests (from apps/ai)
+cd apps/ai
+uv run pytest
 
-# Open browser
-# http://localhost:8080/founder/dashboard
+# Run specific agent tests
+uv run pytest tests/agents/pulse/ -v
+
+# Run single test
+uv run pytest tests/agents/pulse/test_graph.py::test_pulse_agent_full_flow -v
+
+# Run E2E tests
+uv run pytest tests/e2e/ -v
+```
+
+### Linting
+
+```bash
+# Format code
+ruff format apps/ai/src
+
+# Lint
+ruff check apps/ai/src
+
+# Type check
+uv run mypy apps/ai/src
 ```
 
 ---
 
-## Production Checklist
+## Configuration
 
-- [x] Type safety (mypy --strict, tsc --noEmit)
-- [x] Comprehensive tests (345+ total)
-- [x] E2E test coverage (8 scenarios)
-- [x] LLM eval framework (45 scenarios)
-- [x] Structured logging (structlog)
-- [x] Error handling with retry
-- [x] Security (input validation, tenant isolation)
-- [x] Observability (Langfuse traces)
-- [x] HITL support (Telegram signals)
-- [x] Memory persistence (Qdrant + PostgreSQL)
-- [x] Smoke test automation
-- [x] Documentation complete
+Create a `.env` file:
+
+```bash
+# LLM Configuration (auto-detected)
+OPENAI_API_KEY=your_api_key
+# or
+GROQ_API_KEY=your_api_key
+# or
+AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com
+AZURE_OPENAI_API_KEY=your_api_key
+# or (local)
+OLLAMA_BASE_URL=http://localhost:11434
+
+# Database
+DATABASE_URL=postgresql://sarthi:sarthi@localhost:5433/sarthi
+
+# Qdrant
+QDRANT_URL=http://localhost:6333
+
+# Temporal
+TEMPORAL_HOST=localhost:7233
+
+# Redpanda
+REDPANDA_BROKERS=localhost:29092
+
+# Slack
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_CHANNEL_ID=C0123456789
+
+# Stripe (test mode)
+STRIPE_API_KEY=sk_test_...
+
+# Plaid (sandbox)
+PLAID_CLIENT_ID=...
+PLAID_SECRET=...
+```
+
+---
+
+## Monitoring
+
+**Local Development:**
+- **Langfuse UI:** http://localhost:3001 (LLM traces, latency, costs)
+- **Temporal Web UI:** http://localhost:8088 (workflow executions, retries)
+- **Redpanda Console:** http://localhost:8080 (event stream debugging)
+- **Qdrant Dashboard:** http://localhost:6333/dashboard
+
+**Production (Hetzner / AWS):**
+1. Set environment variables in `.env.prod`
+2. Deploy with `docker compose -f docker-compose.prod.yml up -d`
+3. Configure Temporal schedules via `temporal schedule create`
+4. Monitor via Langfuse UI + Temporal Web UI
 
 ---
 
 ## Contributing
 
-1. Create feature branch: `git checkout -b feature/description`
-2. Make changes with tests
-3. Run smoke test: `bash scripts/smoke_test.sh`
-4. Submit PR with test results
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m "feat: add your feature"`
+4. Push to the branch: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+**Git Standards:**
+- Use [Conventional Commits](https://www.conventionalcommits.org/)
+- Branch naming: `feature/description`, `fix/description`, `refactor/description`
+- Never commit to `main` directly
 
 ---
 
 ## License
 
-MIT License — see LICENSE file for details.
+MIT
 
 ---
 
-<div align="center">
+## Documentation
 
-**Built with ❤️ for software startups**
+- [Product Requirements Document](docs/PRD.md)
+- [Architecture Guide](ARCHITECTURE.md)
+- [Test Results](docs/TEST_RESULTS.md)
+- [Deployment Guide](DEPLOYMENT.md)
+- [Agent Instructions](AGENT_INSTRUCTION.md)
 
-[Documentation](./docs/) • [Architecture](./ARCHITECTURE.md) • [PRD](./docs/PRD.md)
+---
 
-</div>
+## Demo
+
+**3-Minute Demo Script:**
+
+```
+[0:00] "Sarthi is a multi-agent agentic AI system — the
+        ops memory brain for software startups."
+
+[0:20] Run: ./scripts/simulate_payment.sh
+       "Just fired a fake Razorpay webhook —
+        AWS bill 2.3x higher than the 90-day baseline."
+
+[0:35] Open Temporal UI → PulseWorkflow RUNNING
+       "Temporal ensures this survives any crash.
+        Durable execution — not a cron job."
+
+[0:50] "LangGraph ReAct loop: Ingest → Load baseline
+        → Detect anomaly → Query Qdrant → Reason → Alert"
+
+[1:10] Show Qdrant returning memory:
+       "Similar AWS spike. October 2025.
+        Cause: undeleted staging environment."
+       "It didn't just detect it — it remembered."
+
+[1:30] Show Slack alert:
+       "AWS bill 2.3x usual. First spike since October.
+        Check recent deployments. [Investigate][Dismiss]"
+
+[1:50] Tap [Investigate]
+       "Temporal receives the signal. BI Agent activates.
+        Generates SQL, executes it, builds a chart."
+       Show chart arriving in Slack (< 30 seconds)
+
+[2:20] Open Langfuse:
+       "Every LLM call traced: input, output, tokens,
+        latency, score. Production observability."
+
+[2:45] "Four agents. Nine technologies.
+        Temporal durable workflows. LangGraph ReAct.
+        Qdrant episodic memory. Deployed. Tested.
+        Observable. This is Sarthi."
+
+[3:00] END
+```

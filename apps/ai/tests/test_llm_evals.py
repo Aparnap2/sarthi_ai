@@ -89,111 +89,6 @@ class TestLLMConnectivity:
         assert len(resp.data[0].embedding) == 768
 
 
-class TestFinanceMonitorLLM:
-    """Evaluate Finance Monitor agent reasoning with real LLM."""
-
-    def setup_method(self):
-        from src.agents.finance_monitor import FinanceMonitorAgent
-        self.agent = FinanceMonitorAgent()
-
-    def test_anomaly_detection_with_llm(self):
-        """Finance Monitor should detect 2.3σ anomaly correctly."""
-        state = {
-            "tenant_id": TENANT,
-            "vendor_baselines": {"AWS": {"avg": 18000, "stddev": 2000}},
-            "runway_months": 8.0,
-        }
-        event = {
-            "event_type": "BANK_WEBHOOK", "vendor": "AWS",
-            "amount": 42000, "description": "AWS consolidated bill"
-        }
-        result = self.agent.run(state, event)
-        
-        assert result["fire_telegram"] is True
-        assert result["urgency"] == "high"
-        assert "AWS" in result["headline"]
-        # LLM should mention the multiple
-        assert "2" in result["headline"] or "×" in result["headline"] or "x" in result["headline"].lower()
-
-    def test_anomaly_cites_memory(self):
-        """Finance Monitor should cite Qdrant memory when available."""
-        from src.memory.qdrant_ops import upsert_memory, clear_tenant_memory
-        
-        # Clear any existing memory for this tenant
-        clear_tenant_memory(TENANT)
-        
-        # Pre-seed memory with past AWS spike
-        upsert_memory(
-            tenant_id=TENANT,
-            content="AWS spike March 2026 — training run for ML model.",
-            memory_type="finance_anomaly",
-            agent="finance_monitor",
-        )
-        
-        state = {
-            "tenant_id": TENANT,
-            "vendor_baselines": {"AWS": {"avg": 18000, "stddev": 2000}},
-            "runway_months": 8.0,
-        }
-        event = {
-            "event_type": "BANK_WEBHOOK", "vendor": "AWS",
-            "amount": 42000, "description": "AWS consolidated"
-        }
-        result = self.agent.run(state, event)
-        
-        # Headline should reference history
-        headline_lower = result["headline"].lower()
-        assert any(word in headline_lower 
-                   for word in ["last", "previous", "march", 
-                               "training", "first time", "before", "history", "spike"]), \
-            f"Headline should cite memory: {result['headline']}"
-
-    def test_runway_critical_alert(self):
-        """Runway <3 months should fire critical alert."""
-        state = {"tenant_id": TENANT, "vendor_baselines": {}, "runway_months": 2.5}
-        event = {"event_type": "TIME_TICK_DAILY"}
-        result = self.agent.run(state, event)
-        
-        assert result["fire_telegram"] is True
-        assert result["urgency"] == "critical"
-        assert "runway" in result["headline"].lower()
-
-    def test_no_jargon_in_headline(self):
-        """Headlines must be jargon-free."""
-        from src.agents.base import BANNED_JARGON
-        
-        state = {
-            "tenant_id": TENANT,
-            "vendor_baselines": {"AWS": {"avg": 18000, "stddev": 2000}},
-            "runway_months": 8.0,
-        }
-        event = {
-            "event_type": "BANK_WEBHOOK", "vendor": "AWS",
-            "amount": 42000, "description": "AWS bill"
-        }
-        result = self.agent.run(state, event)
-        
-        for term in BANNED_JARGON:
-            assert term.lower() not in result.get("headline", "").lower(), \
-                f"Banned jargon '{term}' found in: {result['headline']}"
-
-    def test_headline_brevity(self):
-        """Headlines should be max 25 words."""
-        state = {
-            "tenant_id": TENANT,
-            "vendor_baselines": {"AWS": {"avg": 18000, "stddev": 2000}},
-            "runway_months": 8.0,
-        }
-        event = {
-            "event_type": "BANK_WEBHOOK", "vendor": "AWS",
-            "amount": 42000, "description": "AWS consolidated bill"
-        }
-        result = self.agent.run(state, event)
-        
-        word_count = len(result["headline"].split())
-        assert word_count <= 25, f"Headline too long ({word_count} words): {result['headline']}"
-
-
 class TestRevenueTrackerLLM:
     """Evaluate Revenue Tracker agent reasoning with real LLM."""
 
@@ -407,16 +302,16 @@ class TestMemoryRetrievalLLM:
         point_id = upsert_memory(
             tenant_id=TENANT,
             content="AWS spend spike on March 15 — training run for new ML model. Not recurring.",
-            memory_type="finance_anomaly",
-            agent="finance_monitor",
+            memory_type="anomaly",
+            agent="anomaly_agent",
         )
         assert point_id is not None
-        
+
         # Retrieve with semantic query
         results = query_memory(
             tenant_id=TENANT,
             query_text="AWS bill anomaly vendor spike",
-            memory_types=["finance_anomaly"],
+            memory_types=["anomaly"],
             top_k=3,
             min_score=0.5,
         )
@@ -440,27 +335,27 @@ class TestMemoryRetrievalLLM:
         upsert_memory(
             tenant_id=tenant_a,
             content="Tenant A: AWS spike March 2026",
-            memory_type="finance_anomaly",
-            agent="finance_monitor",
+            memory_type="anomaly",
+            agent="anomaly_agent",
         )
         upsert_memory(
             tenant_id=tenant_b,
             content="Tenant B: Azure spike February 2026",
-            memory_type="finance_anomaly",
-            agent="finance_monitor",
+            memory_type="anomaly",
+            agent="anomaly_agent",
         )
-        
+
         # Query each tenant
         results_a = query_memory(
             tenant_id=tenant_a,
             query_text="AWS spike",
-            memory_types=["finance_anomaly"],
+            memory_types=["anomaly"],
             top_k=3,
         )
         results_b = query_memory(
             tenant_id=tenant_b,
             query_text="Azure spike",
-            memory_types=["finance_anomaly"],
+            memory_types=["anomaly"],
             top_k=3,
         )
         

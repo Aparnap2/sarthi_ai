@@ -21,7 +21,7 @@ from typing import Dict, Any, List
 from dataclasses import dataclass, asdict
 
 # Add tests to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
 
 from datasets.anomaly_explanations import (
     get_anomaly_eval_scenarios,
