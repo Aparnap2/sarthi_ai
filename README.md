@@ -8,6 +8,40 @@
 
 ---
 
+## 🎬 Running the Demo
+
+**One command to start everything:**
+```bash
+bash scripts/demo_start.sh
+```
+
+**Run the 3-minute demo:**
+```bash
+bash scripts/demo_run.sh
+```
+
+**Stop cleanly:**
+```bash
+bash scripts/demo_stop.sh
+```
+
+**Pre-flight check (run before recruiter call):**
+```bash
+bash scripts/demo_preflight.sh
+```
+
+**What the demo shows:**
+| Step | What happens | Tech demonstrated |
+|------|-------------|-------------------|
+| Pulse | Fetches MRR, burn, runway → LLM generates narrative | LangGraph · DSPy · Ollama |
+| Q&A | Answers "what is my runway?" in plain English | Qdrant vector memory |
+| Memory | Second pulse run retrieves historical context | Qdrant · nomic-embed-text |
+| Tests | 91 unit tests run live | pytest · Temporal |
+
+**100% local. Zero API costs. Zero internet required.**
+
+---
+
 ## Overview
 
 **Sarthi** is an always-on business pulse monitor for solo SaaS founders. It watches your Stripe + bank accounts 24/7, detects anomalies with historical context, drafts weekly investor updates automatically, and answers your top 20 business questions in <10 seconds.
