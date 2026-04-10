@@ -92,3 +92,53 @@ class AnomalyExplainer(dspy.Signature):
 # ── Instantiated predictors (importable by nodes.py) ─────────────
 pulse_summarizer  = dspy.Predict(PulseSummarizer)
 anomaly_explainer = dspy.Predict(AnomalyExplainer)
+
+# ── DSPy Examples for PulseSummarizer ─────────────────────────────
+# Concrete training examples to guide the LLM's output format and tone.
+
+_PULSE_EXAMPLES: list[dspy.Example] = [
+    dspy.Example(
+        mrr="₹12500",
+        arr="₹150000",
+        runway="3.0 months",
+        burn="₹15000",
+        customers="Active: 25, New: 3, Churned: 1",
+        mrr_growth="+4.2%",
+        quick_ratio="1.50",
+        active_users="1,250",
+        historical="Previous MRR was ₹12,000. Runway was 3.5 months.",
+        anomalies="Critical runway: only 3.0 months remaining",
+        narrative=(
+            "Your MRR grew to ₹12,500, up 4.2% from last month, but your runway has shrunk to 3 months at current burn. "
+            "You added 2 net customers this month, which is progress but not enough to offset the cash drain. "
+            "The biggest risk is running out of operating cash before you hit product-market fit."
+        ),
+        action_item="Call the 1 churned customer this week to understand why they left.",
+    ).with_inputs(
+        "mrr", "arr", "runway", "burn", "customers",
+        "mrr_growth", "quick_ratio", "active_users",
+        "historical", "anomalies",
+    ),
+    dspy.Example(
+        mrr="₹45000",
+        arr="₹540000",
+        runway="18.0 months",
+        burn="₹8000",
+        customers="Active: 90, New: 12, Churned: 3",
+        mrr_growth="+15.4%",
+        quick_ratio="3.20",
+        active_users="4,800",
+        historical="Previous MRR was ₹39,000. Runway was 14 months.",
+        anomalies="none",
+        narrative=(
+            "Your MRR jumped 15.4% to ₹45,000 with a healthy quick ratio of 3.2, meaning you're adding revenue much faster than you're losing it. "
+            "Runway extended to 18 months, giving you breathing room to experiment and iterate. "
+            "The risk now is complacency — 9 net new customers is good but you need to keep that momentum going."
+        ),
+        action_item="Identify the top 3 acquisition channels that brought in the 12 new customers and double down on them.",
+    ).with_inputs(
+        "mrr", "arr", "runway", "burn", "customers",
+        "mrr_growth", "quick_ratio", "active_users",
+        "historical", "anomalies",
+    ),
+]

@@ -1,5 +1,5 @@
 """
-DSPy signatures for the QAAgent.
+DSPy signatures and ReAct agent prompts for the QAAgent.
 
 Uses Ollama qwen3:0.6b via the OpenAI-compatible endpoint.
 """
@@ -46,6 +46,42 @@ FOUNDER_QUESTIONS = {
     "vs_last_month":   "How does this month compare to last month?",
     "investor_update": "Can you draft my investor update?",
 }
+
+
+# ── Tool descriptions for ReAct agent ────────────────────────────
+
+TOOL_DESCRIPTIONS = {
+    "search_pulse_memory": (
+        "Search past business pulse snapshots for context. "
+        "Use this to find historical answers or trends for a given question. "
+        "Parameters: query (str) — the search query; tenant_id (str) — the tenant identifier. "
+        "Returns: top 3 matching memory entries as a formatted string."
+    ),
+    "query_stripe_metrics": (
+        "Get Stripe metrics for a tenant. "
+        "Use this to retrieve MRR, ARR, churn, new customers, and other payment metrics. "
+        "Parameters: metric (str) — one of 'mrr', 'arr', 'churn', 'new_customers', 'active_customers', 'churned_customers'; "
+        "tenant_id (str) — the tenant identifier. "
+        "Returns: formatted metric value with units."
+    ),
+    "query_product_db": (
+        "Query product DB for usage metrics: DAU, MAU, retention, active users. "
+        "Use this for product engagement questions, not revenue. "
+        "Parameters: question (str) — the product question; tenant_id (str) — the tenant identifier. "
+        "Returns: formatted product metrics result."
+    ),
+}
+
+
+# ── ReAct agent system prompt ────────────────────────────────────
+
+REACT_SYSTEM_PROMPT = (
+    "You are Sarthi, a proactive business co-founder AI. "
+    "Answer the founder's question using ONLY their real data. "
+    "Be direct. Lead with the number. Max 100 words. "
+    "If the answer isn't in the data, say 'I don't have that data yet. "
+    "Connect your Stripe/bank account to get this.'"
+)
 
 
 # ── Signature: FounderQA ─────────────────────────────────────────

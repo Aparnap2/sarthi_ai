@@ -117,3 +117,42 @@ def test_stripe_mock_data_has_reasonable_values():
     assert snap["active_customers"] > 0
     # Churn should not exceed active customers
     assert snap["churned_customers"] < snap["active_customers"]
+
+
+# ── Additional Integration Tests ─────────────────────────────────
+
+def test_stripe_returns_mrr_as_int():
+    """get_mrr_snapshot returns mrr_cents as int."""
+    from src.integrations.stripe import get_mrr_snapshot
+    result = get_mrr_snapshot(TENANT)
+    assert isinstance(result["mrr_cents"], int)
+
+
+def test_plaid_returns_balance_as_int():
+    """get_bank_snapshot returns balance_cents as int."""
+    from src.integrations.plaid import get_bank_snapshot
+    result = get_bank_snapshot(TENANT)
+    assert isinstance(result["balance_cents"], int)
+
+
+def test_product_db_returns_users_as_int():
+    """get_product_snapshot returns active_users_30d as int."""
+    from src.integrations.product_db import get_product_snapshot
+    result = get_product_snapshot(TENANT)
+    assert isinstance(result["active_users_30d"], int)
+
+
+def test_qdrant_embed_returns_768_floats():
+    """_get_embedding produces 768-dim float vectors from Ollama."""
+    import requests
+    # Skip if Ollama not available
+    try:
+        r = requests.get("http://localhost:11434/api/tags", timeout=3)
+        if r.status_code != 200:
+            pytest.skip("Ollama not available")
+    except Exception:
+        pytest.skip("Ollama not available")
+    from src.memory.qdrant_ops import _get_embedding
+    vec = _get_embedding("test query")
+    assert len(vec) == 768
+    assert all(isinstance(v, float) for v in vec)

@@ -48,3 +48,14 @@ class InvestorUpdateWriter(dspy.Signature):
 
 # ── Instantiated predictor ──────────────────────────────────────
 investor_update_writer = dspy.Predict(InvestorUpdateWriter)
+
+
+# ── Signature: DraftCritic ──────────────────────────────────────
+
+class DraftCritic(dspy.Signature):
+    """Review this investor update draft. Be harsh. Is it honest? Specific? Under 300 words? One Ask only?"""
+    draft:   str = dspy.InputField(desc="The draft to critique. Example: '## March 2026\\n\\n**MRR:** ₹9,000...'")
+    verdict: str = dspy.OutputField(desc="PASS or FAIL followed by one improvement sentence. Example: 'FAIL — Add specific customer count.'")
+
+
+draft_critic = dspy.Predict(DraftCritic)

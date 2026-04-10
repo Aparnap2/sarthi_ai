@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.agents.anomaly.state import AnomalyState
+from src.agents.anomaly.thresholds import detect_anomaly
 from src.agents.anomaly.prompts import anomaly_explainer, anomaly_action_generator
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,20 @@ from src.memory.qdrant_ops import search_memory
 
 # ── Slack integration ─────────────────────────────────────────────
 from src.integrations.slack import send_message_sync, format_slack_blocks
+
+
+# ── Node 0: detect_anomaly ────────────────────────────────────────
+
+def detect_anomaly_node(state: AnomalyState) -> dict:
+    """Rule-based anomaly detection — NO LLM."""
+    result = detect_anomaly({
+        "runway_days": state.get("runway_days", 999),
+        "mrr_change_pct": state.get("mrr_change_pct", 0.0),
+        "burn_rate_cents": state.get("burn_rate_cents", 0),
+        "prev_burn_cents": state.get("prev_burn_cents", 0),
+        "churned_customers": state.get("churned_customers", 0),
+    })
+    return result
 
 
 # ── Node 1: retrieve_anomaly_memory ───────────────────────────────

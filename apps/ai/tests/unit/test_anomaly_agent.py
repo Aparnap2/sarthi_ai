@@ -7,6 +7,7 @@ Tests cover:
   - generate_explanation node
   - generate_action node
   - build_slack_message node
+  - detect_anomaly threshold rules (10 tests)
 
 All tests run in MOCK MODE (no real API calls).
 """
@@ -24,6 +25,7 @@ os.environ["PRODUCT_DB_URL"] = ""
 os.environ["QDRANT_HOST"] = "localhost"
 os.environ["QDRANT_PORT"] = "6333"
 os.environ["OLLAMA_BASE_URL"] = "http://localhost:11434/v1"
+os.environ["LANGFUSE_ENABLED"] = "false"
 
 TENANT = "test-anomaly-tenant-unit"
 
@@ -311,3 +313,154 @@ class TestBuildSlackMessage:
         assert "slack_blocks" in result
         assert isinstance(result["slack_blocks"], list)
         assert len(result["slack_blocks"]) >= 1
+
+
+# =============================================================================
+# TestDetectAnomaly — Rule-based threshold tests (10 tests)
+# =============================================================================
+
+class TestDetectAnomaly:
+    """Tests for detect_anomaly() rule-based threshold logic."""
+
+    def test_runway_critical_below_90_days(self):
+        """runway_days < 90 → critical anomaly, should alert."""
+        from src.agents.anomaly.thresholds import detect_anomaly
+
+        result = detect_anomaly({
+            "runway_days": 80,
+            "mrr_change_pct": 0,
+            "burn_rate_cents": 50000,
+            "prev_burn_cents": 50000,
+            "churned_customers": 0,
+        })
+        assert result["anomaly_detected"] is True
+        assert result["anomaly_type"] == "runway_drop"
+        assert result["anomaly_severity"] == "critical"
+        assert result["should_alert"] is True
+
+    def test_runway_warning_below_180_days(self):
+        """90 <= runway_days < 180 → warning anomaly."""
+        from src.agents.anomaly.thresholds import detect_anomaly
+
+        result = detect_anomaly({
+            "runway_days": 150,
+            "mrr_change_pct": 0,
+            "burn_rate_cents": 50000,
+            "prev_burn_cents": 50000,
+            "churned_customers": 0,
+        })
+        assert result["anomaly_detected"] is True
+        assert result["anomaly_type"] == "runway_drop"
+        assert result["anomaly_severity"] == "warning"
+
+    def test_no_anomaly_healthy(self):
+        """Healthy metrics → no anomaly detected."""
+        from src.agents.anomaly.thresholds import detect_anomaly
+
+        result = detect_anomaly({
+            "runway_days": 400,
+            "mrr_change_pct": 3.0,
+            "burn_rate_cents": 40000,
+            "prev_burn_cents": 40000,
+            "churned_customers": 0,
+        })
+        assert result["anomaly_detected"] is False
+        assert result["should_alert"] is False
+
+    def test_mrr_drop_warning(self):
+        """mrr_change_pct < -5% → warning."""
+        from src.agents.anomaly.thresholds import detect_anomaly
+
+        result = detect_anomaly({
+            "runway_days": 300,
+            "mrr_change_pct": -8.0,
+            "burn_rate_cents": 40000,
+            "prev_burn_cents": 40000,
+            "churned_customers": 0,
+        })
+        assert result["anomaly_type"] == "mrr_drop"
+        assert result["anomaly_severity"] == "warning"
+
+    def test_mrr_drop_critical(self):
+        """mrr_change_pct < -15% → critical."""
+        from src.agents.anomaly.thresholds import detect_anomaly
+
+        result = detect_anomaly({
+            "runway_days": 300,
+            "mrr_change_pct": -18.0,
+            "burn_rate_cents": 40000,
+            "prev_burn_cents": 40000,
+            "churned_customers": 0,
+        })
+        assert result["anomaly_type"] == "mrr_drop"
+        assert result["anomaly_severity"] == "critical"
+
+    def test_burn_spike_warning(self):
+        """burn/prev_burn > 1.2x → warning."""
+        from src.agents.anomaly.thresholds import detect_anomaly
+
+        result = detect_anomaly({
+            "runway_days": 300,
+            "mrr_change_pct": 0,
+            "burn_rate_cents": 52000,
+            "prev_burn_cents": 40000,
+            "churned_customers": 0,
+        })
+        assert result["anomaly_type"] == "burn_spike"
+        assert result["anomaly_severity"] == "warning"
+
+    def test_burn_spike_critical(self):
+        """burn/prev_burn > 1.5x → critical."""
+        from src.agents.anomaly.thresholds import detect_anomaly
+
+        result = detect_anomaly({
+            "runway_days": 300,
+            "mrr_change_pct": 0,
+            "burn_rate_cents": 61000,
+            "prev_burn_cents": 40000,
+            "churned_customers": 0,
+        })
+        assert result["anomaly_type"] == "burn_spike"
+        assert result["anomaly_severity"] == "critical"
+
+    def test_high_churn_warning(self):
+        """churned_customers >= 1 → warning."""
+        from src.agents.anomaly.thresholds import detect_anomaly
+
+        result = detect_anomaly({
+            "runway_days": 300,
+            "mrr_change_pct": 0,
+            "burn_rate_cents": 40000,
+            "prev_burn_cents": 40000,
+            "churned_customers": 1,
+        })
+        assert result["anomaly_type"] == "high_churn"
+        assert result["anomaly_severity"] == "warning"
+
+    def test_high_churn_critical(self):
+        """churned_customers >= 3 → critical."""
+        from src.agents.anomaly.thresholds import detect_anomaly
+
+        result = detect_anomaly({
+            "runway_days": 300,
+            "mrr_change_pct": 0,
+            "burn_rate_cents": 40000,
+            "prev_burn_cents": 40000,
+            "churned_customers": 3,
+        })
+        assert result["anomaly_type"] == "high_churn"
+        assert result["anomaly_severity"] == "critical"
+
+    def test_anomaly_type_is_string(self):
+        """anomaly_type is a non-empty string when anomaly detected."""
+        from src.agents.anomaly.thresholds import detect_anomaly
+
+        result = detect_anomaly({
+            "runway_days": 80,
+            "mrr_change_pct": 0,
+            "burn_rate_cents": 50000,
+            "prev_burn_cents": 50000,
+            "churned_customers": 0,
+        })
+        assert isinstance(result["anomaly_type"], str)
+        assert result["anomaly_type"] != ""

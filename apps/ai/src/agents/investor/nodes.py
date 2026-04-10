@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Any
 
 from src.agents.investor.state import InvestorState
-from src.agents.investor.prompts import investor_update_writer
+from src.agents.investor.prompts import investor_update_writer, draft_critic
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +254,31 @@ def generate_draft(state: InvestorState) -> dict:
     return result
 
 
-# ── Node 4: build_slack_message ───────────────────────────────────
+# ── Node 4: critique_draft ────────────────────────────────────────
+
+def critique_draft(state: InvestorState) -> dict:
+    """
+    Critique the draft — max 1 iteration enforced in graph.
+
+    Populates:
+      - critique: Verdict string (PASS/FAIL + feedback)
+      - quality_pass: Whether the draft passed critique
+      - iteration: Incremented counter (0 or 1)
+
+    If the LLM critic is unavailable, falls back to PASS to avoid blocking.
+    """
+    draft = state.get("draft_markdown", "")
+    try:
+        result = draft_critic(draft=draft)
+        verdict = result.verdict.strip()
+        quality_pass = "PASS" in verdict.upper()
+        return {"critique": verdict, "quality_pass": quality_pass, "iteration": state.get("iteration", 0) + 1}
+    except Exception as e:
+        logger.warning("critique_draft error: %s", e)
+        return {"critique": "PASS (fallback)", "quality_pass": True, "iteration": state.get("iteration", 0) + 1}
+
+
+# ── Node 5: build_slack_message ───────────────────────────────────
 
 def build_slack_message(state: InvestorState) -> dict:
     """

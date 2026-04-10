@@ -34,6 +34,11 @@ class InvestorState(TypedDict, total=False):
     draft_markdown:      str            # full investor update draft (<300 words)
     slack_preview:       str            # short preview for Slack
 
+    # ── Critic loop ───────────────────────────────────────────────
+    critique:            str            # critique verdict (PASS/FAIL + feedback)
+    quality_pass:        bool           # whether draft passed critique
+    iteration:           int            # 0 or 1 (max 1 revision)
+
     # ── Slack delivery ────────────────────────────────────────────
     slack_blocks:        list[dict]
     slack_result:        dict

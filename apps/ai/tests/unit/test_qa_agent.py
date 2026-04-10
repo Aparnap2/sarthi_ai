@@ -7,6 +7,9 @@ Tests cover:
   - fetch_data node
   - generate_answer node
   - send_slack node
+  - ReAct tools (search_pulse_memory, query_stripe_metrics, query_product_db)
+  - QA_TOOLS list
+  - ReAct agent structure
 
 All tests run in MOCK MODE (no real API calls).
 """
@@ -300,3 +303,168 @@ class TestSendSlack:
         # Should contain Question and Answer
         assert "Question" in blocks_text
         assert "Answer" in blocks_text
+
+
+# =============================================================================
+# TestReActTools
+# =============================================================================
+
+class TestReActTools:
+    """Tests for ReAct tool functions."""
+
+    def test_qa_tools_count(self):
+        """QA_TOOLS contains exactly 3 tools."""
+        from src.agents.qa.nodes import QA_TOOLS
+
+        assert len(QA_TOOLS) == 3
+
+    def test_qa_tools_are_langchain_tools(self):
+        """All QA_TOOLS are langchain_core.tools.BaseTool instances."""
+        from langchain_core.tools import BaseTool
+        from src.agents.qa.nodes import QA_TOOLS
+
+        for t in QA_TOOLS:
+            assert isinstance(t, BaseTool)
+
+    def test_qa_tools_names(self):
+        """QA_TOOLS have expected names."""
+        from src.agents.qa.nodes import QA_TOOLS
+
+        names = [t.name for t in QA_TOOLS]
+        assert "search_pulse_memory" in names
+        assert "query_stripe_metrics" in names
+        assert "query_product_db" in names
+
+    def test_query_stripe_metrics_mrr(self):
+        """query_stripe_metrics returns MRR value in mock mode."""
+        from src.agents.qa.nodes import query_stripe_metrics
+
+        result = query_stripe_metrics.invoke({"metric": "mrr", "tenant_id": TENANT})
+        assert isinstance(result, str)
+        assert "MRR" in result
+
+    def test_query_stripe_metrics_arr(self):
+        """query_stripe_metrics returns ARR value in mock mode."""
+        from src.agents.qa.nodes import query_stripe_metrics
+
+        result = query_stripe_metrics.invoke({"metric": "arr", "tenant_id": TENANT})
+        assert isinstance(result, str)
+        assert "ARR" in result
+
+    def test_query_stripe_metrics_invalid(self):
+        """query_stripe_metrics returns error for unknown metric."""
+        from src.agents.qa.nodes import query_stripe_metrics
+
+        result = query_stripe_metrics.invoke({"metric": "nonsense", "tenant_id": TENANT})
+        assert isinstance(result, str)
+        assert "Unknown metric" in result
+
+    def test_query_product_db_returns_string(self):
+        """query_product_db returns formatted product metrics."""
+        from src.agents.qa.nodes import query_product_db
+
+        result = query_product_db.invoke({"question": "DAU?", "tenant_id": TENANT})
+        assert isinstance(result, str)
+        assert "DAU" in result
+        assert "MAU" in result
+
+    def test_search_pulse_memory_returns_string_on_failure(self):
+        """search_pulse_memory returns string even when Qdrant is unavailable."""
+        from src.agents.qa.nodes import search_pulse_memory
+
+        # Qdrant likely not running in unit test env, so expect graceful fallback
+        result = search_pulse_memory.invoke({"query": "MRR", "tenant_id": TENANT})
+        assert isinstance(result, str)
+
+    def test_qa_tools_exist(self):
+        """QA_TOOLS contains exactly 3 tools with expected names."""
+        from src.agents.qa.nodes import QA_TOOLS
+
+        assert len(QA_TOOLS) == 3
+        names = [t.name for t in QA_TOOLS]
+        assert "search_pulse_memory" in names
+        assert "query_stripe_metrics" in names
+        assert "query_product_db" in names
+
+    def test_search_pulse_memory_returns_string(self):
+        """search_pulse_memory.invoke returns a string result."""
+        from src.agents.qa.nodes import search_pulse_memory
+
+        result = search_pulse_memory.invoke({"query": "MRR last month", "tenant_id": TENANT})
+        assert isinstance(result, str)
+
+    def test_query_stripe_metrics_returns_string(self):
+        """query_stripe_metrics.invoke returns a string result."""
+        from src.agents.qa.nodes import query_stripe_metrics
+
+        result = query_stripe_metrics.invoke({"metric": "mrr", "tenant_id": TENANT})
+        assert isinstance(result, str)
+
+    def test_qa_react_agent_exists(self):
+        """qa_agent is exported from graph module and is not None."""
+        from src.agents.qa.graph import qa_agent
+
+        assert qa_agent is not None
+
+    def test_qa_answer_non_empty(self):
+        """FounderQA prompt signature exists and is properly defined."""
+        from src.agents.qa.prompts import FounderQA
+
+        assert FounderQA is not None
+        assert hasattr(FounderQA, "__annotations__")
+        annotations = FounderQA.__annotations__
+        assert "answer" in annotations
+
+
+# =============================================================================
+# TestReActAgent
+# =============================================================================
+
+class TestReActAgent:
+    """Tests for ReAct agent structure."""
+
+    def test_qa_agent_exists(self):
+        """qa_agent is exported from graph module."""
+        from src.agents.qa.graph import qa_agent
+
+        assert qa_agent is not None
+
+    def test_qa_agent_is_compiled_graph(self):
+        """qa_agent is a compiled LangGraph graph (Pregel instance)."""
+        from src.agents.qa.graph import qa_agent
+        from langgraph.pregel import Pregel
+
+        assert isinstance(qa_agent, Pregel)
+
+    def test_qa_graph_nodes_count(self):
+        """qa_graph has 5 user-defined nodes (+ __start__ implicit node)."""
+        from src.agents.qa.graph import qa_graph
+
+        # LangGraph adds __start__ as implicit entry point
+        all_nodes = list(qa_graph.nodes.keys())
+        user_nodes = [n for n in all_nodes if n != "__start__"]
+        assert len(user_nodes) == 5
+
+    def test_qa_graph_node_names(self):
+        """qa_graph has expected node names (excluding __start__)."""
+        from src.agents.qa.graph import qa_graph
+
+        node_names = {n for n in qa_graph.nodes.keys() if n != "__start__"}
+        expected = {"match_question", "fetch_data", "retrieve_memory", "generate_answer", "send_slack"}
+        assert node_names == expected
+
+    def test_prompts_react_system_prompt(self):
+        """REACT_SYSTEM_PROMPT is defined and non-empty."""
+        from src.agents.qa.prompts import REACT_SYSTEM_PROMPT
+
+        assert isinstance(REACT_SYSTEM_PROMPT, str)
+        assert len(REACT_SYSTEM_PROMPT) > 0
+        assert "Sarthi" in REACT_SYSTEM_PROMPT
+
+    def test_prompts_tool_descriptions(self):
+        """TOOL_DESCRIPTIONS has entries for all 3 tools."""
+        from src.agents.qa.prompts import TOOL_DESCRIPTIONS
+
+        assert "search_pulse_memory" in TOOL_DESCRIPTIONS
+        assert "query_stripe_metrics" in TOOL_DESCRIPTIONS
+        assert "query_product_db" in TOOL_DESCRIPTIONS

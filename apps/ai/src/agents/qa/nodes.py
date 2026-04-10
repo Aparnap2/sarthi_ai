@@ -1,5 +1,13 @@
 """
-QAAgent Node Functions.
+QAAgent Node Functions & ReAct Tools.
+
+Existing nodes (graph-based, backward-compatible):
+  - match_question, fetch_data, retrieve_memory, generate_answer, send_slack
+
+ReAct tools (for create_react_agent pattern):
+  - search_pulse_memory: Search past business pulse snapshots
+  - query_stripe_metrics: Get Stripe metrics (mrr, churn, etc.)
+  - query_product_db: Query product DB for usage metrics (DAU, MAU, retention)
 
 Each node:
   - Accepts state: QAState
@@ -26,6 +34,119 @@ from src.integrations.slack import send_message_sync, format_slack_blocks
 
 # ── Qdrant imports ────────────────────────────────────────────────
 from src.memory.qdrant_ops import search_memory
+
+
+# =============================================================================
+# ReAct Tools (for create_react_agent pattern)
+# =============================================================================
+
+from langchain_core.tools import tool
+
+
+@tool
+def search_pulse_memory(query: str, tenant_id: str) -> str:
+    """Search past business pulse snapshots for context.
+
+    Use this to find historical answers or trends for a given question.
+    Returns top 3 matching memory entries as a formatted string.
+    """
+    try:
+        memories = search_memory(
+            tenant_id=tenant_id,
+            query=query,
+            memory_type="qa_memory",
+            limit=3,
+        )
+        if not memories:
+            return f"No past memories found for query: '{query}'"
+
+        lines = [f"Past memories for '{query}':"]
+        for i, mem in enumerate(memories, 1):
+            content = mem.get("content", "")
+            timestamp = mem.get("timestamp", "unknown")
+            lines.append(f"{i}. [{timestamp}] {content}")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.warning(f"search_pulse_memory failed: {e}")
+        return f"Memory search unavailable: {e}"
+
+
+@tool
+def query_stripe_metrics(metric: str, tenant_id: str) -> str:
+    """Get Stripe metrics: mrr, arr, churn, new_customers, active_customers, churned_customers.
+
+    Use this to retrieve payment and subscription metrics for a tenant.
+    """
+    valid_metrics = {"mrr", "arr", "churn", "new_customers", "active_customers", "churned_customers"}
+    if metric not in valid_metrics:
+        return f"Unknown metric '{metric}'. Valid metrics: {', '.join(sorted(valid_metrics))}"
+
+    try:
+        stripe_data = get_mrr_snapshot(tenant_id)
+        metric_map = {
+            "mrr": stripe_data.get("mrr_cents", 0),
+            "arr": stripe_data.get("mrr_cents", 0) * 12,
+            "churn": stripe_data.get("churned_customers", 0),
+            "new_customers": stripe_data.get("new_customers", 0),
+            "active_customers": stripe_data.get("active_customers", 0),
+            "churned_customers": stripe_data.get("churned_customers", 0),
+        }
+        value = metric_map[metric]
+
+        if metric in ("mrr", "arr"):
+            return f"{metric.upper()}: ₹{value / 100:.0f} ({value} cents)"
+        return f"{metric}: {value}"
+    except Exception as e:
+        logger.warning(f"query_stripe_metrics failed for {metric}: {e}")
+        return f"Stripe metric '{metric}' unavailable: {e}"
+
+
+@tool
+def query_product_db(question: str, tenant_id: str) -> str:
+    """Query product DB for usage metrics: DAU, MAU, retention, active users.
+
+    Use this for product engagement questions, not revenue.
+    """
+    try:
+        # For now, derive from Stripe active_customers as proxy.
+        # In production, this would query the actual product analytics DB.
+        stripe_data = get_mrr_snapshot(tenant_id)
+        active = stripe_data.get("active_customers", 0)
+        new = stripe_data.get("new_customers", 0)
+        churned = stripe_data.get("churned_customers", 0)
+
+        # Simulated DAU/MAU ratios (replace with real product DB query)
+        dau = int(active * 0.4) if active > 0 else 0
+        mau = active
+
+        result_lines = [
+            f"Product metrics for tenant {tenant_id}:",
+            f"  DAU (Daily Active Users): {dau}",
+            f"  MAU (Monthly Active Users): {mau}",
+            f"  Active customers: {active}",
+            f"  New this period: {new}",
+            f"  Churned this period: {churned}",
+        ]
+        if active > 0:
+            retention = round((dau / mau) * 100, 1) if mau > 0 else 0
+            result_lines.append(f"  DAU/MAU ratio: {retention}%")
+
+        return "\n".join(result_lines)
+    except Exception as e:
+        logger.warning(f"query_product_db failed: {e}")
+        return f"Product DB query unavailable: {e}"
+
+
+# =============================================================================
+# All exported tools list (for create_react_agent)
+# =============================================================================
+
+QA_TOOLS = [search_pulse_memory, query_stripe_metrics, query_product_db]
+
+
+# =============================================================================
+# Graph-based nodes (backward-compatible)
+# =============================================================================
 
 
 # ── Node 1: match_question ────────────────────────────────────────

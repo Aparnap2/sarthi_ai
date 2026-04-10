@@ -6,8 +6,11 @@ Each node:
   - Returns dict of only fields it changes
   - Never raises — errors written to state["error"] + state["error_node"]
   - Uses try/except with logging
+
+Async nodes use asyncio.gather for parallel integration fetches.
 """
 from __future__ import annotations
+import asyncio
 import logging
 import uuid
 import os
@@ -32,11 +35,14 @@ import psycopg2
 from datetime import datetime
 
 
-# ── Node 1: fetch_data ────────────────────────────────────────────
+# ── Node 1: fetch_data (async, parallel via asyncio.gather) ───────
 
-def fetch_data(state: PulseState) -> dict:
+async def fetch_data(state: PulseState) -> dict:
     """
-    Fetch raw data from all integrations (Stripe, Plaid, Product DB).
+    Fetch raw data from all integrations (Stripe, Plaid, Product DB) in parallel.
+
+    Uses asyncio.gather to fire all three integration calls concurrently,
+    reducing total latency from sum(latencies) to max(latencies).
 
     Populates:
       - mrr_cents, arr_cents, active_customers, new_customers, churned_customers
@@ -48,12 +54,37 @@ def fetch_data(state: PulseState) -> dict:
     Errors are non-fatal — partial data is acceptable.
     """
     tenant_id = state.get("tenant_id", "unknown")
-    data_sources: list[str] = []
-    result: dict = {}
+    result: dict = {"data_sources": [], "error": "", "error_node": ""}
+    errors: list[str] = []
 
-    try:
-        # Fetch Stripe MRR data
-        stripe_data = get_mrr_snapshot(tenant_id)
+    # ── Async wrappers for sync integration functions ─────────────
+
+    async def _fetch_stripe() -> dict:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, lambda: get_mrr_snapshot(tenant_id))
+
+    async def _fetch_bank() -> dict:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, lambda: get_bank_snapshot(tenant_id))
+
+    async def _fetch_product() -> dict:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, lambda: get_product_snapshot(tenant_id))
+
+    # ── Parallel fetch with asyncio.gather ────────────────────────
+    stripe_task = _fetch_stripe()
+    bank_task = _fetch_bank()
+    product_task = _fetch_product()
+
+    stripe_data, bank_data, product_data = await asyncio.gather(
+        stripe_task, bank_task, product_task, return_exceptions=True,
+    )
+
+    # ── Process Stripe results ────────────────────────────────────
+    if isinstance(stripe_data, Exception):
+        errors.append(f"Stripe: {stripe_data}")
+        logger.warning(f"Stripe fetch failed for {tenant_id}: {stripe_data}")
+    else:
         result["mrr_cents"] = stripe_data.get("mrr_cents", 0)
         result["arr_cents"] = stripe_data.get("arr_cents", 0)
         result["active_customers"] = stripe_data.get("active_customers", 0)
@@ -61,47 +92,81 @@ def fetch_data(state: PulseState) -> dict:
         result["churned_customers"] = stripe_data.get("churned_customers", 0)
         result["expansion_cents"] = 0  # MVP: not tracked yet
         result["contraction_cents"] = 0  # MVP: not tracked yet
-        data_sources.append("stripe_mock" if stripe_data.get("source", "").endswith("_mock") else "stripe")
+        source = stripe_data.get("source", "")
+        result["data_sources"].append("stripe_mock" if source.endswith("_mock") else "stripe")
         logger.info(f"Fetched Stripe data for {tenant_id}: MRR={result['mrr_cents']}")
 
-    except Exception as e:
-        logger.warning(f"Stripe fetch failed for {tenant_id}: {e}")
-        result["error"] = f"Stripe: {str(e)}"
-        result["error_node"] = "fetch_data"
-
-    try:
-        # Fetch Plaid/Mercury bank data
-        bank_data = get_bank_snapshot(tenant_id)
+    # ── Process Bank results ──────────────────────────────────────
+    if isinstance(bank_data, Exception):
+        errors.append(f"Bank: {bank_data}")
+        logger.warning(f"Bank fetch failed for {tenant_id}: {bank_data}")
+    else:
         result["balance_cents"] = bank_data.get("balance_cents", 0)
         result["burn_30d_cents"] = bank_data.get("burn_30d_cents", 0)
-        data_sources.append("bank_mock" if bank_data.get("source", "").endswith("_mock") else "bank")
+        source = bank_data.get("source", "")
+        result["data_sources"].append("bank_mock" if source.endswith("_mock") else "bank")
         logger.info(f"Fetched bank data for {tenant_id}: Balance={result['balance_cents']}")
 
-    except Exception as e:
-        logger.warning(f"Bank fetch failed for {tenant_id}: {e}")
-        if "error" in result:
-            result["error"] += f"; Bank: {str(e)}"
-        else:
-            result["error"] = f"Bank: {str(e)}"
-        result["error_node"] = "fetch_data"
-
-    try:
-        # Fetch product usage data
-        product_data = get_product_snapshot(tenant_id)
+    # ── Process Product results ───────────────────────────────────
+    if isinstance(product_data, Exception):
+        errors.append(f"Product: {product_data}")
+        logger.warning(f"Product fetch failed for {tenant_id}: {product_data}")
+    else:
         result["active_users_30d"] = product_data.get("active_users_30d", 0)
-        data_sources.append("product_mock" if product_data.get("source", "").endswith("_mock") else "product")
+        source = product_data.get("source", "")
+        result["data_sources"].append("product_mock" if source.endswith("_mock") else "product")
         logger.info(f"Fetched product data for {tenant_id}: Active users={result['active_users_30d']}")
 
-    except Exception as e:
-        logger.warning(f"Product fetch failed for {tenant_id}: {e}")
-        if "error" in result:
-            result["error"] += f"; Product: {str(e)}"
-        else:
-            result["error"] = f"Product: {str(e)}"
+    # ── Aggregate errors ──────────────────────────────────────────
+    if errors:
+        result["error"] = "; ".join(errors)
         result["error_node"] = "fetch_data"
 
-    result["data_sources"] = data_sources
     return result
+
+
+# ── Node 1.5: check_data_gate ─────────────────────────────────────
+
+def check_data_gate(state: PulseState) -> dict:
+    """
+    Gate function: if both MRR and bank balance are zero, route to no_data_fallback.
+
+    Returns a dict with "gate_result" set to either "no_data" or "has_data".
+    This is used by the conditional edge to route the graph.
+    """
+    tenant_id = state.get("tenant_id", "unknown")
+    mrr_cents = state.get("mrr_cents", 0)
+    balance_cents = state.get("balance_cents", 0)
+
+    if mrr_cents == 0 and balance_cents == 0:
+        logger.info(f"Data gate triggered for {tenant_id}: no data available")
+        return {"gate_result": "no_data"}
+    else:
+        logger.info(f"Data gate passed for {tenant_id}: has data (MRR={mrr_cents}, Balance={balance_cents})")
+        return {"gate_result": "has_data"}
+
+
+# ── Node 1.6: no_data_fallback ────────────────────────────────────
+
+def no_data_fallback(state: PulseState) -> dict:
+    """
+    Fallback node when no integration data is available.
+
+    Sets a user-friendly narrative instructing the founder to connect
+    their Stripe and bank accounts. Skips all downstream metric
+    computation and goes straight to Slack delivery.
+    """
+    tenant_id = state.get("tenant_id", "unknown")
+    logger.info(f"No data fallback for {tenant_id}")
+
+    return {
+        "narrative": "No data available yet. Connect your Stripe account and bank account to start receiving pulse updates.",
+        "action_item": "Connect Stripe and your bank account in the Sarthi dashboard.",
+        "anomalies_detected": [],
+        "runway_months": 0.0,
+        "net_revenue_churn": 0.0,
+        "quick_ratio": 0.0,
+    }
 
 
 # ── Node 2: retrieve_memory ───────────────────────────────────────

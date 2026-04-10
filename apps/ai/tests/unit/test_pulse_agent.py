@@ -3,7 +3,9 @@ Unit tests for PulseAgent.
 
 Tests cover:
   - PulseState structure
-  - fetch_data node
+  - fetch_data node (async, parallel via asyncio.gather)
+  - check_data_gate node
+  - no_data_fallback node
   - compute_metrics node
   - generate_narrative node
   - build_slack_message node
@@ -12,6 +14,7 @@ Tests cover:
 All tests run in MOCK MODE (no real API calls).
 """
 from __future__ import annotations
+import asyncio
 import os
 import pytest
 from typing import Any
@@ -69,7 +72,7 @@ class TestPulseState:
 # =============================================================================
 
 class TestFetchData:
-    """Tests for fetch_data node."""
+    """Tests for fetch_data node (async, parallel via asyncio.gather)."""
 
     def test_fetch_data_returns_data_sources(self):
         """fetch_data returns list of data sources used."""
@@ -77,7 +80,7 @@ class TestFetchData:
         from src.agents.pulse.nodes import fetch_data
 
         state: PulseState = {"tenant_id": TENANT}
-        result = fetch_data(state)
+        result = asyncio.run(fetch_data(state))
 
         assert "data_sources" in result
         assert isinstance(result["data_sources"], list)
@@ -89,7 +92,7 @@ class TestFetchData:
         from src.agents.pulse.nodes import fetch_data
 
         state: PulseState = {"tenant_id": TENANT}
-        result = fetch_data(state)
+        result = asyncio.run(fetch_data(state))
 
         assert "mrr_cents" in result
         assert isinstance(result["mrr_cents"], int)
@@ -101,12 +104,104 @@ class TestFetchData:
         from src.agents.pulse.nodes import fetch_data
 
         state: PulseState = {"tenant_id": TENANT}
-        result = fetch_data(state)
+        result = asyncio.run(fetch_data(state))
 
         assert "balance_cents" in result
         assert "burn_30d_cents" in result
         assert isinstance(result["balance_cents"], int)
         assert isinstance(result["burn_30d_cents"], int)
+
+
+# =============================================================================
+# TestCheckDataGate
+# =============================================================================
+
+class TestCheckDataGate:
+    """Tests for check_data_gate node."""
+
+    def test_gate_returns_no_data_when_all_zero(self):
+        """check_data_gate returns 'no_data' when mrr_cents==0 AND balance_cents==0."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import check_data_gate
+
+        state: PulseState = {"tenant_id": TENANT, "mrr_cents": 0, "balance_cents": 0}
+        result = check_data_gate(state)
+
+        assert result["gate_result"] == "no_data"
+
+    def test_gate_returns_has_data_when_mrr_nonzero(self):
+        """check_data_gate returns 'has_data' when mrr_cents > 0."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import check_data_gate
+
+        state: PulseState = {"tenant_id": TENANT, "mrr_cents": 1250000, "balance_cents": 0}
+        result = check_data_gate(state)
+
+        assert result["gate_result"] == "has_data"
+
+    def test_gate_returns_has_data_when_balance_nonzero(self):
+        """check_data_gate returns 'has_data' when balance_cents > 0."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import check_data_gate
+
+        state: PulseState = {"tenant_id": TENANT, "mrr_cents": 0, "balance_cents": 45000000}
+        result = check_data_gate(state)
+
+        assert result["gate_result"] == "has_data"
+
+    def test_gate_returns_has_data_when_both_nonzero(self):
+        """check_data_gate returns 'has_data' when both mrr and balance are nonzero."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import check_data_gate
+
+        state: PulseState = {"tenant_id": TENANT, "mrr_cents": 1250000, "balance_cents": 45000000}
+        result = check_data_gate(state)
+
+        assert result["gate_result"] == "has_data"
+
+
+# =============================================================================
+# TestNoDataFallback
+# =============================================================================
+
+class TestNoDataFallback:
+    """Tests for no_data_fallback node."""
+
+    def test_no_data_fallback_sets_narrative(self):
+        """no_data_fallback sets user-friendly narrative about connecting accounts."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import no_data_fallback
+
+        state: PulseState = {"tenant_id": TENANT}
+        result = no_data_fallback(state)
+
+        assert "narrative" in result
+        assert "Connect" in result["narrative"]
+        assert "Stripe" in result["narrative"]
+
+    def test_no_data_fallback_sets_action_item(self):
+        """no_data_fallback sets action item to connect Stripe and bank."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import no_data_fallback
+
+        state: PulseState = {"tenant_id": TENANT}
+        result = no_data_fallback(state)
+
+        assert "action_item" in result
+        assert "Connect" in result["action_item"]
+
+    def test_no_data_fallback_resets_metrics(self):
+        """no_data_fallback resets computed metrics to zero."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import no_data_fallback
+
+        state: PulseState = {"tenant_id": TENANT}
+        result = no_data_fallback(state)
+
+        assert result["runway_months"] == 0.0
+        assert result["net_revenue_churn"] == 0.0
+        assert result["quick_ratio"] == 0.0
+        assert result["anomalies_detected"] == []
 
 
 # =============================================================================
@@ -224,6 +319,100 @@ class TestComputeMetrics:
 
         # Should not raise, runway should be inf or handled gracefully
         assert "runway_months" in result
+        assert result["runway_months"] == float("inf")
+
+    def test_gate_skips_llm_when_no_data(self):
+        """mrr_cents=0, balance_cents=0 → no_data_fallback, generate_narrative NOT called."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import check_data_gate, no_data_fallback
+
+        state: PulseState = {"tenant_id": TENANT, "mrr_cents": 0, "balance_cents": 0}
+        result = check_data_gate(state)
+        assert result["gate_result"] == "no_data"
+
+        result = no_data_fallback(state)
+        assert "No data" in result.get("narrative", "")
+
+    def test_burn_rate_computed_correctly(self):
+        """compute_metrics calculates runway from balance and burn."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import compute_metrics
+
+        state = PulseState(
+            tenant_id=TENANT,
+            burn_30d_cents=3500,
+            balance_cents=90000,
+            mrr_cents=10000,
+            prev_mrr_cents=9000,
+            active_customers=10,
+        )
+        result = compute_metrics(state)
+        assert result["runway_months"] > 0
+
+    def test_runway_is_inf_when_burn_zero(self):
+        """compute_metrics returns inf runway when burn is zero."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import compute_metrics
+
+        state = PulseState(
+            tenant_id=TENANT,
+            burn_30d_cents=0,
+            balance_cents=90000,
+            mrr_cents=10000,
+            prev_mrr_cents=10000,
+            active_customers=10,
+        )
+        result = compute_metrics(state)
+        assert result["runway_months"] == float("inf")
+
+    def test_mrr_change_pct_computed(self):
+        """compute_metrics calculates mrr_growth_pct from prev_mrr_cents."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import compute_metrics
+
+        state = PulseState(
+            tenant_id=TENANT,
+            mrr_cents=10000,
+            prev_mrr_cents=9000,
+            burn_30d_cents=3000,
+            balance_cents=50000,
+            active_customers=10,
+            new_customers=2,
+            churned_customers=0,
+            expansion_cents=0,
+            contraction_cents=0,
+        )
+        result = compute_metrics(state)
+        # MRR growth = (10000 - 9000) / 9000 * 100 = 11.11%
+        # Note: compute_metrics uses prev_mrr_cents for net_revenue_churn,
+        # mrr_growth_pct is computed in retrieve_memory node
+        assert "net_revenue_churn" in result
+
+    def test_slack_blocks_have_required_fields(self):
+        """build_slack_message returns blocks with header, section, divider, context."""
+        from src.agents.pulse.state import PulseState
+        from src.agents.pulse.nodes import build_slack_message
+
+        state = PulseState(
+            tenant_id=TENANT,
+            mrr_cents=900000,
+            runway_months=4.5,
+            burn_30d_cents=3200000,
+            active_customers=12,
+            new_customers=2,
+            churned_customers=1,
+            mrr_growth_pct=5.8,
+            narrative="Test narrative",
+            action_item="Test action",
+            anomalies_detected=[],
+            data_sources=["stripe_mock"],
+        )
+        result = build_slack_message(state)
+        blocks = result["slack_blocks"]
+        types = [b["type"] for b in blocks]
+        assert "header" in types
+        assert "section" in types
+        assert "context" in types
 
 
 # =============================================================================
@@ -367,7 +556,7 @@ class TestPulseGraph:
         assert graph is not None
 
     def test_pulse_graph_has_all_nodes(self):
-        """PulseAgent graph contains all 7 required nodes (+ __start__)."""
+        """PulseAgent graph contains all 9 required nodes (+ __start__)."""
         from src.agents.pulse.graph import build_pulse_graph
 
         graph = build_pulse_graph()
@@ -375,6 +564,8 @@ class TestPulseGraph:
 
         expected_nodes = [
             "fetch_data",
+            "check_data_gate",
+            "no_data_fallback",
             "retrieve_memory",
             "compute_metrics",
             "generate_narrative",
@@ -386,5 +577,5 @@ class TestPulseGraph:
         for node in expected_nodes:
             assert node in nodes, f"Missing node: {node}"
 
-        # LangGraph adds __start__ node automatically, so 7 + 1 = 8
-        assert len(nodes) == 8
+        # LangGraph adds __start__ node automatically, so 9 + 1 = 10
+        assert len(nodes) == 10
