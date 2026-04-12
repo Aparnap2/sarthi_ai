@@ -316,52 +316,25 @@ services:
       retries: 3
 
   # ===========================================
-  # Neo4j - Temporal Knowledge Graph (Saarathi Memory)
+  # Redis - Caching & Session Store (Sarathi V2.0)
   # ===========================================
-  saarathi-neo4j:
-    image: neo4j:5.22.0
-    container_name: saarathi-neo4j
+  redis:
+    image: redis:7-alpine
+    container_name: sarthi-redis
     ports:
-      - "7474:7474"
-      - "7687:7687"
-    environment:
-      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-saarathi}
-      - NEO4J_dbms_memory_heap_initial__size=512m
-      - NEO4J_dbms_memory_heap_max__size=1G
-    volumes:
-      - neo4j_data:/data
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - iterateswarm-net
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD:-saarathi}", "RETURN 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  # Langfuse - LLM Observability (self-hosted)
-  # Requires ClickHouse + PostgreSQL
-  # For dev: use Langfuse Cloud (free tier) or skip Langfuse tests
-  # langfuse:
-  #   image: langfuse/langfuse:3
-  #   ports:
-  #     - "3001:3000"
-  #   environment:
-  #     - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/langfuse
-  #     - CLICKHOUSE_HOST=clickhouse
-  #     - CLICKHOUSE_PORT=9000
-  #     - CLICKHOUSE_USER=clickhouse
-  #     - CLICKHOUSE_PASSWORD=clickhouse
-  #     - NEXTAUTH_SECRET=sarthi-local-secret
-  #     - NEXTAUTH_URL=http://localhost:3001
-  #   depends_on:
-  #     - postgres
-  #   networks:
-  #     - iterateswarm-net
-  #   restart: unless-stopped
 
   # ===========================================
-  # Saarathi Sandbox - Isolated Python Execution
+  # Sarathi Sandbox - Isolated Python Execution
   # ===========================================
   saarathi-sandbox:
     build:
@@ -399,8 +372,6 @@ volumes:
   prometheus-data:
     driver: local
   grafana-data:
-    driver: local
-  neo4j_data:
     driver: local
 
 networks:

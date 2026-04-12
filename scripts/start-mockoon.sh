@@ -20,7 +20,7 @@ stop_existing() {
 
 start_mockoon() {
     echo "╔══════════════════════════════════════════════════════════╗"
-    echo "║     SARTHI v1.0 — MOCKOON CLI STARTING                  ║"
+    echo "║     SARTHI v1.0 — MOCKOON CLI STARTING                   ║"
     echo "╚══════════════════════════════════════════════════════════╝"
     echo ""
     
