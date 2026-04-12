@@ -61,3 +61,54 @@ class AnomalyActionGenerator(dspy.Signature):
 # ── Instantiated predictors ──────────────────────────────────────
 anomaly_explainer       = dspy.Predict(AnomalyExplainer)
 anomaly_action_generator = dspy.Predict(AnomalyActionGenerator)
+
+
+# ── Signature 3: GuardianInsight ─────────────────────────────────
+
+class GuardianInsight(dspy.Signature):
+    """
+    You are a guardian who has seen dozens of seed-stage startups fail.
+    You have just detected a pattern the founder hasn't noticed.
+    You are NOT an assistant returning data. You are telling them
+    something they need to know BEFORE it becomes a crisis.
+
+    Rules (non-negotiable):
+    - Start with the PATTERN NAME, never a number
+    - Numbers are evidence. The pattern is the insight.
+    - Give the urgency horizon specific to their fundraise timeline
+    - Reference what typically happens to founders who miss this
+    - End with ONE concrete action this week
+    - Max 200 words
+    - Sound like a trusted colleague. Never a dashboard notification.
+    - Never use: "consider monitoring", "you may want to",
+      "it seems like", "great job". You are a guardian, not a chatbot.
+    """
+    context:              str = dspy.InputField(
+                              desc="Prior events and patterns from memory. "
+                                   "Example: 'Churn was 2.8% last month, now 3.4%'")
+    blindspot_name:       str = dspy.InputField(
+                              desc="Pattern name. Example: 'Silent Churn Death'")
+    why_it_matters:       str = dspy.InputField(
+                              desc="Why this matters at seed stage.")
+    what_founder_doesnt_know: str = dspy.InputField(
+                              desc="What the founder is missing.")
+    urgency_horizon:      str = dspy.InputField(
+                              desc="Timeline specific to fundraise. "
+                                   "Example: '~8 months before Series A'")
+    historical_precedent: str = dspy.InputField(
+                              desc="What typically happened to others.")
+    one_action:           str = dspy.InputField(
+                              desc="One concrete action this week.")
+    current_metric:       str = dspy.InputField(
+                              desc="Exact metric values. Example: '3.4% monthly churn'")
+    implied_at_scale:     str = dspy.InputField(
+                              desc="What this means annually/at Series A. "
+                                   "Example: '36% annual churn'")
+    guardian_message:     str = dspy.OutputField(
+                              desc="Guardian insight. Pattern first. Action last. "
+                                   "200 words max. Prose only. "
+                                   "Reads like a message from someone who has "
+                                   "been through this before.")
+
+
+guardian_insight = dspy.Predict(GuardianInsight)
