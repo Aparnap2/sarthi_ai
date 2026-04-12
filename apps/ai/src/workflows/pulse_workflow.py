@@ -17,6 +17,7 @@ from temporalio.common import RetryPolicy
 with workflow.unsafe.imports_passed_through():
     from src.activities.run_pulse_agent import run_pulse_agent
     from src.activities.send_slack_message import send_slack_message
+    from src.activities.run_guardian_watchlist import run_guardian_watchlist
 
 
 @workflow.defn(name="PulseWorkflow")
@@ -91,6 +92,22 @@ class PulseWorkflow:
 
             workflow.logger.info(f"PulseAgent completed: {pulse_result.get('narrative', '')[:100]}")
 
+            # Step 1.5: Run Guardian watchlist analysis
+            try:
+                guardian_result = await workflow.execute_activity(
+                    run_guardian_watchlist,
+                    args=[tenant_id, pulse_result],
+                    start_to_close_timeout=timedelta(seconds=30),
+                    retry_policy=RetryPolicy(maximum_attempts=2),
+                )
+
+                workflow.logger.info(
+                    f"Guardian watchlist: {guardian_result.get('match_count', 0)} blindspots triggered"
+                )
+            except Exception as e:
+                workflow.logger.warning(f"Guardian watchlist failed (non-blocking): {e}")
+                guardian_result = {"ok": False, "error": str(e), "blindspots_triggered": [], "match_count": 0}
+
         except Exception as e:
             workflow.logger.error(f"PulseAgent activity failed: {e}")
 
@@ -128,5 +145,6 @@ class PulseWorkflow:
             "ok": True,
             "tenant_id": tenant_id,
             "pulse_result": pulse_result,
+            "guardian_result": guardian_result,
             "slack_result": slack_result,
         }

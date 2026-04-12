@@ -21,12 +21,17 @@ from temporalio.worker import Worker
 from src.workflows.pulse_workflow import PulseWorkflow
 from src.workflows.investor_workflow import InvestorWorkflow
 from src.workflows.qa_workflow import QAWorkflow
+from src.workflows.self_analysis_workflow import SelfAnalysisWorkflow
+from src.workflows.eval_loop_workflow import EvalLoopWorkflow
+from src.workflows.compression_workflow import CompressionWorkflow
+from src.workflows.weight_decay_workflow import WeightDecayWorkflow
 
 from src.activities.run_pulse_agent import run_pulse_agent
 from src.activities.run_anomaly_agent import run_anomaly_agent
 from src.activities.run_investor_agent import run_investor_agent
 from src.activities.run_qa_agent import run_qa_agent
 from src.activities.send_slack_message import send_slack_message
+from src.activities.run_guardian_watchlist import run_guardian_watchlist
 
 log = logging.getLogger("sarthi.worker")
 
@@ -45,6 +50,10 @@ async def create_worker() -> Worker:
             PulseWorkflow,
             InvestorWorkflow,
             QAWorkflow,
+            SelfAnalysisWorkflow,
+            EvalLoopWorkflow,
+            CompressionWorkflow,
+            WeightDecayWorkflow,
         ],
         activities=[
             run_pulse_agent,
@@ -52,6 +61,7 @@ async def create_worker() -> Worker:
             run_investor_agent,
             run_qa_agent,
             send_slack_message,
+            run_guardian_watchlist,
         ],
         max_concurrent_activities=MAX_CONCURRENT,
     )
@@ -69,8 +79,8 @@ async def main() -> None:
     worker = await create_worker()
 
     log.info("Worker started — listening on %s", TASK_QUEUE)
-    log.info("Workflows: PulseWorkflow, InvestorWorkflow, QAWorkflow")
-    log.info("Activities: 5 registered")
+    log.info("Workflows: PulseWorkflow, InvestorWorkflow, QAWorkflow, SelfAnalysisWorkflow, EvalLoopWorkflow, CompressionWorkflow, WeightDecayWorkflow")
+    log.info("Activities: 6 registered")
 
     async with worker:
         await asyncio.Future()  # run forever
