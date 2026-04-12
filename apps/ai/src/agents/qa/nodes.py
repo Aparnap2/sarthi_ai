@@ -441,11 +441,33 @@ def generate_answer(state: QAState) -> dict:
             f"}}"
         )
 
+        # ── RAG Kernel context loading (fallback contract) ────────────
+        rag_context = ""
+        try:
+            from src.memory.spine import MemorySpine
+            from src.memory.rag_kernel import RAGKernel
+            spine = MemorySpine(layers=[], rag_kernel=RAGKernel())
+            rag_context = spine.load_context(
+                tenant_id=tenant_id,
+                task="answer founder question",
+                signal={"question": question, "mrr_cents": mrr_cents,
+                        "runway_months": runway, "active_customers": active_customers},
+                max_tokens=800,
+            )
+        except Exception:
+            rag_context = ""  # Fallback: never crash the agent
+
+        # Merge with past_answer
+        past_parts = [past_answer] if past_answer and past_answer != "First time asked." else []
+        if rag_context:
+            past_parts.append(rag_context)
+        past_merged = "\n\n".join(past_parts) if past_parts else "No prior context."
+
         # Call DSPy predictor
         response = founder_qa(
             question=question,
             data=data_str,
-            past_answer=past_answer,
+            past_answer=past_merged,
         )
 
         answer = str(response.get("answer", ""))

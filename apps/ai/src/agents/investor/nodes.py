@@ -212,6 +212,27 @@ def generate_draft(state: InvestorState) -> dict:
         wins_str = "\n".join([f"- {w}" for w in top_wins]) if top_wins else "TBD"
         blockers_str = "\n".join([f"- {b}" for b in top_blockers]) if top_blockers else "TBD"
 
+        # ── RAG Kernel context loading (fallback contract) ────────────
+        rag_context = ""
+        try:
+            from src.memory.spine import MemorySpine
+            from src.memory.rag_kernel import RAGKernel
+            spine = MemorySpine(layers=[], rag_kernel=RAGKernel())
+            rag_context = spine.load_context(
+                tenant_id=tenant_id,
+                task="generate investor update draft",
+                signal={"mrr_cents": mrr_cents, "runway_months": runway,
+                        "burn_cents": burn_cents, "active_customers": active_customers},
+                max_tokens=800,
+            )
+        except Exception:
+            rag_context = ""  # Fallback: never crash the agent
+
+        historical_parts = [historical] if historical else []
+        if rag_context:
+            historical_parts.append(rag_context)
+        historical_merged = "\n\n".join(historical_parts) if historical_parts else "No prior investor updates available."
+
         # Call DSPy predictor
         response = investor_update_writer(
             period=period_str,

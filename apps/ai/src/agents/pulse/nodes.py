@@ -363,6 +363,28 @@ def generate_narrative(state: PulseState) -> dict:
         active_users_str = f"{active_users:,}"
         anomalies_str = "; ".join(anomalies) if anomalies else "none"
 
+        # ── RAG Kernel context loading (fallback contract) ────────────
+        rag_context = ""
+        try:
+            from src.memory.spine import MemorySpine
+            from src.memory.rag_kernel import RAGKernel
+            spine = MemorySpine(layers=[], rag_kernel=RAGKernel())
+            rag_context = spine.load_context(
+                tenant_id=tenant_id,
+                task="generate daily business pulse",
+                signal={"mrr_cents": mrr_cents, "runway_months": runway,
+                        "burn_30d_cents": burn, "active_customers": active},
+                max_tokens=800,
+            )
+        except Exception:
+            rag_context = ""  # Fallback: never crash the agent
+
+        # Merge RAG context with existing historical context
+        historical_parts = [historical] if historical else []
+        if rag_context:
+            historical_parts.append(rag_context)
+        historical_merged = "\n\n".join(historical_parts) if historical_parts else "No prior context."
+
         # Call DSPy predictor
         response = pulse_summarizer(
             mrr=mrr_str,
@@ -373,7 +395,7 @@ def generate_narrative(state: PulseState) -> dict:
             mrr_growth=mrr_growth_str,
             quick_ratio=quick_ratio_str,
             active_users=active_users_str,
-            historical=historical,
+            historical=historical_merged,
             anomalies=anomalies_str,
         )
 

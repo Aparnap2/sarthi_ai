@@ -128,13 +128,34 @@ def generate_explanation(state: AnomalyState) -> dict:
         baseline_str = f"{baseline_value:.2f}"
         deviation_str = f"{deviation_pct:+.1f}%"
 
+        # ── RAG Kernel context loading (fallback contract) ────────────
+        rag_context = ""
+        try:
+            from src.memory.spine import MemorySpine
+            from src.memory.rag_kernel import RAGKernel
+            spine = MemorySpine(layers=[], rag_kernel=RAGKernel())
+            rag_context = spine.load_context(
+                tenant_id=tenant_id,
+                task="explain anomaly with historical context",
+                signal={"metric_name": metric_name, "current_value": current_value,
+                        "deviation_pct": deviation_pct},
+                max_tokens=800,
+            )
+        except Exception:
+            rag_context = ""  # Fallback: never crash the agent
+
+        historical_parts = [historical] if historical and historical != "No historical data." else []
+        if rag_context:
+            historical_parts.append(rag_context)
+        historical_merged = "\n\n".join(historical_parts) if historical_parts else "No prior context for this anomaly."
+
         # Call DSPy predictor
         response = anomaly_explainer(
             metric_name=metric_name,
             current_value=current_str,
             baseline_value=baseline_str,
             deviation_pct=deviation_str,
-            historical=historical,
+            historical=historical_merged,
         )
 
         result["explanation"] = str(response.get("explanation", ""))
