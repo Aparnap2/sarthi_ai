@@ -21,7 +21,7 @@ Sarthi watches a SaaS founder's business continuously — Stripe revenue, bank b
 
 ## Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    SARTHI V2.0 PLATFORM                     │
 │                                                             │
@@ -147,6 +147,7 @@ bash scripts/demo_stop.sh
 ```
 
 ### What the Demo Shows
+
 | Step | What happens | Tech demonstrated |
 |------|-------------|-------------------|
 | Seed | Inserts 6-month NovaPulse history into real PostgreSQL + Qdrant | Real DB queries, real vectors |
@@ -175,8 +176,6 @@ bash scripts/demo_stop.sh
 | DB Migrations | 5 | ✅ 5/5 (needs PG running) |
 | **TOTAL** | **241+** | **✅ 97.6% pass rate** |
 
-Run: `cd apps/ai && uv run pytest tests/unit/ -v`
-
 ---
 
 ## Guardian Watchlist
@@ -184,6 +183,7 @@ Run: `cd apps/ai && uv run pytest tests/unit/ -v`
 Sarthi detects 17 seed-stage failure patterns:
 
 ### Finance (6)
+
 | ID | Pattern | Trigger |
 |----|---------|---------|
 | FG-01 | Silent Churn Death | Monthly churn > 3% (→ 36% annual) |
@@ -194,6 +194,7 @@ Sarthi detects 17 seed-stage failure patterns:
 | FG-06 | Payroll Revenue Ratio | Payroll > 60% of MRR |
 
 ### BI (6)
+
 | ID | Pattern | Trigger |
 |----|---------|---------|
 | BG-01 | Leaky Bucket Activation | Signups growing, activation < 40% |
@@ -204,6 +205,7 @@ Sarthi detects 17 seed-stage failure patterns:
 | BG-06 | Trial Activation Wall | 50%+ abandon at one step |
 
 ### Ops (5)
+
 | ID | Pattern | Trigger |
 |----|---------|---------|
 | OG-01 | Error Segment Correlation | Errors > 10% in one segment |

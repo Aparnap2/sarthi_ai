@@ -112,9 +112,8 @@ def check_prereqs() -> bool:
             print(f"⚠️  Ollama reachable but '{EMBED_MODEL}' not found; available: {models}")
             print("    Will attempt embedding anyway (may fail).")
     except Exception as e:
-        print(f"❌  Ollama NOT reachable: {e}")
-        print("    → Start with:  ollama serve  (in background)")
-        ok = False
+        print(f"⚠️  Ollama NOT reachable: {e}")
+        print("    → Will use deterministic hash-based fallback for embeddings.")
 
     return ok
 
@@ -252,6 +251,22 @@ def create_tables(cur):
             metric_at_resolution NUMERIC,
             founder_action      TEXT,
             created_at          TIMESTAMPTZ DEFAULT NOW()
+        );
+    """)
+
+    # eval_scores: historical eval scoring data
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS eval_scores (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL,
+            agent_type TEXT NOT NULL,
+            week_of DATE NOT NULL,
+            guardian_score NUMERIC,
+            accuracy_score NUMERIC,
+            tone_score NUMERIC,
+            action_score NUMERIC,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(tenant_id, agent_type, week_of)
         );
     """)
 
@@ -524,6 +539,7 @@ def seed_pulse_memory() -> int:
             "id": point_id,
             "vector": vec,
             "payload": {
+                "tenant_id": TENANT_ID,
                 "type": "monthly_snapshot",
                 "month": month.isoformat(),
                 "mrr": MRR[i],
@@ -582,7 +598,7 @@ def seed_anomaly_memory() -> int:
         points.append({
             "id": a["id"],
             "vector": vec,
-            "payload": a["payload"],
+            "payload": {**a["payload"], "tenant_id": TENANT_ID},
         })
     return upsert_points("anomaly_memory", points)
 
@@ -636,7 +652,7 @@ def seed_investor_memory() -> int:
         points.append({
             "id": u["id"],
             "vector": vec,
-            "payload": u["payload"],
+            "payload": {**u["payload"], "tenant_id": TENANT_ID},
         })
     return upsert_points("investor_memory", points)
 
@@ -685,7 +701,7 @@ def seed_founder_blindspots() -> int:
         points.append({
             "id": b["id"],
             "vector": vec,
-            "payload": b["payload"],
+            "payload": {**b["payload"], "tenant_id": TENANT_ID},
         })
     return upsert_points("founder_blindspots", points)
 
