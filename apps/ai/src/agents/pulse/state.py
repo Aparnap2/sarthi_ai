@@ -40,6 +40,9 @@ class PulseState(TypedDict, total=False):
     prev_mrr_cents:      int            # last snapshot MRR
     mrr_growth_pct:      float          # % change vs prev snapshot
     historical_context:  str            # prose summary from Qdrant memory
+    prev_burn_cents:     int            # previous 30-day burn (injected upstream from
+                                        # Qdrant retrieval; defaults to same as burn_30d_cents
+                                        # if not set by the caller)
 
     # ── DSPy-generated outputs ───────────────────────────────────
     narrative:           str            # 3-sentence business pulse summary
