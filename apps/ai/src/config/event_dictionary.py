@@ -25,33 +25,14 @@ class UnknownEventError(KeyError):
     pass
 
 
-# Registry of events for Sarthi v1.0 (2 agents: Finance + BI)
+# Registry of events for Sarthi v1.0 (4 agents: Pulse, Anomaly, Investor, QA)
 _REGISTRY: List[DictionaryEntry] = [
-    # ── RAZORPAY ──────────────────────────────────────────────
-    DictionaryEntry("razorpay", "PAYMENT_SUCCESS", "FinanceAgent", ["Bookkeeper", "CFO"]),
-    DictionaryEntry("razorpay", "PAYMENT_FAILURE", "FinanceAgent", ["AR/AP Clerk"]),
-    DictionaryEntry("razorpay", "SUBSCRIPTION_ACTIVATED", "FinanceAgent", ["Bookkeeper", "CFO"]),
-    DictionaryEntry("razorpay", "SUBSCRIPTION_CANCELLED", "FinanceAgent", ["CFO", "BI Analyst"]),
-    DictionaryEntry("razorpay", "REFUND", "FinanceAgent", ["Bookkeeper"]),
-
-    # ── BANK WEBHOOK ──────────────────────────────────────────
-    DictionaryEntry("bank", "TRANSACTION", "FinanceAgent", ["Bookkeeper", "CFO"]),
-    DictionaryEntry("bank", "EXPENSE_RECORDED", "FinanceAgent", ["Bookkeeper"]),
-
     # ── TELEGRAM ──────────────────────────────────────────────
     DictionaryEntry("telegram", "QUERY_INBOUND", "ChiefOfStaffAgent", ["Chief of Staff"]),
-    DictionaryEntry("telegram", "BANK_STATEMENT", "FinanceAgent", ["Bookkeeper", "CFO"]),
-    DictionaryEntry("telegram", "NL_QUERY", "BIAgent", ["BI Analyst"]),
 
     # ── CRON ──────────────────────────────────────────────────
-    DictionaryEntry("cron", "DAILY_TICK", "FinanceAgent", ["Bookkeeper", "CFO"]),
+    DictionaryEntry("cron", "DAILY_TICK", "PulseAgent", ["Pulse Monitor"]),
     DictionaryEntry("cron", "WEEKLY_BRIEFING", "ChiefOfStaffAgent", ["Chief of Staff"]),
-    DictionaryEntry("cron", "WEEKLY_INSIGHTS", "BIAgent", ["BI Analyst"]),
-
-    # ── INTERNAL ──────────────────────────────────────────────
-    DictionaryEntry("internal", "FINANCE_ANOMALY", "BIAgent", ["BI Analyst"]),
-    DictionaryEntry("internal", "HITL_INVESTIGATE", "BIAgent", ["BI Analyst"]),
-    DictionaryEntry("internal", "HITL_DISMISS", "FinanceAgent", ["Bookkeeper", "CFO"]),
 ]
 
 
@@ -64,9 +45,9 @@ class EventDictionary:
 
     Usage:
         d = EventDictionary()
-        entry = d.resolve(source="razorpay", event_type="PAYMENT_SUCCESS")
-        print(entry.agent_name)  # "FinanceAgent"
-        print(entry.employees)   # ["Bookkeeper", "CFO"]
+        entry = d.resolve(source="cron", event_type="DAILY_TICK")
+        print(entry.agent_name)  # "PulseAgent"
+        print(entry.employees)   # ["Pulse Monitor"]
     """
 
     def __init__(self):

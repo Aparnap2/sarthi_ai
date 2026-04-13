@@ -22,7 +22,6 @@ import ai.v1.agent_pb2 as pb2
 import ai.v1.agent_pb2_grpc as pb2_grpc
 
 from src.activities import AnalyzeFeedbackInput, AnalyzeFeedbackOutput
-from src.agents.triage import classify_feedback
 from src.services.qdrant import get_qdrant_service
 
 logger = logging.getLogger(__name__)
@@ -140,37 +139,49 @@ class AgentServicer(pb2_grpc.AgentServiceServicer):
                     ),
                 )
 
-            # Step 2: Triage classification using LangGraph
-            triage_result = await classify_feedback(
-                feedback_id=f"grpc-{request.user_id}",
-                content=request.text,
-                source=request.source,
-            )
+            # Step 2: Simple classification based on keywords
+            # Note: Full triage agent was removed in Phase 10 cleanup
+            # This is a simplified fallback classification
+            text_lower = request.text.lower()
+            if any(word in text_lower for word in ["bug", "error", "broken", "fail", "crash"]):
+                classification = "bug"
+                severity = "medium"
+            elif any(word in text_lower for word in ["feature", "add", "enhance", "improve"]):
+                classification = "feature"
+                severity = "low"
+            elif any(word in text_lower for word in ["question", "help", "how", "why"]):
+                classification = "question"
+                severity = "low"
+            else:
+                classification = "question"
+                severity = "low"
+
+            reasoning = f"Auto-classified as {classification} based on keyword analysis"
 
             # Step 3: Index the feedback for future duplicate detection
             await qdrant.index_feedback(
                 feedback_id=f"grpc-{request.user_id}",
                 text=request.text,
                 metadata={
-                    "classification": triage_result.classification,
-                    "severity": triage_result.severity,
+                    "classification": classification,
+                    "severity": severity,
                 },
             )
 
             # Build the response with mapped severity
-            severity_proto = SeverityMapper.to_proto(triage_result.severity)
-            issue_type_proto = IssueTypeMapper.to_proto(triage_result.classification)
+            severity_proto = SeverityMapper.to_proto(severity)
+            issue_type_proto = IssueTypeMapper.to_proto(classification)
 
             # Map suggested labels based on classification
-            labels = [triage_result.classification]
-            if triage_result.severity in ("high", "critical"):
+            labels = [classification]
+            if severity in ("high", "critical"):
                 labels.append("urgent")
 
             response = pb2.AnalyzeFeedbackResponse(
                 is_duplicate=False,
-                reasoning=triage_result.reasoning,
+                reasoning=reasoning,
                 spec=pb2.IssueSpec(
-                    title=f"[{triage_result.classification.upper()}] {request.text[:80]}",
+                    title=f"[{classification.upper()}] {request.text[:80]}",
                     severity=severity_proto,
                     type=issue_type_proto,
                     description=f"Analysis by {request.source} user {request.user_id}",
@@ -180,9 +191,8 @@ class AgentServicer(pb2_grpc.AgentServiceServicer):
 
             logger.info(
                 "Analysis complete",
-                classification=triage_result.classification,
-                severity=triage_result.severity,
-                confidence=triage_result.confidence,
+                classification=classification,
+                severity=severity,
             )
 
             return response

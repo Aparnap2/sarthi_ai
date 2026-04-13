@@ -91,116 +91,6 @@ def capture_llm_response(
     }
 
 
-def run_finance_monitor_tests() -> list[dict]:
-    """Run Finance Monitor tests and capture LLM responses."""
-    from src.agents.finance_monitor import FinanceMonitorAgent
-    from src.memory.qdrant_ops import upsert_memory, clear_tenant_memory
-
-    agent = FinanceMonitorAgent()
-    responses = []
-
-    print("\n" + "=" * 80)
-    print("FINANCE MONITOR AGENT — LLM RESPONSES")
-    print("=" * 80)
-
-    # Test 1: Anomaly Detection WITHOUT Memory
-    print("\n[TEST 1] Anomaly Detection (No Prior Memory)")
-    print("-" * 80)
-    state = {
-        "tenant_id": f"{TENANT}-finance-1",
-        "vendor_baselines": {"AWS": {"avg": 18000, "stddev": 2000}},
-        "runway_months": 8.0,
-    }
-    event = {
-        "event_type": "BANK_WEBHOOK",
-        "vendor": "AWS",
-        "amount": 42000,
-        "description": "AWS consolidated bill",
-    }
-    response = capture_llm_response("FinanceMonitor", "anomaly_no_memory", state, event, agent)
-    responses.append(response)
-
-    print(f"INPUT: AWS bill ₹{event['amount']:,} (2.3× usual ₹{state['vendor_baselines']['AWS']['avg']:,})")
-    print(f"LLM HEADLINE: {response['llm_headline']}")
-    print(f"LLM DO_THIS: {response['llm_do_this']}")
-    print(f"DECISION: fire_telegram={response['fire_telegram']}, urgency={response['urgency']}")
-    print(f"EXECUTION TIME: {response['execution_time_ms']}ms")
-
-    # Test 2: Anomaly Detection WITH Memory
-    print("\n[TEST 2] Anomaly Detection (With Prior Memory)")
-    print("-" * 80)
-
-    # Clear any existing memory for this tenant
-    clear_tenant_memory(f"{TENANT}-finance-2")
-
-    # Seed memory
-    upsert_memory(
-        tenant_id=f"{TENANT}-finance-2",
-        content="AWS spike March 2026 — training run for ML model. Not recurring.",
-        memory_type="finance_anomaly",
-        agent="finance_monitor",
-    )
-
-    state = {
-        "tenant_id": f"{TENANT}-finance-2",
-        "vendor_baselines": {"AWS": {"avg": 18000, "stddev": 2000}},
-        "runway_months": 8.0,
-    }
-    event = {
-        "event_type": "BANK_WEBHOOK",
-        "vendor": "AWS",
-        "amount": 42000,
-        "description": "AWS consolidated",
-    }
-    response = capture_llm_response("FinanceMonitor", "anomaly_with_memory", state, event, agent)
-    responses.append(response)
-
-    print(f"INPUT: AWS bill ₹{event['amount']:,} (2.3× usual)")
-    print(f"MEMORY CONTEXT: 'AWS spike March 2026 — training run for ML model.'")
-    print(f"LLM HEADLINE: {response['llm_headline']}")
-    print(f"LLM DO_THIS: {response['llm_do_this']}")
-    print(f"DECISION: fire_telegram={response['fire_telegram']}, urgency={response['urgency']}")
-    print(f"EXECUTION TIME: {response['execution_time_ms']}ms")
-
-    # Test 3: Runway Critical Alert
-    print("\n[TEST 3] Runway Critical Alert (<3 months)")
-    print("-" * 80)
-    state = {
-        "tenant_id": f"{TENANT}-finance-3",
-        "vendor_baselines": {},
-        "runway_months": 2.5,
-    }
-    event = {"event_type": "TIME_TICK_DAILY"}
-    response = capture_llm_response("FinanceMonitor", "runway_critical", state, event, agent)
-    responses.append(response)
-
-    print(f"INPUT: Runway {state['runway_months']} months")
-    print(f"LLM HEADLINE: {response['llm_headline']}")
-    print(f"LLM DO_THIS: {response['llm_do_this']}")
-    print(f"DECISION: fire_telegram={response['fire_telegram']}, urgency={response['urgency']}")
-    print(f"EXECUTION TIME: {response['execution_time_ms']}ms")
-
-    # Test 4: Runway Warning Alert
-    print("\n[TEST 4] Runway Warning Alert (<6 months)")
-    print("-" * 80)
-    state = {
-        "tenant_id": f"{TENANT}-finance-4",
-        "vendor_baselines": {},
-        "runway_months": 4.5,
-    }
-    event = {"event_type": "TIME_TICK_WEEKLY"}
-    response = capture_llm_response("FinanceMonitor", "runway_warning", state, event, agent)
-    responses.append(response)
-
-    print(f"INPUT: Runway {state['runway_months']} months")
-    print(f"LLM HEADLINE: {response['llm_headline']}")
-    print(f"LLM DO_THIS: {response['llm_do_this']}")
-    print(f"DECISION: fire_telegram={response['fire_telegram']}, urgency={response['urgency']}")
-    print(f"EXECUTION TIME: {response['execution_time_ms']}ms")
-
-    return responses
-
-
 def run_revenue_tracker_tests() -> list[dict]:
     """Run Revenue Tracker tests and capture LLM responses."""
     from src.agents.revenue_tracker import RevenueTrackerAgent
@@ -485,7 +375,6 @@ def generate_summary_report(all_responses: list[dict]) -> Path:
 
     # Agent summaries
     agent_names = {
-        "FinanceMonitor": "Finance Monitor Agent",
         "RevenueTracker": "Revenue Tracker Agent",
         "CSAgent": "Customer Success Agent",
         "ChiefOfStaff": "Chief of Staff Agent",
@@ -648,11 +537,6 @@ def test_llm_responses() -> None:
     all_responses = []
 
     # Run all agent tests
-    try:
-        all_responses.extend(run_finance_monitor_tests())
-    except Exception as e:
-        print(f"\n⚠️  Finance Monitor tests failed: {e}")
-
     try:
         all_responses.extend(run_revenue_tracker_tests())
     except Exception as e:

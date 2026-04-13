@@ -1,9 +1,11 @@
 """
-Sarthi v1.0 Agents — 2-Agent Focused Build.
+Sarthi v1.0 Agents — 4-Agent Core.
 
 Agents:
-  - FinanceAgent: Anomaly detection, burn/runway tracking
-  - BIAgent: NL → SQL → chart → narrative
+  - PulseAgent: Health monitoring, anomaly detection
+  - AnomalyAgent: Deep anomaly investigation
+  - InvestorAgent: Investor updates, milestone tracking
+  - QAAgent: Quality assurance, test generation
 
-Legacy agents removed in v1.0 cleanup.
+Legacy agents (Finance, BI) removed in v1.0 pivot.
 """

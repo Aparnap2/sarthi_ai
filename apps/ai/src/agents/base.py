@@ -214,7 +214,7 @@ class BaseAgent:
 
         # Map category to memory_type
         memory_type_map = {
-            "finance_anomaly": "finance_anomaly",
+            "anomaly": "anomaly",
             "briefing": "briefing",
             "revenue_event": "revenue_event",
             "general": "general",

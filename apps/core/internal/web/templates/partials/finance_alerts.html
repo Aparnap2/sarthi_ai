@@ -1,0 +1,119 @@
+<!-- Finance Alerts Partial - Sarthi Finance Agent Anomalies -->
+<div class="space-y-3" id="finance-alerts-container">
+    {{if .Alerts}}
+        {{range .Alerts}}
+        <div class="alert-item bg-white border-l-4 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow
+            {{if eq .Urgency "critical"}}border-red-500 bg-red-50
+            {{else if eq .Urgency "high"}}border-orange-500 bg-orange-50
+            {{else if eq .Urgency "medium"}}border-yellow-500 bg-yellow-50
+            {{else}}border-blue-500 bg-blue-50{{end}}"
+            id="alert-{{.ID}}">
+            
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center space-x-3 mb-2">
+                        <span class="urgency-badge px-2 py-1 rounded text-xs font-semibold uppercase
+                            {{if eq .Urgency "critical"}}bg-red-200 text-red-800
+                            {{else if eq .Urgency "high"}}bg-orange-200 text-orange-800
+                            {{else if eq .Urgency "medium"}}bg-yellow-200 text-yellow-800
+                            {{else}}bg-blue-200 text-blue-800{{end}}">
+                            {{.Urgency}}
+                        </span>
+                        <span class="font-semibold text-gray-900">
+                            <i class="fas fa-building mr-1"></i>{{.Vendor}}
+                        </span>
+                        {{if .HITLSent}}
+                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                            <i class="fas fa-check-circle mr-1"></i>HITL Sent
+                        </span>
+                        {{end}}
+                    </div>
+
+                    <p class="text-sm text-gray-700 mb-2">{{.Headline}}</p>
+
+                    <div class="flex items-center space-x-6 text-sm">
+                        <div class="flex items-center">
+                            <span class="text-gray-500 mr-2">Amount:</span>
+                            <span class="font-mono font-semibold 
+                                {{if gt .Multiple 2.0}}text-red-700{{else if gt .Multiple 1.5}}text-orange-700{{else}}text-gray-900{{end}}">
+                                ${{printf "%.2f" .Amount}}
+                            </span>
+                            <span class="text-gray-400 mx-2">vs</span>
+                            <span class="font-mono text-gray-600">
+                                ${{printf "%.2f" .Expected}}
+                            </span>
+                            <span class="ml-2 px-2 py-0.5 
+                                {{if gt .Multiple 2.0}}bg-red-100 text-red-700
+                                {{else if gt .Multiple 1.5}}bg-orange-100 text-orange-700
+                                {{else}}bg-gray-100 text-gray-700{{end}}
+                                rounded text-xs font-medium">
+                                {{printf "%.1f" .Multiple}}x
+                            </span>
+                        </div>
+                        <span class="text-gray-500">
+                            <i class="fas fa-clock mr-1"></i>{{.CreatedAt.Format "Jan 02, 15:04"}}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col space-y-2 ml-4">
+                    <button hx-get="/api/bi/query?vendor={{.Vendor}}&amount={{.Amount}}"
+                            hx-target="#alert-{{.ID}}"
+                            hx-swap="outerHTML"
+                            hx-indicator="#alert-{{.ID}}"
+                            class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center text-xs font-medium">
+                        <i class="fas fa-search mr-1"></i>Investigate
+                    </button>
+                </div>
+            </div>
+
+            <!-- Additional metadata -->
+            <div class="mt-3 pt-3 border-t border-gray-200">
+                <div class="flex items-center space-x-4 text-xs text-gray-500">
+                    <span><i class="fas fa-robot mr-1"></i>Finance Agent</span>
+                    <span><i class="fas fa-database mr-1"></i>Source: agent_outputs</span>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    {{else}}
+        <!-- Empty state -->
+        <div class="text-center py-8">
+            <i class="fas fa-check-circle text-5xl text-green-400 mb-3"></i>
+            <h4 class="text-lg font-semibold text-gray-700 mb-1">No Finance Anomalies</h4>
+            <p class="text-gray-500 text-sm">All transactions within normal patterns</p>
+            <p class="text-xs text-gray-400 mt-2">
+                <i class="fas fa-info-circle mr-1"></i>
+                Alerts will appear here when anomalies are detected
+            </p>
+        </div>
+    {{end}}
+</div>
+
+<script>
+// Handle alert investigation
+document.addEventListener('htmx:afterRequest', function(event) {
+    if (event.detail.requestConfig.path.includes('/api/bi/query')) {
+        // Show loading state
+        const alertItem = event.detail.target.closest('.alert-item');
+        if (alertItem) {
+            alertItem.classList.add('opacity-50');
+        }
+    }
+});
+</script>
+
+<style>
+.alert-item {
+    transition: all 0.2s ease;
+}
+
+.alert-item:hover {
+    transform: translateX(4px);
+}
+
+.urgency-badge {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+</style>

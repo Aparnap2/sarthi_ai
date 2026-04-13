@@ -90,7 +90,7 @@ def upsert_memory(
     Args:
         tenant_id: Tenant who owns this memory
         content: Memory content (text)
-        memory_type: Type of memory (finance_anomaly, revenue_event, etc.)
+        memory_type: Type of memory (anomaly, revenue_event, etc.)
         agent: Agent that created this memory
         metadata: Additional metadata
 
