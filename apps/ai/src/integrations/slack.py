@@ -322,3 +322,37 @@ def format_slack_blocks(
         })
 
     return blocks
+
+
+# ── Demo delivery (Mockoon + capture sidecar) ────────────────────
+
+SLACK_DELIVERY_URL = os.environ.get("SLACK_DELIVERY_URL", "http://localhost:3001/slack/deliver")
+_CAPTURE_URL = "http://localhost:3002"
+
+
+async def deliver_guardian_alert(
+    tenant_id: str,
+    message: str,
+    pattern_name: str,
+    severity: str,
+) -> Dict[str, Any]:
+    """Deliver guardian alert to Mockoon (Slack mock) + capture sidecar."""
+    payload: Dict[str, Any] = {
+        "tenant_id": tenant_id,
+        "pattern_name": pattern_name,
+        "severity": severity,
+        "text": message,
+        "channel": "C_NOVAPULSE_DEMO",
+    }
+    async with httpx.AsyncClient(timeout=10) as client:
+        # Primary delivery (Mockoon → behaves like Slack)
+        try:
+            await client.post(SLACK_DELIVERY_URL, json=payload)
+        except Exception as e:
+            logger.warning("Mockoon delivery failed: %s", e)
+        # Capture sidecar (Playwright reads from here)
+        try:
+            await client.post(_CAPTURE_URL, json=payload)
+        except Exception:
+            pass  # capture is best-effort — never block delivery
+    return {"ok": True, "channel": "C_NOVAPULSE_DEMO"}
