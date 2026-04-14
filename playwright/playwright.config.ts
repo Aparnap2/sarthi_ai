@@ -1,15 +1,29 @@
-const { defineConfig } = require('@playwright/test');
+import { defineConfig, devices } from '@playwright/test';
 
-module.exports = defineConfig({
+export default defineConfig({
   testDir: '.',
   timeout: 90_000,
   retries: 0,
   reporter: [['list'], ['html', { open: 'never' }]],
+  fullyParallel: false,
   use: {
     baseURL: 'http://127.0.0.1:8000',
+    headless: false,
     screenshot: 'on',
-    video: 'on',
+    video: 'retain-on-failure',
     trace: 'on',
-    channel: 'chrome',  // use existing Chrome — don't install Playwright browsers
   },
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        headless: false,
+        launchOptions: {
+          executablePath: '/usr/bin/google-chrome',
+          args: ['--start-maximized'],
+        },
+      },
+    },
+  ],
 });
