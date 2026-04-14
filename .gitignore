@@ -157,3 +157,5 @@ apps/core/bin/
 *.log
 test-results/
 coverage/
+playwright/playwright-report/
+playwright/test-results/
