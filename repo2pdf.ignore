@@ -1,0 +1,32 @@
+{
+  "ignoredFiles": [
+    "node_modules",
+    "dist",
+    "build",
+    ".git",
+    "__pycache__",
+    "venv",
+    ".env",
+    "package-lock.json",
+    "pnpm-lock.yaml"
+  ],
+  "ignoredExtensions": [
+    ".md",
+    ".txt",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".toml",
+    ".xml",
+    ".html",
+    ".css",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".svg",
+    ".ico",
+    ".sh",
+    ".lock"
+  ]
+}

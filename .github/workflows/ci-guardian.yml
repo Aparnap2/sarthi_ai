@@ -1,0 +1,92 @@
+# .github/workflows/ci-guardian.yml
+# Guardian watchlist tests — verifies all 16 patterns against seeded data
+# Pure Python — no services needed (watchlist is deterministic)
+
+name: Guardian Watchlist Tests
+
+on:
+  push:
+    paths:
+      - "apps/ai/src/guardian/**"
+      - "apps/ai/tests/unit/test_watchlist*"
+      - "apps/ai/tests/unit/test_signals*"
+  pull_request:
+    paths:
+      - "apps/ai/src/guardian/**"
+
+jobs:
+  watchlist-tests:
+    name: Guardian Watchlist (All 16 Patterns)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        working-directory: apps/ai
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run watchlist tests
+        working-directory: apps/ai
+        run: |
+          pytest tests/unit/test_watchlist.py \
+                 tests/unit/test_signals.py \
+            -v \
+            --tb=long \
+            --timeout=15 \
+            --junitxml=reports/watchlist-results.xml
+
+      - name: Verify all 16 patterns have tests
+        working-directory: apps/ai
+        run: |
+          python - <<'EOF'
+          import ast, pathlib, sys
+
+          # Load all watchlist pattern IDs from the source
+          watchlist_src = pathlib.Path("src/guardian/watchlist.py").read_text()
+          tree = ast.parse(watchlist_src)
+
+          pattern_ids = []
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                  v = node.value
+                  if (v.startswith("FG-") or v.startswith("BG-") or v.startswith("OG-")):
+                      pattern_ids.append(v)
+          pattern_ids = sorted(set(pattern_ids))
+
+          # Load all test functions
+          test_src = pathlib.Path("tests/unit/test_watchlist.py").read_text()
+          test_tree = ast.parse(test_src)
+          test_names = [n.name for n in ast.walk(test_tree)
+                        if isinstance(n, ast.FunctionDef) and n.name.startswith("test_")]
+
+          # Every pattern must have at least one test
+          missing = []
+          for pid in pattern_ids:
+              pid_slug = pid.lower().replace("-", "_")
+              has_test = any(pid_slug in t for t in test_names)
+              if not has_test:
+                  missing.append(pid)
+
+          if missing:
+              print(f"FAIL: No tests found for patterns: {missing}", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"OK: All {len(pattern_ids)} patterns have tests: {pattern_ids}")
+          EOF
+
+      - name: Upload watchlist results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchlist-results
+          path: apps/ai/reports/watchlist-results.xml
+          retention-days: 7

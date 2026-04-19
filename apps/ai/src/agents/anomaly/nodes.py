@@ -28,14 +28,17 @@ from src.integrations.slack import send_message_sync, format_slack_blocks
 # ── Node 0: detect_anomaly ────────────────────────────────────────
 
 def detect_anomaly_node(state: AnomalyState) -> dict:
-    """Rule-based anomaly detection — NO LLM."""
+    """Rule-based anomaly detection with tenant-specific learned thresholds."""
+    tenant_id = state.get("tenant_id", "unknown")
+
     result = detect_anomaly({
         "runway_days": state.get("runway_days", 999),
         "mrr_change_pct": state.get("mrr_change_pct", 0.0),
         "burn_rate_cents": state.get("burn_rate_cents", 0),
         "prev_burn_cents": state.get("prev_burn_cents", 0),
         "churned_customers": state.get("churned_customers", 0),
-    })
+    }, tenant_id)
+
     return result
 
 
@@ -320,6 +323,43 @@ def build_slack_message(state: AnomalyState) -> dict:
                 "type": "mrkdwn",
                 "text": f"*Action Item:*\n{action_item}",
             },
+        })
+
+        # Feedback buttons for IterateSwarm learning
+        anomaly_type = state.get("anomaly_type", "unknown")
+        blocks.append({
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "✅ Acted on this",
+                    },
+                    "style": "primary",
+                    "action_id": "acted_on",
+                    "value": f"anomaly:{anomaly_type}:{tenant_id}",
+                },
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "👎 Not relevant",
+                    },
+                    "style": "danger",
+                    "action_id": "not_relevant",
+                    "value": f"anomaly:{anomaly_type}:{tenant_id}",
+                },
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "⏰ Already knew",
+                    },
+                    "action_id": "already_knew",
+                    "value": f"anomaly:{anomaly_type}:{tenant_id}",
+                },
+            ],
         })
 
         # Footer

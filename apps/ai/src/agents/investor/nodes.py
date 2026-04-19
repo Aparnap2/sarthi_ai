@@ -277,26 +277,51 @@ def generate_draft(state: InvestorState) -> dict:
 
 # ── Node 4: critique_draft ────────────────────────────────────────
 
-def critique_draft(state: InvestorState) -> dict:
+def critique_node(state: InvestorState) -> dict:  # Renamed to avoid name collision
     """
-    Critique the draft — max 1 iteration enforced in graph.
+    Critique the draft using specific criteria — max 1 iteration enforced in graph.
 
     Populates:
-      - critique: Verdict string (PASS/FAIL + feedback)
-      - quality_pass: Whether the draft passed critique
+      - critique: Specific feedback on failed criteria
+      - quality_pass: Whether the draft passed all criteria
       - iteration: Incremented counter (0 or 1)
 
-    If the LLM critic is unavailable, falls back to PASS to avoid blocking.
+    Uses measurable criteria instead of vague LLM judgment.
     """
     draft = state.get("draft_markdown", "")
+
     try:
-        result = draft_critic(draft=draft)
-        verdict = result.verdict.strip()
-        quality_pass = "PASS" in verdict.upper()
-        return {"critique": verdict, "quality_pass": quality_pass, "iteration": state.get("iteration", 0) + 1}
+        from .criteria import evaluate_draft_quality
+        passes, failures = evaluate_draft_quality(draft)
+
+        if passes:
+            return {
+                "critique": "PASS: All criteria met",
+                "quality_pass": True,
+                "iteration": state.get("iteration", 0) + 1
+            }
+        else:
+            # Specific, actionable feedback
+            failure_text = ", ".join(failures)
+            critique_msg = f"FAIL: Fix these issues - {failure_text}"
+
+            return {
+                "critique": critique_msg,
+                "quality_pass": False,
+                "iteration": state.get("iteration", 0) + 1
+            }
+
     except Exception as e:
-        logger.warning("critique_draft error: %s", e)
-        return {"critique": "PASS (fallback)", "quality_pass": True, "iteration": state.get("iteration", 0) + 1}
+        logger.warning("critique_node error: %s", e)
+        # Fallback to LLM critic if criteria evaluation fails
+        try:
+            result = draft_critic(draft=draft)
+            verdict = result.verdict.strip()
+            quality_pass = "PASS" in verdict.upper()
+            return {"critique": verdict, "quality_pass": quality_pass, "iteration": state.get("iteration", 0) + 1}
+        except Exception as llm_error:
+            logger.error("Both criteria and LLM critique failed: %s", llm_error)
+            return {"critique": "PASS (fallback)", "quality_pass": True, "iteration": state.get("iteration", 0) + 1}
 
 
 # ── Node 5: build_slack_message ───────────────────────────────────
