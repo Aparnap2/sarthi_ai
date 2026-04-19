@@ -25,6 +25,7 @@ from src.workflows.self_analysis_workflow import SelfAnalysisWorkflow
 from src.workflows.eval_loop_workflow import EvalLoopWorkflow
 from src.workflows.compression_workflow import CompressionWorkflow
 from src.workflows.weight_decay_workflow import WeightDecayWorkflow
+from src.workflows.memory_maintenance_workflow import MemoryMaintenanceWorkflow
 
 from src.activities.run_pulse_agent import run_pulse_agent
 from src.activities.run_anomaly_agent import run_anomaly_agent
@@ -32,6 +33,7 @@ from src.activities.run_investor_agent import run_investor_agent
 from src.activities.run_qa_agent import run_qa_agent
 from src.activities.send_slack_message import send_slack_message
 from src.activities.run_guardian_watchlist import run_guardian_watchlist
+from src.activities.memory_maintenance import decay_memory_weights, expire_old_memories, optimize_memory_performance
 
 log = logging.getLogger("sarthi.worker")
 
@@ -54,6 +56,7 @@ async def create_worker() -> Worker:
             EvalLoopWorkflow,
             CompressionWorkflow,
             WeightDecayWorkflow,
+            MemoryMaintenanceWorkflow,
         ],
         activities=[
             run_pulse_agent,
@@ -62,6 +65,9 @@ async def create_worker() -> Worker:
             run_qa_agent,
             send_slack_message,
             run_guardian_watchlist,
+            decay_memory_weights,
+            expire_old_memories,
+            optimize_memory_performance,
         ],
         max_concurrent_activities=MAX_CONCURRENT,
     )
@@ -79,8 +85,8 @@ async def main() -> None:
     worker = await create_worker()
 
     log.info("Worker started — listening on %s", TASK_QUEUE)
-    log.info("Workflows: PulseWorkflow, InvestorWorkflow, QAWorkflow, SelfAnalysisWorkflow, EvalLoopWorkflow, CompressionWorkflow, WeightDecayWorkflow")
-    log.info("Activities: 6 registered")
+    log.info("Workflows: PulseWorkflow, InvestorWorkflow, QAWorkflow, SelfAnalysisWorkflow, EvalLoopWorkflow, CompressionWorkflow, WeightDecayWorkflow, MemoryMaintenanceWorkflow")
+    log.info("Activities: 9 registered")
 
     async with worker:
         await asyncio.Future()  # run forever

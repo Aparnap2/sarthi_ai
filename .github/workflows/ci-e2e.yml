@@ -1,0 +1,202 @@
+# .github/workflows/ci-e2e.yml
+# Full E2E demo flow — seeds NovaPulse data, triggers guardian, verifies delivery
+# Uses mock LLM (no API key needed in CI)
+# Runs nightly + on manual trigger only (expensive)
+
+name: E2E Demo Flow
+
+on:
+  schedule:
+    - cron: "0 3 * * *"    # nightly at 3am UTC
+  workflow_dispatch:         # manual trigger from GitHub UI
+    inputs:
+      use_real_llm:
+        description: "Use real LLM (requires OLLAMA_API_KEY secret)"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  e2e-demo:
+    name: E2E Demo (NovaPulse Seed → Guardian → Delivery)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER:     sarthi
+          POSTGRES_PASSWORD: sarthi_test
+          POSTGRES_DB:       sarthi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sarthi -d sarthi_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+        options: >-
+          --health-cmd "curl -sf http://localhost:6333/healthz || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start Redpanda
+        uses: redpanda-data/github-action@v0.1.4
+        with:
+          version: "latest"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Node.js (for Mockoon CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Mockoon CLI
+        run: npm install -g @mockoon/cli
+
+      - name: Install Python dependencies
+        working-directory: apps/ai
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run migrations + create collections
+        working-directory: apps/ai
+        env:
+          POSTGRES_DSN: "postgresql://sarthi:sarthi_test@localhost:5432/sarthi_test"
+          QDRANT_URL:   "http://localhost:6333"
+        run: |
+          python -m alembic upgrade head
+          python scripts/create_collections.py
+
+      - name: Start Mockoon (Slack delivery mock)
+        run: |
+          mockoon-cli start \
+            --data mockoon/sarthi-demo.json \
+            --port 3001 &
+          # Wait for Mockoon to be ready
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:3001/health; then
+              echo "Mockoon ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Start message capture sidecar
+        run: |
+          node mockoon/message-capture.js &
+          sleep 2
+
+      - name: Start AI worker
+        working-directory: apps/ai
+        env:
+          POSTGRES_DSN:     "postgresql://sarthi:sarthi_test@localhost:5432/sarthi_test"
+          REDIS_URL:        "redis://localhost:6379"
+          QDRANT_URL:       "http://localhost:6333"
+          REDPANDA_BROKERS: "localhost:9092"
+          SLACK_DELIVERY_URL: "http://localhost:3001/slack/deliver"
+          DEMO_MODE:        "true"
+          LLM_PROVIDER:     ${{ github.event.inputs.use_real_llm == 'true' && 'ollama_cloud' || 'mock' }}
+          OLLAMA_API_KEY:   ${{ secrets.OLLAMA_API_KEY }}
+          LLM_MODEL:        "nemotron-3-super:cloud"
+        run: |
+          uvicorn src.main:app --port 8000 &
+          # Wait for worker to be ready
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health; then
+              echo "AI worker ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Seed NovaPulse demo data
+        working-directory: apps/ai
+        env:
+          POSTGRES_DSN: "postgresql://sarthi:sarthi_test@localhost:5432/sarthi_test"
+          QDRANT_URL:   "http://localhost:6333"
+        run: |
+          python scripts/demo_seed.py
+          echo "Seed output captured"
+
+      - name: Run E2E verification tests
+        working-directory: apps/ai
+        env:
+          POSTGRES_DSN:     "postgresql://sarthi:sarthi_test@localhost:5432/sarthi_test"
+          QDRANT_URL:       "http://localhost:6333"
+          WORKER_URL:       "http://localhost:8000"
+          CAPTURE_URL:      "http://localhost:3002"
+          DEMO_MODE:        "true"
+        run: |
+          pytest tests/e2e/ \
+            -v \
+            --tb=short \
+            --timeout=90 \
+            -n 1 \
+            --junitxml=reports/e2e-results.xml
+
+      - name: Verify watchlist fired correctly
+        working-directory: apps/ai
+        env:
+          POSTGRES_DSN: "postgresql://sarthi:sarthi_test@localhost:5432/sarthi_test"
+          QDRANT_URL:   "http://localhost:6333"
+        run: |
+          python - <<'EOF'
+          import os, sys, requests
+
+          WORKER = "http://localhost:8000"
+          TENANT = "00000000-0000-0000-0000-000000000001"
+
+          r = requests.get(f"{WORKER}/debug/tenant/{TENANT}/watchlist-hits", timeout=10)
+          r.raise_for_status()
+          hits = r.json()
+          hit_ids = [h["id"] for h in hits]
+
+          print(f"Patterns fired: {hit_ids}")
+
+          required = ["FG-01", "FG-03", "FG-05"]
+          missing = [p for p in required if p not in hit_ids]
+
+          if missing:
+              print(f"FAIL: Required patterns did not fire: {missing}", file=sys.stderr)
+              sys.exit(1)
+
+          if len(hits) < 4:
+              print(f"FAIL: Expected >= 4 patterns, got {len(hits)}", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"OK: {len(hits)} patterns fired — all required patterns confirmed")
+          EOF
+
+      - name: Upload E2E results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: apps/ai/reports/
+          retention-days: 14

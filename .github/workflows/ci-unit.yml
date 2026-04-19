@@ -1,0 +1,67 @@
+# .github/workflows/ci-unit.yml
+# Unit tests — no external services needed
+# Runs on every push and PR to main/dev
+
+name: Unit Tests
+
+on:
+  push:
+    branches: ["main", "dev", "feature/**"]
+  pull_request:
+    branches: ["main", "dev"]
+
+jobs:
+  unit-tests:
+    name: Unit Tests (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        working-directory: apps/ai
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run unit tests (no services needed)
+        working-directory: apps/ai
+        env:
+          DEMO_MODE: "true"
+          LLM_PROVIDER: "mock"
+          QDRANT_URL: "http://localhost:6333"     # not used — mocked
+          POSTGRES_DSN: "postgresql://mock/mock"  # not used — mocked
+        run: |
+          pytest tests/unit/ \
+            -v \
+            --tb=short \
+            --timeout=30 \
+            -n auto \
+            --junitxml=reports/unit-results.xml \
+            --cov=src \
+            --cov-report=xml:reports/coverage.xml \
+            --cov-report=term-missing \
+            --cov-fail-under=70
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: apps/ai/reports/
+          retention-days: 7
+
+      - name: Upload coverage to GitHub Summary
+        if: always()
+        run: |
+          echo "## Unit Test Coverage" >> $GITHUB_STEP_SUMMARY
+          cd apps/ai && python -m pytest tests/unit/ --co -q 2>/dev/null | tail -5 >> $GITHUB_STEP_SUMMARY || true

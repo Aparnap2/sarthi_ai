@@ -87,3 +87,34 @@ CREATE TABLE IF NOT EXISTS memory_snapshots (
     detected_patterns JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Pattern thresholds for agent learning
+CREATE TABLE IF NOT EXISTS pattern_thresholds (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id VARCHAR(100) NOT NULL,
+    agent_type VARCHAR(20) NOT NULL,
+    pattern VARCHAR(100) NOT NULL,
+    threshold_value FLOAT NOT NULL CHECK (threshold_value >= 0 AND threshold_value <= 1),
+    last_feedback_type VARCHAR(20),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(tenant_id, agent_type, pattern)
+);
+
+-- Agent feedback history
+CREATE TABLE IF NOT EXISTS agent_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    feedback_id VARCHAR(100) UNIQUE NOT NULL,
+    tenant_id VARCHAR(100) NOT NULL,
+    agent_type VARCHAR(20) NOT NULL,
+    pattern VARCHAR(100) NOT NULL,
+    feedback_type VARCHAR(20) NOT NULL,
+    user_id VARCHAR(50) NOT NULL,
+    channel_id VARCHAR(50),
+    timestamp TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_pattern_thresholds_lookup ON pattern_thresholds(tenant_id, agent_type, pattern);
+CREATE INDEX IF NOT EXISTS idx_agent_feedback_tenant ON agent_feedback(tenant_id, agent_type);
+CREATE INDEX IF NOT EXISTS idx_agent_feedback_timestamp ON agent_feedback(timestamp);

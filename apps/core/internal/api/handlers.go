@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"runtime"
 	"strings"
@@ -913,4 +914,143 @@ func (h *Handler) HandleBIQuery(c *fiber.Ctx) error {
 		"workflow_id": workflowID,
 		"message":     "Query queued. Result sent to Telegram.",
 	})
+}
+
+// AgentFeedbackRequest represents feedback from Slack button clicks
+type AgentFeedbackRequest struct {
+	Payload string `json:"payload"`
+}
+
+// HandleAgentFeedback processes Slack interactive component feedback
+func (h *Handler) HandleAgentFeedback(c *fiber.Ctx) error {
+	startTime := time.Now()
+
+	var req AgentFeedbackRequest
+	if err := c.BodyParser(&req); err != nil {
+		h.logger.Error("failed to parse agent feedback request", err)
+		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Parse Slack payload (URL-encoded JSON)
+	payload, err := parseSlackPayload(req.Payload)
+	if err != nil {
+		h.logger.Error("failed to parse slack payload", err)
+		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
+			"error": "Invalid payload format",
+		})
+	}
+
+	// Only handle button clicks
+	if payload.Type != "block_actions" {
+		return c.JSON(map[string]interface{}{
+			"response_type": "ephemeral",
+			"text":          "Unsupported interaction type",
+		})
+	}
+
+	// Process each action
+	for _, action := range payload.Actions {
+		feedbackID := uuid.New().String()
+
+		// Parse action value (format: agent_type:pattern:tenant_id)
+		parts := strings.Split(action.Value, ":")
+		if len(parts) != 3 {
+			h.logger.Warn("invalid action value format", "value", action.Value)
+			continue
+		}
+
+		agentType := parts[0]
+		pattern := parts[1]
+		tenantID := parts[2]
+
+		// Map button action to feedback type
+		var feedbackType string
+		switch action.ActionID {
+		case "acted_on":
+			feedbackType = "acted_on"
+		case "not_relevant":
+			feedbackType = "not_relevant"
+		case "already_knew":
+			feedbackType = "already_knew"
+		default:
+			h.logger.Warn("unknown action_id", "action_id", action.ActionID)
+			continue
+		}
+
+		// Publish feedback event to Redpanda
+		event := map[string]interface{}{
+			"feedback_id":   feedbackID,
+			"type":          "agent_feedback",
+			"agent_type":    agentType,
+			"pattern":       pattern,
+			"tenant_id":     tenantID,
+			"feedback_type": feedbackType,
+			"user_id":       payload.User.ID,
+			"channel_id":    payload.Channel.ID,
+			"timestamp":     time.Now().UTC().Format(time.RFC3339),
+		}
+
+		data, err := json.Marshal(event)
+		if err != nil {
+			h.logger.Error("failed to marshal feedback event", err, "feedback_id", feedbackID)
+			continue
+		}
+
+		if err := h.redpandaClient.Publish(data); err != nil {
+			h.logger.Error("failed to publish feedback event", err, "feedback_id", feedbackID)
+			continue
+		}
+
+		h.logger.Info("agent feedback processed",
+			"feedback_id", feedbackID,
+			"agent_type", agentType,
+			"pattern", pattern,
+			"tenant_id", tenantID,
+			"feedback_type", feedbackType,
+			"user_id", payload.User.ID,
+		)
+	}
+
+	duration := time.Since(startTime)
+	h.logger.Info("agent feedback webhook processed", "duration_ms", duration.Milliseconds())
+
+	// Respond to Slack with ephemeral confirmation
+	return c.JSON(map[string]interface{}{
+		"response_type": "ephemeral",
+		"text":          "Thank you for your feedback! Agent thresholds will be adjusted accordingly.",
+	})
+}
+
+// SlackPayload represents the parsed Slack interactive payload
+type SlackPayload struct {
+	Type    string `json:"type"`
+	Actions []struct {
+		ActionID string `json:"action_id"`
+		Value    string `json:"value"`
+	} `json:"actions"`
+	User struct {
+		ID string `json:"id"`
+	} `json:"user"`
+	Channel struct {
+		ID string `json:"id"`
+	} `json:"channel"`
+}
+
+// parseSlackPayload parses and validates URL-encoded Slack payload
+func parseSlackPayload(payloadStr string) (*SlackPayload, error) {
+	// URL decode the payload
+	decoded, err := url.QueryUnescape(payloadStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode payload: %w", err)
+	}
+
+	// Parse JSON
+	var payload SlackPayload
+	if err := json.Unmarshal([]byte(decoded), &payload); err != nil {
+		return nil, fmt.Errorf("failed to parse payload JSON: %w", err)
+	}
+
+	return &payload, nil
 }
