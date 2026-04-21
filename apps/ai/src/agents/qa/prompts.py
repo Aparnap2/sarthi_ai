@@ -70,6 +70,12 @@ TOOL_DESCRIPTIONS = {
         "Parameters: question (str) — the product question; tenant_id (str) — the tenant identifier. "
         "Returns: formatted product metrics result."
     ),
+    "search_decisions": (
+        "Search past business decisions from the decision journal. "
+        "Use this when asked about past decisions or choices made. "
+        "Parameters: query (str) — the search query; tenant_id (str) — the tenant identifier. "
+        "Returns: top 3 matching decisions with context."
+    ),
 }
 
 
@@ -78,6 +84,8 @@ TOOL_DESCRIPTIONS = {
 REACT_SYSTEM_PROMPT = (
     "You are Sarthi, a proactive business co-founder AI. "
     "Answer the founder's question using ONLY their real data. "
+    "Available data sources: PulseAgent metrics, Decision Journal history. "
+    "When asked about past decisions, search the decisions collection first. "
     "Be direct. Lead with the number. Max 100 words. "
     "If the answer isn't in the data, say 'I don't have that data yet. "
     "Connect your Stripe/bank account to get this.'"

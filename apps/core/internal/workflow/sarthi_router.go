@@ -278,16 +278,105 @@ func FinanceWorkflow(ctx workflow.Context, envelope events.EventEnvelope) error 
 	return nil
 }
 
-// ChiefOfStaffWorkflow handles executive-level events (monthly reviews, agent outputs, decisions).
-// This is a stub to be implemented in Phase 6.
+// ChiefOfStaffWorkflow handles executive-level events (weekly synthesis, agent outputs, decisions).
 func ChiefOfStaffWorkflow(ctx workflow.Context, envelope events.EventEnvelope) error {
-	workflow.GetLogger(ctx).Info(
+	logger := workflow.GetLogger(ctx)
+	logger.Info(
 		"ChiefOfStaffWorkflow started",
 		"event_type", envelope.EventType,
 		"tenant_id", envelope.TenantID,
 		"trace_id", envelope.TraceID,
 	)
-	// TODO: Implement ChiefOfStaffWorkflow agent logic
+
+	// Activity options
+	ao := workflow.ActivityOptions{
+		StartToCloseTimeout: 5 * time.Minute,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    time.Second,
+			BackoffCoefficient: 2.0,
+			MaximumAttempts:    3,
+		},
+	}
+	ctxWithAO := workflow.WithActivityOptions(ctx, ao)
+
+	// Get recent alerts (last 7 days)
+	alertsResult := &GetRecentAlertsOutput{}
+	err := workflow.ExecuteActivity(ctxWithAO, GetRecentAlerts, GetRecentAlertsInput{
+		TenantID: envelope.TenantID,
+		Days:     7,
+	}).Get(ctx, alertsResult)
+	if err != nil {
+		logger.Error("Failed to get recent alerts", err)
+		// Continue with empty alerts
+		alertsResult = &GetRecentAlertsOutput{Alerts: []map[string]interface{}{}}
+	}
+
+	// Get recent decisions (last 7 days)
+	decisionsResult := &GetRecentDecisionsOutput{}
+	err = workflow.ExecuteActivity(ctxWithAO, GetRecentDecisions, GetRecentDecisionsInput{
+		TenantID: envelope.TenantID,
+		Days:     7,
+	}).Get(ctx, decisionsResult)
+	if err != nil {
+		logger.Error("Failed to get recent decisions", err)
+		// Continue with empty decisions
+		decisionsResult = &GetRecentDecisionsOutput{Decisions: []map[string]interface{}{}}
+	}
+
+	// Get current metrics snapshot
+	metricsResult := &GetCurrentMetricsSnapshotOutput{}
+	err = workflow.ExecuteActivity(ctxWithAO, GetCurrentMetricsSnapshot, GetCurrentMetricsSnapshotInput{
+		TenantID: envelope.TenantID,
+	}).Get(ctx, metricsResult)
+	if err != nil {
+		logger.Error("Failed to get current metrics", err)
+		// Continue with empty metrics
+		metricsResult = &GetCurrentMetricsSnapshotOutput{Metrics: map[string]interface{}{}}
+	}
+
+	// Get investor relationship health
+	investorResult := &GetInvestorRelationshipHealthOutput{}
+	err = workflow.ExecuteActivity(ctxWithAO, GetInvestorRelationshipHealth, GetInvestorRelationshipHealthInput{
+		TenantID: envelope.TenantID,
+	}).Get(ctx, investorResult)
+	if err != nil {
+		logger.Error("Failed to get investor relationship health", err)
+		// Continue with empty investor status
+		investorResult = &GetInvestorRelationshipHealthOutput{Health: map[string]interface{}{}}
+	}
+
+	// Synthesize weekly brief
+	briefResult := &SynthesizeWeeklyBriefOutput{}
+	err = workflow.ExecuteActivity(ctxWithAO, SynthesizeWeeklyBrief, SynthesizeWeeklyBriefInput{
+		TenantID:       envelope.TenantID,
+		Alerts:         alertsResult.Alerts,
+		Decisions:      decisionsResult.Decisions,
+		Metrics:        metricsResult.Metrics,
+		InvestorStatus: investorResult.Health,
+		FounderName:    "Founder",    // TODO: Get from tenant config
+		CompanyName:    "Company",    // TODO: Get from tenant config
+	}).Get(ctx, briefResult)
+	if err != nil {
+		logger.Error("Failed to synthesize weekly brief", err)
+		return err
+	}
+
+	// Deliver weekly brief
+	deliverResult := &DeliverWeeklyBriefOutput{}
+	err = workflow.ExecuteActivity(ctxWithAO, DeliverWeeklyBrief, DeliverWeeklyBriefInput{
+		TenantID: envelope.TenantID,
+		Brief:    briefResult.Brief,
+	}).Get(ctx, deliverResult)
+	if err != nil {
+		logger.Error("Failed to deliver weekly brief", err)
+		return err
+	}
+
+	logger.Info("ChiefOfStaffWorkflow completed successfully",
+		"delivered", deliverResult.Delivered,
+		"brief_length", len(briefResult.Brief),
+	)
+
 	return nil
 }
 

@@ -137,11 +137,75 @@ def query_product_db(question: str, tenant_id: str) -> str:
         return f"Product DB query unavailable: {e}"
 
 
+@tool
+def search_decisions(query: str, tenant_id: str) -> str:
+    """Search past business decisions from the decision journal.
+
+    Use this when asked about past decisions or choices made.
+    Returns top 3 matching decisions with context.
+    """
+    try:
+        from qdrant_client import QdrantClient
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+        client = QdrantClient(host="localhost", port=6333)
+
+        # Generate query embedding
+        from src.services.embeddings import get_embeddings_service
+        embeddings_service = get_embeddings_service()
+        embedding_result = embeddings_service.embed(query)
+
+        # Build filter for tenant
+        search_filter = Filter(
+            must=[FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id))]
+        )
+
+        # Search decisions collection
+        results = client.query_points(
+            collection_name="decisions",
+            query=embedding_result.embedding,
+            query_filter=search_filter,
+            limit=3,
+            score_threshold=0.7,
+        )
+
+        if not results.points:
+            return f"No past decisions found for query: '{query}'"
+
+        lines = [f"Past decisions for '{query}':"]
+        for i, point in enumerate(results.points, 1):
+            payload = point.payload
+            decided = payload.get("decided", "Unknown decision")
+            reasoning = payload.get("reasoning", "")
+            alternatives = payload.get("alternatives", "")
+            created_at = payload.get("created_at", 0)
+
+            # Format timestamp
+            import datetime
+            if created_at:
+                dt = datetime.datetime.fromtimestamp(created_at)
+                timestamp = dt.strftime("%Y-%m-%d")
+            else:
+                timestamp = "unknown date"
+
+            lines.append(f"{i}. [{timestamp}] {decided}")
+            if reasoning:
+                lines.append(f"   Reasoning: {reasoning[:100]}...")
+            if alternatives:
+                lines.append(f"   Alternatives: {alternatives[:100]}...")
+
+        return "\n".join(lines)
+
+    except Exception as e:
+        logger.warning(f"search_decisions failed: {e}")
+        return f"Decision search unavailable: {e}"
+
+
 # =============================================================================
 # All exported tools list (for create_react_agent)
 # =============================================================================
 
-QA_TOOLS = [search_pulse_memory, query_stripe_metrics, query_product_db]
+QA_TOOLS = [search_pulse_memory, query_stripe_metrics, query_product_db, search_decisions]
 
 
 # =============================================================================

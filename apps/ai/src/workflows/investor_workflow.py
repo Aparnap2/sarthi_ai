@@ -17,6 +17,7 @@ from temporalio.common import RetryPolicy
 with workflow.unsafe.imports_passed_through():
     from src.activities.run_investor_agent import run_investor_agent
     from src.activities.send_slack_message import send_slack_message
+    from src.activities.check_relationship_health import check_relationship_health
 
 
 @workflow.defn(name="InvestorWorkflow")
@@ -65,7 +66,26 @@ class InvestorWorkflow:
             non_retryable_error_types=["ValueError"],
         )
 
-        # Step 1: Run InvestorAgent
+        # Step 1: Check investor relationship health
+        try:
+            relationship_health = await workflow.execute_activity(
+                check_relationship_health,
+                tenant_id,
+                retry_policy=retry_policy,
+                start_to_close_timeout=timedelta(minutes=2),
+            )
+
+            # If there are cold high-priority investors, add alert to workflow
+            if relationship_health.get("ok") and relationship_health.get("high_priority_cold", 0) > 0:
+                cold_investors = relationship_health.get("cold_investors", [])
+                cold_alert = f"⚠️ {relationship_health['high_priority_cold']} high-priority investors need warmup"
+                workflow.logger.warning(cold_alert)
+                # Note: This could be included in the investor update message
+
+        except Exception as e:
+            workflow.logger.warning(f"Relationship health check failed: {e}")
+
+        # Step 2: Run InvestorAgent
         try:
             investor_result = await workflow.execute_activity(
                 run_investor_agent,
