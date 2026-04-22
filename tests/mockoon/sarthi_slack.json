@@ -1,0 +1,33 @@
+{
+  "name": "Sarthi Slack API Mock",
+  "port": 8888,
+  "statusCode": 200,
+  "headers": [],
+  "body": "{\"ok\":true}",
+  "routes": [
+    {
+      "method": "POST",
+      "endpoint": "/api/auth.test",
+      "statusCode": 200,
+      "body": "{\"ok\":true,\"team_id\":\"T_MOCK_001\",\"user_id\":\"U_MOCK_BOT\",\"bot_id\":\"B_MOCK_001\"}"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/api/views.open",
+      "statusCode": 200,
+      "body": "{\"ok\":true,\"view\":{\"id\":\"V_MOCK_001\",\"callback_id\":\"decision_modal\"}}"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/api/chat.postMessage",
+      "statusCode": 200,
+      "body": "{\"ok\":true,\"ts\":\"1745000000.000001\",\"channel\":\"U_MOCK_USER\"}"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/api/chat.update",
+      "statusCode": 200,
+      "body": "{\"ok\":true}"
+    }
+  ]
+}

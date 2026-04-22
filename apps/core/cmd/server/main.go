@@ -118,6 +118,9 @@ func main() {
 	app.Post("/webhooks/slack", handler.HandleSlackWebhook)
 	app.Post("/webhooks/interaction", handler.HandleInteraction)
 
+	// Slack slash command proxy - forwards to Python Slack Bolt handler
+	app.Post("/slack/commands", handleSlackCommandProxy)
+
 	// HITL routes (internal - simple token auth)
 	app.Post("/internal/hitl/investigate", handler.HandleHITLInvestigate)
 	app.Post("/internal/hitl/dismiss", handler.HandleHITLDismiss)
@@ -207,4 +210,27 @@ func errorHandler(c *fiber.Ctx, err error) error {
 	return c.Status(code).JSON(map[string]string{
 		"error": err.Error(),
 	})
+}
+
+// handleSlackCommandProxy forwards Slack slash commands to Python Slack Bolt handler.
+// This enables /sarthi decide and other slash commands.
+func handleSlackCommandProxy(c *fiber.Ctx) error {
+	slackBotURL := os.Getenv("SLACK_BOT_URL")
+	if slackBotURL == "" {
+		slackBotURL = "http://localhost:3001"
+	}
+
+	// Forward the request to Python Slack Bolt
+	client := fiber.DefaultClient()
+	resp, err := client.Post(slackBotURL + "/slack/events", "application/x-www-form-urlencoded", c.Body())
+	if err != nil {
+		log.Printf("Failed to proxy to Slack Bot: %v", err)
+		return c.Status(fiber.StatusBadGateway).JSON(map[string]string{
+			"error": "Slack command service unavailable",
+		})
+	}
+	defer resp.Body.Close()
+
+	// Copy response back to Slack
+	return c.Status(resp.StatusCode).SendStream(resp.Body)
 }
