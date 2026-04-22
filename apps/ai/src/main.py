@@ -3,15 +3,15 @@
 This module supports running:
 1. Temporal worker (default) - listens to AI_TASK_QUEUE
 2. gRPC server - serves gRPC requests from Go core
-3. Both services concurrently
+3. APScheduler-based jobs (alternative to Temporal)
+4. Both services concurrently
 """
 
 import asyncio
 import logging
-import signal
+import os
 import sys
 from concurrent import futures
-from typing import Optional
 
 import structlog
 import grpc
@@ -22,9 +22,16 @@ from src.activities import analyze_feedback
 from src.config import get_config
 from src.grpc_server import serve as start_grpc_server, AgentServicer
 
-# Import generated proto
-import os
-_PROTO_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'gen', 'python')
+USE_SCHEDULER = os.environ.get("USE_APSCHEDULER", "false").lower() == "true"
+if USE_SCHEDULER:
+    from src.scheduler import (
+        register_tenant_schedules,
+        start_scheduler,
+        shutdown_scheduler,
+    )
+
+import os as _os
+_PROTO_PATH = _os.path.join(_os.path.dirname(__file__), '..', '..', '..', 'gen', 'python')
 sys.path.insert(0, _PROTO_PATH)
 import ai.v1.agent_pb2_grpc as pb2_grpc
 
@@ -34,27 +41,9 @@ logger = structlog.get_logger(__name__)
 async def run_temporal_worker():
     """Run the Temporal worker for AI activities."""
     config = get_config()
-
-    logger.info(
-        "Starting Temporal Worker",
-        address=config.temporal.address,
-        task_queue=config.temporal.task_queue,
-        namespace=config.temporal.namespace,
-    )
-
-    # Connect to Temporal server
-    client = await Client.connect(
-        target=config.temporal.address,
-        namespace=config.temporal.namespace,
-    )
-
-    # Create worker
-    worker = Worker(
-        client,
-        task_queue=config.temporal.task_queue,
-        activities=[analyze_feedback],
-    )
-
+    logger.info("Starting Temporal Worker", address=config.temporal.address, task_queue=config.temporal.task_queue)
+    client = await Client.connect(target=config.temporal.address, namespace=config.temporal.namespace)
+    worker = Worker(client, task_queue=config.temporal.task_queue, activities=[analyze_feedback])
     logger.info("Temporal Worker started, waiting for tasks...")
     await worker.run()
 
@@ -72,58 +61,56 @@ async def run_grpc_server(port: str = "[::]:50051"):
 
 async def run_both(grpc_port: str = "[::]:50051"):
     """Run both Temporal worker and gRPC server concurrently."""
-    logger.info("Starting both Temporal Worker and gRPC server")
-
-    # Run both concurrently
-    await asyncio.gather(
-        run_temporal_worker(),
-        run_grpc_server(grpc_port),
-    )
+    await asyncio.gather(run_temporal_worker(), run_grpc_server(grpc_port))
 
 
 def parse_args():
-    """Parse command line arguments."""
     import argparse
-
     parser = argparse.ArgumentParser(description="IterateSwarm AI Service")
-    parser.add_argument(
-        "--mode",
-        choices=["temporal", "grpc", "both"],
-        default="both",
-        help="Which service to run (default: both)",
-    )
-    parser.add_argument(
-        "--grpc-port",
-        default="[::]:50051",
-        help="gRPC server port (default: [::]:50051)",
-    )
-
+    parser.add_argument("--mode", choices=["temporal", "grpc", "both"], default="both")
+    parser.add_argument("--grpc-port", default="[::]:50051")
     return parser.parse_args()
 
 
-def main():
-    """Main entry point."""
-    args = parse_args()
+async def bootstrap_scheduler():
+    """Bootstrap APScheduler runtime."""
+    logger.info("Bootstrapping APScheduler runtime")
+    tenants = [t.strip() for t in os.environ.get("ACTIVE_TENANTS", "default").split(",") if t.strip()]
+    logger.info(f"Loading {len(tenants)} tenants")
+    for tenant_id in tenants:
+        register_tenant_schedules(tenant_id)
+    start_scheduler()
+    logger.info("APScheduler runtime started")
 
-    # Configure structured logging
+
+def main():
+    args = parse_args()
     structlog.configure()
     log = structlog.get_logger()
+    log.info("Starting IterateSwarm AI Service", mode=args.mode, use_scheduler=USE_SCHEDULER)
 
-    log.info(
-        "Starting IterateSwarm AI Service",
-        mode=args.mode,
-        grpc_port=args.grpc_port,
-    )
+    async def run_with_scheduler():
+        tasks = []
+        if USE_SCHEDULER:
+            await bootstrap_scheduler()
+        if args.mode in ("temporal", "both"):
+            tasks.append(asyncio.create_task(run_temporal_worker()))
+        if args.mode in ("grpc", "both"):
+            tasks.append(asyncio.create_task(run_grpc_server(args.grpc_port)))
+        if tasks:
+            await asyncio.gather(*tasks)
 
     try:
         if args.mode == "temporal":
             asyncio.run(run_temporal_worker())
         elif args.mode == "grpc":
             asyncio.run(run_grpc_server(args.grpc_port))
-        else:  # both
-            asyncio.run(run_both(args.grpc_port))
+        else:
+            asyncio.run(run_with_scheduler())
     except KeyboardInterrupt:
         log.info("Service shutting down...")
+        if USE_SCHEDULER:
+            shutdown_scheduler()
     except Exception as e:
         log.error("Service error", error=str(e))
         raise
