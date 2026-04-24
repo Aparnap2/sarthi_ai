@@ -27,47 +27,6 @@ up:
 	sleep 10
 	@echo "Infrastructure started"
 
-# Stop all Docker services
-down:
-	@echo "Stopping all services..."
-	docker-compose down
-	@echo "All services stopped"
-
-# Start infrastructure only (Postgres, Redis, Qdrant)
-infra-up:
-	@echo "Starting infrastructure..."
-	docker start iterateswarm-postgres iterateswarm-qdrant sarthi-redis 2>/dev/null || docker-compose up -d postgres redis qdrant
-	@echo "Waiting for Postgres..." && sleep 3
-	@echo "✅ Infrastructure ready (postgres://5433, redis://6379, qdrant::6333)"
-
-# Stop infrastructure
-infra-down:
-	@echo "Stopping infrastructure..."
-	docker stop iterateswarm-postgres iterateswarm-qdrant sarthi-redis 2>/dev/null || true
-	@echo "✅ Infrastructure stopped"
-
-# Run Python tests
-test-py:
-	@echo "Running Python tests..."
-	cd apps/ai && pytest tests/ -v --tb=short
-
-# Run Python unit tests only
-test-py-unit:
-	@echo "Running Python unit tests..."
-	cd apps/ai && pytest tests/ -v --tb=short -k "not e2e"
-
-# Run Python E2E tests
-test-py-e2e:
-	@echo "Running Python E2E tests..."
-	$(MAKE) infra-up
-	cd apps/ai && pytest tests/ -v --tb=short -k "e2e"
-
-# Stop all Docker services
-down:
-	@echo "Stopping all services..."
-	docker-compose down
-	@echo "All services stopped"
-
 # Check service status
 status:
 	@echo "Service Status:"

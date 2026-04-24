@@ -91,17 +91,23 @@ def main():
 
     async def run_with_scheduler():
         tasks = []
-        if USE_SCHEDULER:
-            await bootstrap_scheduler()
-        if args.mode in ("temporal", "both"):
-            tasks.append(asyncio.create_task(run_temporal_worker()))
-        if args.mode in ("grpc", "both"):
-            tasks.append(asyncio.create_task(run_grpc_server(args.grpc_port)))
-        if tasks:
-            await asyncio.gather(*tasks)
+        try:
+            if USE_SCHEDULER:
+                await bootstrap_scheduler()
+            if args.mode in ("temporal", "both"):
+                tasks.append(asyncio.create_task(run_temporal_worker()))
+            if args.mode in ("grpc", "both"):
+                tasks.append(asyncio.create_task(run_grpc_server(args.grpc_port)))
+            if tasks:
+                await asyncio.gather(*tasks)
+        finally:
+            if USE_SCHEDULER:
+                shutdown_scheduler()
 
     try:
-        if args.mode == "temporal":
+        if USE_SCHEDULER:
+            asyncio.run(run_with_scheduler())
+        elif args.mode == "temporal":
             asyncio.run(run_temporal_worker())
         elif args.mode == "grpc":
             asyncio.run(run_grpc_server(args.grpc_port))
@@ -109,8 +115,6 @@ def main():
             asyncio.run(run_with_scheduler())
     except KeyboardInterrupt:
         log.info("Service shutting down...")
-        if USE_SCHEDULER:
-            shutdown_scheduler()
     except Exception as e:
         log.error("Service error", error=str(e))
         raise

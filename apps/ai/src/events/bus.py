@@ -36,6 +36,12 @@ class EventBus:
     def _stream_key(self, topic: str, tenant_id: str) -> str:
         return f"sarthi:{tenant_id}:{topic}"
 
+    async def _get_client(self) -> redis.Redis:
+        """Get or create the Redis client."""
+        if self._client is None:
+            self._client = redis.from_url(self._redis_url, decode_responses=True)
+        return self._client
+
     async def emit(
         self,
         topic: str,
@@ -53,7 +59,7 @@ class EventBus:
                 maxlen=MAX_STREAM_LENGTH,
                 approximate=True,
             )
-            log.info(f"Emitted to {stream}", msg_id=msg_id)
+            log.info(f"Emitted to {stream} (msg_id: {msg_id})")
             return msg_id
         except Exception as e:
             log.error(f"Failed to emit: {e}")

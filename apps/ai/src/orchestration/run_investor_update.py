@@ -37,12 +37,12 @@ async def get_investor_warmup_alerts(tenant_id: str) -> List[Dict]:
                 - ir.warm_up_days AS days_overdue,
             ir.notes AS last_interaction_summary
         FROM investor_relationships ir
-        WHERE ir.tenant_id = $1
+        WHERE ir.tenant_id = %s
           AND ir.last_contact_at IS NOT NULL
-          AND NOW() - ir.last_contact_at > ir.warm_up_days * INTERVAL '1 day'
+          AND NOW() - ir.last_contact_at > (ir.warm_up_days || ' days')::interval
         ORDER BY ir.raise_priority ASC, days_overdue DESC
         LIMIT 5
-    """, tenant_id)
+    """, (tenant_id,))
 
     return [dict(r) for r in rows]
 
@@ -112,9 +112,12 @@ async def run_investor_update(tenant_id: str) -> dict[str, Any]:
             error_msg = investor_result.get("error", "Unknown error")
             log.error(f"InvestorAgent failed: {error_msg}")
 
-            await send_slack_message(
-                f"❌ Investor Update failed for {tenant_id}: {error_msg}",
-            )
+            try:
+                await send_slack_message(
+                    f"❌ Investor Update failed for {tenant_id}: {error_msg}",
+                )
+            except Exception as slack_err:
+                log.error(f"Slack notification failed: {slack_err}")
 
             result["ok"] = False
             result["error"] = error_msg
@@ -125,9 +128,12 @@ async def run_investor_update(tenant_id: str) -> dict[str, Any]:
     except Exception as e:
         log.error(f"InvestorAgent activity failed: {e}")
 
-        await send_slack_message(
-            f"❌ Investor Update failed for {tenant_id}: {str(e)}",
-        )
+        try:
+            await send_slack_message(
+                f"❌ Investor Update failed for {tenant_id}: {str(e)}",
+            )
+        except Exception as slack_err:
+            log.error(f"Slack notification failed: {slack_err}")
 
         result["ok"] = False
         result["error"] = str(e)

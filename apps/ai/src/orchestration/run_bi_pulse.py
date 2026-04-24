@@ -48,9 +48,12 @@ async def run_bi_pulse(tenant_id: str) -> dict[str, Any]:
             error_msg = pulse_result.get("error", "Unknown error")
             log.error(f"PulseAgent failed: {error_msg}")
 
-            await send_slack_message(
-                f"❌ BI Pulse failed for {tenant_id}: {error_msg}",
-            )
+            try:
+                await send_slack_message(
+                    f"❌ BI Pulse failed for {tenant_id}: {error_msg}",
+                )
+            except Exception as slack_err:
+                log.error(f"Slack notification failed: {slack_err}")
 
             result["ok"] = False
             result["error"] = error_msg
@@ -61,9 +64,12 @@ async def run_bi_pulse(tenant_id: str) -> dict[str, Any]:
     except Exception as e:
         log.error(f"BI Pulse activity failed: {e}")
 
-        await send_slack_message(
-            f"❌ BI Pulse failed for {tenant_id}: {str(e)}",
-        )
+        try:
+            await send_slack_message(
+                f"❌ BI Pulse failed for {tenant_id}: {str(e)}",
+            )
+        except Exception as slack_err:
+            log.error(f"Slack notification failed: {slack_err}")
 
         result["ok"] = False
         result["error"] = str(e)

@@ -54,9 +54,12 @@ async def run_finance_guardian(tenant_id: str) -> dict[str, Any]:
             error_msg = pulse_result.get("error", "Unknown error")
             log.error(f"PulseAgent failed: {error_msg}")
 
-            await send_slack_message(
-                f"❌ Finance Guardian failed for {tenant_id}: {error_msg}",
-            )
+            try:
+                await send_slack_message(
+                    f"❌ Finance Guardian failed for {tenant_id}: {error_msg}",
+                )
+            except Exception as slack_err:
+                log.error(f"Slack notification failed: {slack_err}")
 
             result["ok"] = False
             result["error"] = error_msg
@@ -67,19 +70,24 @@ async def run_finance_guardian(tenant_id: str) -> dict[str, Any]:
     except Exception as e:
         log.error(f"PulseAgent activity failed: {e}")
 
-        await send_slack_message(
-            f"❌ Finance Guardian failed for {tenant_id}: {str(e)}",
-        )
+        try:
+            await send_slack_message(
+                f"❌ Finance Guardian failed for {tenant_id}: {str(e)}",
+            )
+        except Exception as slack_err:
+            log.error(f"Slack notification failed: {slack_err}")
 
         result["ok"] = False
         result["error"] = str(e)
         return result
 
     # Step 2: Run Guardian watchlist analysis
+    # Pass metrics from pulse_result (computed metrics under pulse_result["metrics"])
+    metrics_payload = pulse_result.get("metrics", pulse_result)
     try:
         guardian_result = await run_guardian_watchlist(
             tenant_id,
-            pulse_result,
+            metrics_payload,
         )
         result["guardian_result"] = guardian_result
 

@@ -2,7 +2,7 @@ import os
 import logging
 from slack_bolt.async_app import AsyncApp
 from slack_bolt.adapter.fastapi import SlackRequestHandler
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 log = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ handler = SlackRequestHandler(app=app)
 
 
 @fastapi_app.post("/slack/events")
-async def slack_events():
+async def slack_events(request: Request):
     return await handler.handle(request)
 
 
@@ -28,8 +28,8 @@ async def get_tenant_from_slack_team(team_id: str) -> str:
     from src.db import db
 
     rows = await db.fetch(
-        "SELECT id FROM tenants WHERE slack_team_id = $1 LIMIT 1",
-        team_id
+        "SELECT id FROM tenants WHERE slack_team_id = %s LIMIT 1",
+        (team_id,)
     )
     if rows:
         return rows[0]["id"]
