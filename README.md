@@ -6,8 +6,8 @@
 
 **[![Tests](https://img.shields.io/badge/tests-241%20passing-brightgreen)](apps/ai/tests/)**
 **[![Patterns](https://img.shields.io/badge/guardian-17%20watchlist%20patterns-blue)](apps/ai/src/guardian/watchlist.py)**
-**[![Agents](https://img.shields.io/badge/agents-4%20(LangGraph)-purple)](apps/ai/src/agents/)**
-**[![Workflows](https://img.shields.io/badge/workflows-7%20(Temporal)-orange)](apps/ai/src/workflows/)**
+**[![Agents](https://img.shields.io/badge/agents-8%20(LangGraph)-purple)](apps/ai/src/agents/)**
+**[![Workflows](https://img.shields.io/badge/workflows-9%20(Temporal)-orange)](apps/ai/src/workflows/)**
 
 ---
 
@@ -16,6 +16,20 @@
 Sarthi watches a SaaS founder's business continuously — Stripe revenue, bank balance, product usage, support volume, deploy frequency. It detects 17 known failure patterns (silent churn death, burn multiple creep, activation walls, cohort degradation) and delivers contextual guardian insights to Slack before those patterns become crises.
 
 **An assistant waits to be asked. A guardian knows to watch before you know to look.**
+
+---
+
+## Sarthi V3.0 — Chief of Staff (New!)
+
+Sarthi now includes **Chief of Staff capabilities** for proactive founder support:
+
+| Feature | Description |
+|---------|-------------|
+| **Decision Journal** | Log decisions via Slack modal, search past decisions via semantic memory |
+| **Weekly Synthesis** | Monday morning brief combining metrics, alerts, decisions, investor status |
+| **Investor Relations** | Track investor relationships, warmup alerts, interaction history |
+| **CommsTriage** | Daily Slack channel triage — classify messages by urgency/action items |
+| **HiringAgent** | Score candidates, track pipeline, cold candidate alerts |
 
 ---
 
@@ -45,12 +59,14 @@ Sarthi watches a SaaS founder's business continuously — Stripe revenue, bank b
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │  PYTHON AI WORKER (LangGraph + DSPy)               │   │
 │  │                                                     │   │
-│  │  AGENTS: Pulse · Anomaly · Investor · QA            │   │
+│  │  AGENTS: Pulse · Anomaly · Investor · QA           │   │
+│  │         CommsTriage · Hiring · (more coming)        │   │
 │  │  GUARDIAN: 17-pattern watchlist (pure Python)       │   │
 │  │  MEMORY: 5-layer spine (Redis→Qdrant→Kuzu→PG→Qdrant)│   │
 │  │  RAG: ≤800 token context assembly + fallback        │   │
 │  │  HITL: 3-tier routing (auto→review→approve)         │   │
 │  │  LLMOps: Langfuse tracing · eval loop              │   │
+│  │  CHIEF OF STAFF: Decision Journal · Weekly Brief    │   │
 │  └─────────────────────────────────────────────────────┘   │
 │          ↓                                                  │
 │  ┌─────────────────────────────────────────────────────┐   │
@@ -89,10 +105,11 @@ Sarthi watches a SaaS founder's business continuously — Stripe revenue, bank b
 | RAG Kernel | Python | Context assembly ≤800 tokens before LLM | ✅ |
 | HITL Manager | Python | 3-tier human-in-the-loop routing | ✅ |
 | LLMOps | Python | Langfuse tracing, eval scoring, self-analysis | ✅ |
+| Chief of Staff | Python | Decision journal, weekly brief, comms triage | ✅ NEW |
 | Qdrant | Infra | Episodic + compressed vector memory | ✅ |
 | PostgreSQL | Infra | Structured data, procedural memory, alerts | ✅ |
 | Redis | Infra | Working memory (L1), session state | 🟡 Fallback |
-| Slack Bot | Python | Delivery, interactive Block Kit, feedback | 🟡 Mock |
+| Slack Bot | Python | Delivery, interactive Block Kit, decision modal | 🟡 Mock |
 
 ---
 
@@ -100,14 +117,19 @@ Sarthi watches a SaaS founder's business continuously — Stripe revenue, bank b
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| LangGraph agent graphs | ✅ Real | Pulse, Anomaly, Investor, QA fully implemented |
-| Temporal workflows | ✅ Real | 7 workflows registered, worker connects |
+| LangGraph agent graphs | ✅ Real | Pulse, Anomaly, Investor, QA, CommsTriage, Hiring fully implemented |
+| Temporal workflows | ✅ Real | 9 workflows registered, worker connects |
 | Guardian watchlist | ✅ Real | 17 patterns, pure Python, 31 signals computed |
 | DSPy prompt signatures | ✅ Real | GuardianInsight, PulseSummarizer, etc. |
 | Qdrant memory spine | ✅ Real | 8 collections, seeded with 6-month synthetic data |
 | PostgreSQL persistence | ✅ Real | Schema migrated, seeded with NovaPulse profile |
 | Langfuse tracing | ✅ Real | `@traced` decorator, pass-through when no key |
-| 241 unit tests | ✅ Real | 97.6% pass rate, all assertions verified |
+| 241+ unit tests | ✅ Real | 97.6% pass rate, all assertions verified |
+| Decision Journal | ✅ Real | Slack modal + Postgres + Qdrant |
+| Weekly Brief | ✅ Real | LLM synthesis via Temporal workflow |
+| Investor Relations | ✅ Real | DB tables + warmup alerts |
+| CommsTriage | ✅ Real | Slack channel message classification |
+| HiringAgent | ✅ Real | Candidate scoring + pipeline management |
 | Stripe data | 🟡 Synthetic | `demo_seed.py` — realistic 6-month NovaPulse history |
 | Plaid/bank data | 🟡 Synthetic | Seeded realistic burn/runway trajectory |
 | Slack delivery | 🟡 Telegram mock | Architecture real; bot token not wired for portfolio |

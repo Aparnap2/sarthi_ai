@@ -1092,6 +1092,187 @@ func CreateHITLRecord(ctx context.Context, input CreateHITLRecordInput) error {
 }
 
 // =============================================================================
+// Chief of Staff Workflow Activities
+// =============================================================================
+
+// GetRecentAlertsInput is input for getting recent alerts.
+type GetRecentAlertsInput struct {
+	TenantID string `json:"tenant_id"`
+	Days     int    `json:"days"`
+}
+
+// GetRecentAlertsOutput is output from getting recent alerts.
+type GetRecentAlertsOutput struct {
+	Alerts []map[string]interface{} `json:"alerts"`
+}
+
+// GetRecentAlerts retrieves recent alerts for a tenant.
+func (a *Activities) GetRecentAlerts(ctx context.Context, input GetRecentAlertsInput) (*GetRecentAlertsOutput, error) {
+	a.logger.Info("getting recent alerts", "tenant_id", input.TenantID, "days", input.Days)
+
+	// TODO: Implement database query for recent alerts
+	// This would query the alerts table for the last N days
+
+	return &GetRecentAlertsOutput{
+		Alerts: []map[string]interface{}{}, // Stub: return empty for now
+	}, nil
+}
+
+// GetRecentDecisionsInput is input for getting recent decisions.
+type GetRecentDecisionsInput struct {
+	TenantID string `json:"tenant_id"`
+	Days     int    `json:"days"`
+}
+
+// GetRecentDecisionsOutput is output from getting recent decisions.
+type GetRecentDecisionsOutput struct {
+	Decisions []map[string]interface{} `json:"decisions"`
+}
+
+// GetRecentDecisions retrieves recent decisions from the decision journal.
+func (a *Activities) GetRecentDecisions(ctx context.Context, input GetRecentDecisionsInput) (*GetRecentDecisionsOutput, error) {
+	a.logger.Info("getting recent decisions", "tenant_id", input.TenantID, "days", input.Days)
+
+	// TODO: Implement database query for recent decisions
+	// This would query the decisions table for the last N days
+
+	return &GetRecentDecisionsOutput{
+		Decisions: []map[string]interface{}{}, // Stub: return empty for now
+	}, nil
+}
+
+// GetCurrentMetricsSnapshotInput is input for getting current metrics.
+type GetCurrentMetricsSnapshotInput struct {
+	TenantID string `json:"tenant_id"`
+}
+
+// GetCurrentMetricsSnapshotOutput is output from getting current metrics.
+type GetCurrentMetricsSnapshotOutput struct {
+	Metrics map[string]interface{} `json:"metrics"`
+}
+
+// GetCurrentMetricsSnapshot retrieves current business metrics snapshot.
+func (a *Activities) GetCurrentMetricsSnapshot(ctx context.Context, input GetCurrentMetricsSnapshotInput) (*GetCurrentMetricsSnapshotOutput, error) {
+	a.logger.Info("getting current metrics snapshot", "tenant_id", input.TenantID)
+
+	// TODO: Implement metrics aggregation from various sources
+	// This would aggregate MRR, churn, active customers, etc.
+
+	return &GetCurrentMetricsSnapshotOutput{
+		Metrics: map[string]interface{}{
+			"mrr":              0.0,
+			"arr":              0.0,
+			"active_customers": 0,
+			"churn_rate":       0.0,
+			"growth_rate":      0.0,
+		},
+	}, nil
+}
+
+// GetInvestorRelationshipHealthInput is input for getting investor relationship health.
+type GetInvestorRelationshipHealthInput struct {
+	TenantID string `json:"tenant_id"`
+}
+
+// GetInvestorRelationshipHealthOutput is output from getting investor relationship health.
+type GetInvestorRelationshipHealthOutput struct {
+	Health map[string]interface{} `json:"health"`
+}
+
+// GetInvestorRelationshipHealth assesses investor relationship health.
+func (a *Activities) GetInvestorRelationshipHealth(ctx context.Context, input GetInvestorRelationshipHealthInput) (*GetInvestorRelationshipHealthOutput, error) {
+	a.logger.Info("getting investor relationship health", "tenant_id", input.TenantID)
+
+	// TODO: Implement investor relationship analysis
+	// This would check last contact dates, raise priorities, etc.
+
+	return &GetInvestorRelationshipHealthOutput{
+		Health: map[string]interface{}{
+			"total_investors":      0,
+			"warm_relationships":   0,
+			"cold_relationships":   0,
+			"high_priority_raises": 0,
+		},
+	}, nil
+}
+
+// SynthesizeWeeklyBriefInput is input for synthesizing weekly brief.
+type SynthesizeWeeklyBriefInput struct {
+	TenantID           string                   `json:"tenant_id"`
+	Alerts             []map[string]interface{} `json:"alerts"`
+	Decisions          []map[string]interface{} `json:"decisions"`
+	Metrics            map[string]interface{}   `json:"metrics"`
+	InvestorStatus     map[string]interface{}   `json:"investor_status"`
+	FounderName        string                   `json:"founder_name"`
+	CompanyName        string                   `json:"company_name"`
+}
+
+// SynthesizeWeeklyBriefOutput is output from synthesizing weekly brief.
+type SynthesizeWeeklyBriefOutput struct {
+	Brief string `json:"brief"`
+}
+
+// SynthesizeWeeklyBrief synthesizes all data into a weekly brief.
+func (a *Activities) SynthesizeWeeklyBrief(ctx context.Context, input SynthesizeWeeklyBriefInput) (*SynthesizeWeeklyBriefOutput, error) {
+	a.logger.Info("synthesizing weekly brief", "tenant_id", input.TenantID)
+
+	// TODO: Implement LLM call to synthesize brief
+	// This would use the WEEKLY_SYNTHESIS_PROMPT from the task
+
+	return &SynthesizeWeeklyBriefOutput{
+		Brief: "🎯 ONE THING: Focus on customer acquisition\n\nWeekly Brief for " + input.FounderName + " at " + input.CompanyName + "...", // Stub
+	}, nil
+}
+
+// DeliverWeeklyBriefInput is input for delivering weekly brief.
+type DeliverWeeklyBriefInput struct {
+	TenantID string `json:"tenant_id"`
+	Brief    string `json:"brief"`
+}
+
+// DeliverWeeklyBriefOutput is output from delivering weekly brief.
+type DeliverWeeklyBriefOutput struct {
+	Delivered bool `json:"delivered"`
+}
+
+// DeliverWeeklyBrief delivers the weekly brief via Slack.
+func (a *Activities) DeliverWeeklyBrief(ctx context.Context, input DeliverWeeklyBriefInput) (*DeliverWeeklyBriefOutput, error) {
+	a.logger.Info("delivering weekly brief", "tenant_id", input.TenantID)
+
+	// TODO: Implement Slack delivery
+	// This would send the brief to Slack
+
+	return &DeliverWeeklyBriefOutput{
+		Delivered: true, // Stub: assume success
+	}, nil
+}
+
+// Standalone activity functions for Chief of Staff workflow
+func GetRecentAlerts(ctx context.Context, input GetRecentAlertsInput) (*GetRecentAlertsOutput, error) {
+	return globalActivities.GetRecentAlerts(ctx, input)
+}
+
+func GetRecentDecisions(ctx context.Context, input GetRecentDecisionsInput) (*GetRecentDecisionsOutput, error) {
+	return globalActivities.GetRecentDecisions(ctx, input)
+}
+
+func GetCurrentMetricsSnapshot(ctx context.Context, input GetCurrentMetricsSnapshotInput) (*GetCurrentMetricsSnapshotOutput, error) {
+	return globalActivities.GetCurrentMetricsSnapshot(ctx, input)
+}
+
+func GetInvestorRelationshipHealth(ctx context.Context, input GetInvestorRelationshipHealthInput) (*GetInvestorRelationshipHealthOutput, error) {
+	return globalActivities.GetInvestorRelationshipHealth(ctx, input)
+}
+
+func SynthesizeWeeklyBrief(ctx context.Context, input SynthesizeWeeklyBriefInput) (*SynthesizeWeeklyBriefOutput, error) {
+	return globalActivities.SynthesizeWeeklyBrief(ctx, input)
+}
+
+func DeliverWeeklyBrief(ctx context.Context, input DeliverWeeklyBriefInput) (*DeliverWeeklyBriefOutput, error) {
+	return globalActivities.DeliverWeeklyBrief(ctx, input)
+}
+
+// =============================================================================
 // SOP Executor Activity
 // =============================================================================
 

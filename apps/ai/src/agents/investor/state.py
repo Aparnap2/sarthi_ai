@@ -47,3 +47,7 @@ class InvestorState(TypedDict, total=False):
     data_sources:        list[str]
     error:               str
     error_node:          str
+
+    # ── Investor Relationship Tracking ─────────────────────────────
+    relationship_health: dict          # Relationship health metrics
+    cold_investors:      list[dict]    # List of cold relationships

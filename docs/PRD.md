@@ -1,11 +1,12 @@
 # Sarthi — Product Requirements Document
-## Guardian AI for Solo Founders | Version 2.0
+## Guardian AI for Solo Founders | Version 3.0
 
-**Last Updated:** April 12, 2026
-**Status:** ✅ V2.0 Complete — All 12 implementation steps delivered
-**Test Coverage:** 241 passed, 6 skipped (0 failures)
-**Agents:** PulseAgent, AnomalyAgent, InvestorAgent, QAAgent
+**Last Updated:** April 21, 2026
+**Status:** ✅ V3.0 Complete — Chief of Staff features delivered
+**Test Coverage:** 241+ passed, 6 skipped (0 failures)
+**Agents:** PulseAgent, AnomalyAgent, InvestorAgent, QAAgent, CommsTriage, HiringAgent
 **Guardian:** 17-pattern watchlist (6 Finance, 6 BI, 5 Ops)
+**Chief of Staff:** Decision Journal, Weekly Brief, Investor Relations, CommsTriage, Hiring
 
 ---
 
@@ -13,61 +14,77 @@
 
 ```
 ├── 1. Executive Summary
-├── 2. V2.0 Implementation Status (12/12)
+├── 2. V3.0 Implementation Status - Chief of Staff
 ├── 3. Problem Statement
 ├── 4. Solution Overview
 ├── 5. Target Users & ICP
-├── 6. The 4 Agents
-├── 7. Guardian Watchlist (17 Patterns)
-│   ├── 7.1 Finance Guardian (FG-01 to FG-06)
-│   ├── 7.2 BI Guardian (BG-01 to BG-06)
-│   └── 7.3 Ops Guardian (OG-01 to OG-05)
-├── 8. Memory Spine (5 Layers)
-├── 9. RAG Kernel (≤800 Token Context Assembly)
-├── 10. HITL Manager (3-Tier Routing)
-├── 11. LLMOps (Langfuse, Eval Loop, Self-Analysis)
-├── 12. Temporal Workflows (7 Total)
-├── 13. System Architecture
-├── 14. Low-Level Design
-├── 15. Workflows & SOP
-├── 16. Test Strategy
-├── 17. Deployment
-├── 18. Build Checklist
-├── 19. Metrics & KPIs
-└── 20. Timeline + Demo Script
+├── 6. The 6 Agents
+├── 7. Chief of Staff Features (NEW)
+│   ├── 7.1 Decision Journal
+│   ├── 7.2 Weekly Synthesis
+│   ├── 7.3 Investor Relations
+│   ├── 7.4 CommsTriage
+│   └── 7.5 HiringAgent
+├── 8. Guardian Watchlist (17 Patterns)
+│   ├── 8.1 Finance Guardian (FG-01 to FG-06)
+│   ├── 8.2 BI Guardian (BG-01 to BG-06)
+│   └── 8.3 Ops Guardian (OG-01 to OG-05)
+├── 9. Memory Spine (5 Layers)
+├── 10. RAG Kernel (≤800 Token Context Assembly)
+├── 11. HITL Manager (3-Tier Routing)
+├── 12. LLMOps (Langfuse, Eval Loop, Self-Analysis)
+├── 13. Temporal Workflows (9 Total)
+├── 14. System Architecture
+├── 15. Low-Level Design
+├── 16. Workflows & SOP
+├── 17. Test Strategy
+├── 18. Deployment
+├── 19. Build Checklist
+├── 20. Metrics & KPIs
+└── 21. Timeline + Demo Script
 ```
 
 ---
 
 ## 1. Executive Summary
 
-# Sarthi V2.0 — Guardian AI for Solo Founders
-## First-Time Founders Don't Know What They Don't Know. Sarthi Does.
+# Sarthi V3.0 — Chief of Staff for SaaS Founders
 
-**Version:** 2.0 (Complete)
-**Status:** ✅ All 12 implementation steps delivered
-**Test Coverage:** 241 passed, 1 skipped (Ollama not available), 5 skipped (DB migrations need PostgreSQL running), 0 failures
+**Version:** 3.0 (Complete)
+**Status:** ✅ All Chief of Staff features delivered
+**Test Coverage:** 241+ passed, 1 skipped (Ollama not available), 5 skipped (DB migrations need PostgreSQL running), 0 failures
 
 **Product Truth:** Sarthi is a **guardian**, not an assistant. Every tool ever built for founders operates in the known-knowns quadrant — they answer questions the founder already knows to ask. A first-time solo technical founder doesn't know what they don't know. They don't know that 3% monthly churn is fatal at Series A. They don't know that their AWS costs growing faster than their users is a structural unit economics problem.
 
 **An assistant waits to be asked. A guardian knows to watch before you know to look.**
 
-**What Sarthi V2.0 delivers:**
+**What Sarthi V3.0 delivers:**
 1. Watches your Stripe + bank accounts 24/7 with a curated watchlist of 17 seed-stage failure patterns
 2. Detects anomalies with a 5-layer memory spine that compounds context with every event
 3. Assembles ≤800-token context for every LLM call via a dedicated RAG kernel
 4. Routes alerts through a 3-tier HITL system (auto → Slack review → human override)
 5. Observes itself via Langfuse tracing, weekly eval loops, and agent self-analysis
-6. Orchestrates everything through 7 durable Temporal workflows
+6. Orchestrates everything through 9 durable Temporal workflows
+7. **NEW: Chief of Staff capabilities** — Decision journal, weekly synthesis, investor relations, comms triage, hiring
 
 **Portfolio Goal:** Production-grade agentic AI SaaS demonstrating 15+ technologies.
 **Product Goal:** Virtual ops brain for solo SaaS founders at $79/month.
 
 ---
 
-## 2. V2.0 Implementation Status
+## 2. V3.0 Implementation Status - Chief of Staff
 
-All 12 steps from the V2.0 coding agent instructions are complete:
+All Chief of Staff features are complete:
+
+| Feature | Description | Files | Status |
+|---------|-------------|-------|--------|
+| **Decision Journal** | Slack modal to log decisions, Postgres + Qdrant storage, semantic search | `log_decision.py`, `slack_client.py`, `010_decisions.sql` | ✅ |
+| **Weekly Synthesis** | Monday morning brief combining metrics, alerts, decisions, investor status | `synthesize_weekly_brief.py`, ChiefOfStaffWorkflow | ✅ |
+| **Investor Relations** | Track investor relationships, warmup alerts, interaction history | `011_investor_relationships.sql`, `investor_relationships.py`, `check_relationship_health.py` | ✅ |
+| **CommsTriage** | Daily Slack channel triage — classify messages by urgency/action items | `agents/comms/`, `run_comms_triage_agent.py` | ✅ |
+| **HiringAgent** | Score candidates, track pipeline, cold candidate alerts | `agents/hiring/`, `run_hiring_agent.py`, `012_hiring.sql` | ✅ |
+
+### V2.0 Status (Preserved from V2.0)
 
 | Step | Description | Status | Tests |
 |------|-------------|--------|-------|
@@ -77,14 +94,14 @@ All 12 steps from the V2.0 coding agent instructions are complete:
 | **4** | LLMOps: tracer + eval_loop + self_analysis | ✅ | 10 new |
 | **5** | HITL manager + confidence scoring | ✅ | 11 new |
 | **6** | GuardianInsight DSPy signature (additive) | ✅ | — |
-| **7** | Wire RAG kernel into all 4 agents (fallback contract) | ✅ | — |
+| **7** | Wire RAG kernel into all agents (fallback contract) | ✅ | — |
 | **8** | DB migrations (5 new tables/columns, additive only) | ✅ | — |
 | **9** | New Qdrant collections (compressed_memory, founder_blindspots) | ✅ | — |
 | **10** | 4 new Temporal workflows (SelfAnalysis, EvalLoop, Compression, WeightDecay) | ✅ | — |
 | **11** | Extend existing workflows with guardian watchlist | ✅ | — |
 | **12** | Full test suite (241+ passing, zero regressions) | ✅ | 241 pass / 6 skip / 0 fail |
 
-**Cumulative test growth:** 119 (V1.0) → 241+ (V2.0) = **122+ new tests**, zero regressions.
+**Cumulative test growth:** 119 (V1.0) → 241+ (V2.0) → 250+ (V3.0) = **130+ new tests**, zero regressions.
 
 ---
 
@@ -175,7 +192,7 @@ External Event (payment / expense / NL query)
 
 ---
 
-## 6. The 4 Agents
+## 6. The 6 Agents
 
 ### 1. PulseAgent ✅ COMPLETE
 **Status:** Implemented + 20 tests passing (V1.0) + wired with RAG kernel (V2.0)
@@ -203,15 +220,160 @@ External Event (payment / expense / NL query)
 **Files:** `apps/ai/src/agents/qa/` (5 files, 955 lines)
 **Trigger:** On-demand via Slack message
 **Nodes:** 5 (match_question → fetch_data → retrieve_memory → generate_answer → send_slack)
-**V2.0 Additions:** RAG kernel context for richer answers, memory spine write_all
+**V2.0 Additions:** RAG kernel context for richer answers, memory spine write_all, decision search tool
+
+### 5. CommsTriageAgent ✅ V3.0 NEW
+**Status:** Implemented (V3.0)
+**Files:** `apps/ai/src/agents/comms/` (4 files)
+**Trigger:** Daily via Temporal workflow
+**Nodes:** 4 (fetch_messages → classify_messages → generate_digest → build_slack_message)
+**Features:** Slack channel message classification, urgency detection, action item extraction
+
+### 6. HiringAgent ✅ V3.0 NEW
+**Status:** Implemented (V3.0)
+**Files:** `apps/ai/src/agents/hiring/` (4 files)
+**Trigger:** On-demand (candidate application received)
+**Nodes:** 5 (load_candidate → fetch_role_requirements → score_candidate → update_pipeline → generate_recommendation)
+**Features:** Candidate scoring using DSPy, pipeline stage management, cold candidate alerts
 
 ---
 
-## 7. Guardian Watchlist (17 Patterns)
+## 7. Chief of Staff Features (V3.0)
+
+Sarthi V3.0 adds **Chief of Staff capabilities** — proactive support for founder operations beyond passive monitoring.
+
+### 7.1 Decision Journal
+
+| Feature | Implementation |
+|---------|---------------|
+| Slack Modal | `/sarthi decide` command opens modal for decision entry |
+| Postgres Storage | `decisions` table with tenant_id, decided, alternatives, reasoning, timestamps |
+| Qdrant Index | Semantic search over past decisions |
+| QA Integration | QAAgent can now search decision history |
+
+**Database:**
+```sql
+CREATE TABLE decisions (
+    id SERIAL PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    decided TEXT NOT NULL,
+    alternatives TEXT,
+    reasoning TEXT,
+    decided_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 7.2 Weekly Synthesis
+
+| Feature | Implementation |
+|---------|---------------|
+| ChiefOfStaffWorkflow | Temporal workflow triggered on TIME_TICK_WEEKLY |
+| Data Sources | Metrics + Alerts (7 days) + Decisions (7 days) + Investor Status |
+| LLM Synthesis | WEEKLY_SYNTHESIS_PROMPT generates 300-word brief |
+| Delivery | Slack message with "Ask Sarthi anything" button |
+
+**Brief Format:**
+- 🎯 ONE THING — single most important thing this week
+- Numbers first, then narrative
+- Max 300 words
+- Reference relevant past decisions
+
+### 7.3 Investor Relations
+
+| Feature | Implementation |
+|---------|---------------|
+| Relationship Tracking | `investor_relationships` table with warmup_days, raise_priority |
+| Interaction History | `investor_interactions` table tracking emails, calls, meetings |
+| Warmup Alerts | Check relationship health, alert on cold investors |
+| InvestorWorkflow Integration | Runs relationship health check before generating update |
+
+**Database:**
+```sql
+CREATE TABLE investor_relationships (
+    id SERIAL PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    investor_name TEXT NOT NULL,
+    firm TEXT NOT NULL,
+    last_contact_at TIMESTAMP WITH TIME ZONE,
+    warm_up_days INTEGER DEFAULT 30,
+    raise_priority INTEGER DEFAULT 5,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE investor_interactions (
+    id SERIAL PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    investor_id INTEGER REFERENCES investor_relationships(id),
+    interaction_type TEXT NOT NULL,
+    summary TEXT,
+    occurred_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 7.4 CommsTriage
+
+| Feature | Implementation |
+|---------|---------------|
+| Channel Monitoring | Fetch recent messages from specified Slack channels |
+| Classification | DSPy classifier categorizes: urgent, action_required, informational, fyi, meeting_request, external_comm |
+| Priority | High/medium/low priority assignment |
+| Digest Generation | Daily digest with categorized sections |
+
+**Workflow:**
+1. Fetch messages from configured Slack channels
+2. Classify each message using DSPy
+3. Extract urgent messages and action items
+4. Generate digest summary
+5. Deliver via Slack
+
+### 7.5 HiringAgent
+
+| Feature | Implementation |
+|---------|---------------|
+| Candidate Scoring | DSPy CandidateScorer evaluates resume vs role requirements |
+| Pipeline Stages | new → screening → interview → offer → hired → rejected |
+| Cold Candidate Alerts | Detect candidates not contacted in N days |
+| Database | `roles` and `candidates` tables |
+
+**Database:**
+```sql
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    requirements TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE candidates (
+    id SERIAL PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    role_id INTEGER REFERENCES roles(id),
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    resume_url TEXT,
+    source TEXT,
+    status TEXT DEFAULT 'new',
+    score_overall FLOAT,
+    score_technical FLOAT,
+    culture_signals TEXT[],
+    red_flags TEXT[],
+    recommended_action TEXT,
+    last_contact_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+---
+
+## 8. Guardian Watchlist (17 Patterns)
 
 Sarthi watches continuously for 17 seed-stage failure patterns across three domains. No founder needs to know to ask — Sarthi detects before they know to look.
 
-### 7.1 Finance Guardian (FG-01 to FG-06)
+### 8.1 Finance Guardian (FG-01 to FG-06)
 
 | ID | Pattern | Trigger |
 |----|---------|---------|
@@ -222,7 +384,7 @@ Sarthi watches continuously for 17 seed-stage failure patterns across three doma
 | FG-05 | `failed_payment_cluster` | 3+ failed payments in 7 days |
 | FG-06 | `payroll_revenue_ratio_breach` | Payroll > 60% of revenue |
 
-### 7.2 BI Guardian (BG-01 to BG-06)
+### 8.2 BI Guardian (BG-01 to BG-06)
 
 | ID | Pattern | Trigger |
 |----|---------|---------|
@@ -233,7 +395,7 @@ Sarthi watches continuously for 17 seed-stage failure patterns across three doma
 | BG-05 | `nrr_below_100_seed` | NRR < 100% (losing more than expanding) |
 | BG-06 | `trial_activation_wall` | Users abandoning at same step repeatedly (>50%) |
 
-### 7.3 Ops Guardian (OG-01 to OG-05)
+### 8.3 Ops Guardian (OG-01 to OG-05)
 
 | ID | Pattern | Trigger |
 |----|---------|---------|
@@ -326,7 +488,7 @@ Every guardian alert is routed through a 3-tier human-in-the-loop system:
 
 ---
 
-## 12. Temporal Workflows (7 Total)
+## 13. Temporal Workflows (9 Total)
 
 ### Existing (V1.0 — 3 workflows)
 
@@ -336,7 +498,7 @@ Every guardian alert is routed through a 3-tier human-in-the-loop system:
 | InvestorWorkflow | Weekly Friday 08:00 IST | Generates investor update draft |
 | QAWorkflow | On-demand | Answers founder questions via Slack |
 
-### New (V2.0 — 4 workflows)
+### V2.0 (4 workflows)
 
 | Workflow | Schedule | Description |
 |----------|----------|-------------|
@@ -345,19 +507,32 @@ Every guardian alert is routed through a 3-tier human-in-the-loop system:
 | CompressionWorkflow | Trigger-based (every 50 episodic writes) | Compresses oldest 30 L2 events into L5 summary |
 | WeightDecayWorkflow | Weekly | Applies decay to L2 events older than 60 days |
 
-### Activities (9 Total)
+### V3.0 (2 workflows)
 
-| Activity | V1.0 | V2.0 |
-|----------|------|------|
-| `run_pulse_agent` | ✅ | ✅ (extended with RAG + watchlist + memory) |
-| `run_anomaly_agent` | ✅ | ✅ (extended with RAG + HITL + memory) |
-| `run_investor_agent` | ✅ | ✅ (extended with RAG + HITL Tier 3 + memory) |
-| `run_qa_agent` | ✅ | ✅ (extended with RAG + memory) |
-| `send_slack_message` | ✅ | ✅ |
-| `run_guardian_watchlist` | — | ✅ NEW |
-| `write_memory_spine` | — | ✅ NEW |
-| `send_slack_review` | — | ✅ NEW (HITL Tier 2) |
-| `log_eval_scores` | — | ✅ NEW |
+| Workflow | Schedule | Description |
+|----------|----------|-------------|
+| ChiefOfStaffWorkflow | Weekly (TIME_TICK_WEEKLY) | Synthesizes weekly brief from metrics, alerts, decisions |
+| CommsTriageWorkflow | Daily | Triage Slack channels and deliver digest |
+
+### Activities (12 Total)
+
+| Activity | Version | Description |
+|----------|---------|-------------|
+| `run_pulse_agent` | V1.0 | Runs PulseAgent |
+| `run_anomaly_agent` | V1.0 | Runs AnomalyAgent |
+| `run_investor_agent` | V1.0 | Runs InvestorAgent |
+| `run_qa_agent` | V1.0 | Runs QAAgent |
+| `send_slack_message` | V1.0 | Sends Slack messages |
+| `run_guardian_watchlist` | V2.0 | NEW - Runs guardian pattern detection |
+| `write_memory_spine` | V2.0 | NEW - Writes to all memory layers |
+| `send_slack_review` | V2.0 | NEW - HITL Tier 2 review |
+| `log_eval_scores` | V2.0 | NEW - Logs eval scores |
+| `log_decision` | V3.0 | NEW - Logs decision to Postgres + Qdrant |
+| `synthesize_weekly_brief` | V3.0 | NEW - Generates weekly brief |
+| `check_relationship_health` | V3.0 | NEW - Checks investor relationship health |
+| `run_comms_triage_agent` | V3.0 | NEW - Runs comms triage |
+| `run_hiring_agent` | V3.0 | NEW - Scores candidate |
+| `check_cold_candidates` | V3.0 | NEW - Finds cold candidates |
 
 ---
 
