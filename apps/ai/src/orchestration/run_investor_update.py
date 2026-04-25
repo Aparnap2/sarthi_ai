@@ -7,15 +7,62 @@ Preserves criteria-based evaluation.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from src.activities.run_investor_agent import run_investor_agent
 from src.activities.check_relationship_health import check_relationship_health
 from src.activities.send_slack_message import send_slack_message
 from src.events.bus import emit
+from src.db import db
 
 log = logging.getLogger(__name__)
+
+
+async def get_investor_warmup_alerts(tenant_id: str) -> List[Dict]:
+    """
+    Returns investors overdue for contact based on their warm_up_days window.
+    Sorted by raise priority (1 = warmest) then days overdue descending.
+    """
+    rows = await db.fetch("""
+        SELECT
+            ir.id as relationship_id,
+            ir.investor_name,
+            ir.firm,
+            ir.raise_priority,
+            ir.warm_up_days,
+            ir.last_contact_at,
+            EXTRACT(DAY FROM NOW() - ir.last_contact_at)::INT AS days_since_contact,
+            EXTRACT(DAY FROM NOW() - ir.last_contact_at)::INT
+                - ir.warm_up_days AS days_overdue,
+            ir.notes AS last_interaction_summary
+        FROM investor_relationships ir
+        WHERE ir.tenant_id = %s
+          AND ir.last_contact_at IS NOT NULL
+          AND NOW() - ir.last_contact_at > (ir.warm_up_days || ' days')::interval
+        ORDER BY ir.raise_priority ASC, days_overdue DESC
+        LIMIT 5
+    """, (tenant_id,))
+
+    return [dict(r) for r in rows]
+
+
+async def get_investor_status_summary(tenant_id: str) -> Dict:
+    """
+    Full investor status for weekly synthesis.
+    """
+    overdue = await get_investor_warmup_alerts(tenant_id)
+
+    total_row = await db.fetchval("""
+        SELECT COUNT(*) FROM investor_relationships WHERE tenant_id = $1
+    """, tenant_id)
+
+    return {
+        "total_tracked": total_row or 0,
+        "overdue_count": len(overdue),
+        "overdue": overdue,
+        "top_priority": overdue[0]["investor_name"] if overdue else None,
+    }
 
 
 async def run_investor_update(tenant_id: str) -> dict[str, Any]:
@@ -65,9 +112,12 @@ async def run_investor_update(tenant_id: str) -> dict[str, Any]:
             error_msg = investor_result.get("error", "Unknown error")
             log.error(f"InvestorAgent failed: {error_msg}")
 
-            await send_slack_message(
-                f"❌ Investor Update failed for {tenant_id}: {error_msg}",
-            )
+            try:
+                await send_slack_message(
+                    f"❌ Investor Update failed for {tenant_id}: {error_msg}",
+                )
+            except Exception as slack_err:
+                log.error(f"Slack notification failed: {slack_err}")
 
             result["ok"] = False
             result["error"] = error_msg
@@ -78,9 +128,12 @@ async def run_investor_update(tenant_id: str) -> dict[str, Any]:
     except Exception as e:
         log.error(f"InvestorAgent activity failed: {e}")
 
-        await send_slack_message(
-            f"❌ Investor Update failed for {tenant_id}: {str(e)}",
-        )
+        try:
+            await send_slack_message(
+                f"❌ Investor Update failed for {tenant_id}: {str(e)}",
+            )
+        except Exception as slack_err:
+            log.error(f"Slack notification failed: {slack_err}")
 
         result["ok"] = False
         result["error"] = str(e)

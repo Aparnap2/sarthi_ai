@@ -1,0 +1,63 @@
+{
+  "uuid": "sarthi-slack-mock-v2",
+  "name": "Sarthi Slack Mock",
+  "port": 3000,
+  "hostname": "0.0.0.0",
+  "endpointPrefix": "api",
+  "cors": true,
+  "headers": [
+    {"key": "Content-Type", "value": "application/json"}
+  ],
+  "routes": [
+    {
+      "uuid": "auth-test",
+      "endpoint": "auth.test",
+      "method": "post",
+      "type": "http",
+      "responses": [
+        {
+          "uuid": "auth-success",
+          "statusCode": 200,
+          "label": "Success",
+          "body": "{\"ok\":true,\"team_id\":\"T_MOCK_001\",\"user_id\":\"U_MOCK_BOT\",\"bot_id\":\"B_MOCK_001\"}",
+          "bodyType": "INLINE"
+        }
+      ]
+    },
+    {
+      "uuid": "views-open",
+      "endpoint": "views.open",
+      "method": "post",
+      "type": "http",
+      "responses": [
+        {
+          "uuid": "view-success",
+          "statusCode": 200,
+          "label": "Success",
+          "body": "{\"ok\":true,\"view\":{\"id\":\"V_MOCK_001\",\"callback_id\":\"decision_modal\"}}",
+          "bodyType": "INLINE"
+        }
+      ]
+    },
+    {
+      "uuid": "chat-post",
+      "endpoint": "chat.postMessage",
+      "method": "post",
+      "type": "http",
+      "responses": [
+        {
+          "uuid": "chat-success",
+          "statusCode": 200,
+          "label": "Success",
+          "body": "{\"ok\":true,\"ts\":\"1745000000.000001\",\"channel\":\"U_MOCK_USER\"}",
+          "bodyType": "INLINE"
+        }
+      ]
+    }
+  ],
+  "rootChildren": [
+    {"type": "route", "uuid": "auth-test"},
+    {"type": "route", "uuid": "views-open"},
+    {"type": "route", "uuid": "chat-post"}
+  ]
+}

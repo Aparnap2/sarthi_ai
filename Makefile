@@ -1,7 +1,7 @@
 # IterateSwarm Makefile
 # Quick commands for development and operations
 
-.PHONY: help up down status test build clean proto verify deps logs restart security-test security-race security-lint
+.PHONY: help up down status test build clean proto verify deps logs restart security-test security-race security-lint infra-up infra-down test-py test-py-unit test-py-e2e
 
 # Default target
 help:
@@ -26,12 +26,6 @@ up:
 	@echo "Waiting for services to be ready..."
 	sleep 10
 	@echo "Infrastructure started"
-
-# Stop all Docker services
-down:
-	@echo "Stopping all services..."
-	docker-compose down
-	@echo "All services stopped"
 
 # Check service status
 status:

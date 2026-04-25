@@ -97,9 +97,18 @@ def get_llm_client() -> Union[AzureOpenAI, OpenAI]:
                     api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01"),
                 )
             elif _provider == "ollama":
+                base_url = os.environ["OLLAMA_BASE_URL"]
+                # Cloud uses https://ollama.com, local uses http://localhost:11434
+                # Add /v1 suffix for OpenAI-compatible SDK
+                if not base_url.endswith("/v1"):
+                    base_url = base_url.rstrip("/")
+                    if "/api" in base_url:
+                        base_url = base_url.replace("/api", "/v1")
+                    elif not "/v1" in base_url:
+                        base_url = base_url + "/v1"
                 _client = OpenAI(
-                    base_url=os.environ["OLLAMA_BASE_URL"],
-                    api_key="ollama",  # Ollama doesn't require a real key
+                    base_url=base_url,
+                    api_key=os.environ.get("OLLAMA_API_KEY", "ollama"),
                 )
             elif _provider == "groq":
                 _client = OpenAI(

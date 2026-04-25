@@ -18,28 +18,40 @@ log = logging.getLogger(__name__)
 
 
 async def get_current_metrics_snapshot(tenant_id: str) -> dict[str, Any]:
-    """Get current metrics snapshot."""
+    """Get current metrics snapshot from finance_snapshots table."""
     import psycopg2
     import os
     DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://sarthi:sarthi@localhost:5432/sarthi")
-    conn = psycopg2.connect(DATABASE_URL)
-    cur = conn.cursor()
+    
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
 
-    cur.execute("""
-        SELECT key, value FROM agentalerts
-        WHERE tenant_id = %s
-        ORDER BY created_at DESC
-        LIMIT 100
-    """, (tenant_id,))
+        # Query finance_snapshots for real KPIs
+        cur.execute("""
+            SELECT monthly_revenue, monthly_expense, burn_rate, runway_months, created_at
+            FROM finance_snapshots
+            WHERE tenant_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+        """, (tenant_id,))
 
-    alerts = cur.fetchall()
-    cur.close()
-    conn.close()
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
 
-    return {
-        "recent_alerts": alerts,
-        "alert_count": len(alerts),
-    }
+        if row:
+            return {
+                "monthly_revenue": row[0],
+                "monthly_expense": row[1],
+                "burn_rate": row[2],
+                "runway_months": row[3],
+                "snapshot_at": row[4].isoformat() if row[4] else None,
+            }
+        return {}
+    except Exception as e:
+        log.error(f"Failed to get metrics snapshot: {e}")
+        return {}
 
 
 async def get_recent_alerts(tenant_id: str, days: int = 7) -> list[dict[str, Any]]:
@@ -50,11 +62,12 @@ async def get_recent_alerts(tenant_id: str, days: int = 7) -> list[dict[str, Any
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
 
+    # Use bind parameter for interval - pass days value and construct interval in SQL
     cur.execute("""
         SELECT id, title, severity, created_at
         FROM agentalerts
         WHERE tenant_id = %s
-          AND created_at >= NOW() - INTERVAL '%s days'
+          AND created_at >= NOW() - (CAST(%s AS TEXT) || ' days')::interval
         ORDER BY created_at DESC
     """, (tenant_id, days))
 
@@ -81,13 +94,15 @@ async def get_recent_investor_state(tenant_id: str, days: int = 14) -> dict[str,
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
 
+    # Filter by days parameter
     cur.execute("""
         SELECT narrative, created_at
         FROM investorupdates
         WHERE tenant_id = %s
+          AND created_at >= NOW() - (CAST(%s AS TEXT) || ' days')::interval
         ORDER BY created_at DESC
         LIMIT 1
-    """, (tenant_id,))
+    """, (tenant_id, days))
 
     row = cur.fetchone()
     cur.close()
@@ -100,10 +115,12 @@ async def get_recent_investor_state(tenant_id: str, days: int = 14) -> dict[str,
 
 async def get_recent_decisions(tenant_id: str, days: int = 14) -> list[dict[str, Any]]:
     """Get recent decisions if table exists."""
+    import psycopg2
+    import os
+    from psycopg2 import errors as psycopg2_errors
+    
+    DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://sarthi:sarthi@localhost:5432/sarthi")
     try:
-        import psycopg2
-        import os
-        DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://sarthi:sarthi@localhost:5432/sarthi")
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
 
@@ -111,7 +128,7 @@ async def get_recent_decisions(tenant_id: str, days: int = 14) -> list[dict[str,
             SELECT id, decided, reasoning, created_at
             FROM decisions
             WHERE tenant_id = %s
-              AND created_at >= NOW() - INTERVAL '%s days'
+              AND created_at >= NOW() - (CAST(%s AS TEXT) || ' days')::interval
             ORDER BY created_at DESC
         """, (tenant_id, days))
 
@@ -128,9 +145,12 @@ async def get_recent_decisions(tenant_id: str, days: int = 14) -> list[dict[str,
             }
             for row in rows
         ]
-    except Exception:
-        # Table might not exist yet
+    except psycopg2_errors.UndefinedTable as e:
+        log.warning(f"Decisions table not found: {e}")
         return []
+    except Exception as e:
+        log.error(f"Failed to get recent decisions: {e}")
+        raise
 
 
 async def run_weekly_synthesis(tenant_id: str) -> dict[str, Any]:
