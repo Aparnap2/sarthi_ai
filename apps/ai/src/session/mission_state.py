@@ -41,7 +41,7 @@ class MissionState:
 
     # Finance Domain
     runway_days: Optional[int] = None
-    burn_alert: Optional[bool] = None
+    burn_alert: bool = False
     burn_severity: Optional[str] = None  # low, medium, high, critical
 
     # BI Domain
@@ -49,12 +49,12 @@ class MissionState:
     churn_rate: Optional[float] = None  # percentage
 
     # Ops Domain
-    churn_risk_users: Optional[List[str]] = field(default_factory=list)
+    churn_risk_users: List[str] = field(default_factory=list)
     top_feature_ask: Optional[str] = None
-    error_spike: Optional[bool] = None
+    error_spike: bool = False
 
     # Cross-functional
-    active_alerts: Optional[List[str]] = field(default_factory=list)
+    active_alerts: List[str] = field(default_factory=list)
     founder_focus: Optional[str] = None
 
     def to_dict(self) -> dict:

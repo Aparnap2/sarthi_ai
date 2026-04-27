@@ -17,7 +17,7 @@ import logging
 import re
 from typing import List, Optional, Set
 
-from src.session.mission_state import get_mission_state
+from src.session.mission_state import MissionState
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +208,12 @@ class RelevanceGate:
         """
         alerts = self.mission_state.get("active_alerts", [])
         return bool(alerts and len(alerts) > 0)
+    
+    def has_active_alerts_with_state(self, mission_state) -> bool:
+        """Check if mission_state has active alerts."""
+        if not mission_state:
+            return False
+        return bool(mission_state.active_alerts and len(mission_state.active_alerts) > 0)
 
     def should_respond(self, text: str) -> bool:
         """Determine if the agent should respond to the input.
@@ -269,3 +275,42 @@ def get_relevant_domains(tenant_id: str, text: str) -> List[str]:
     """
     gate = RelevanceGate(tenant_id)
     return gate.match_domains(text)
+
+
+def relevance_gate(text: str, mission_state=None) -> List[str]:
+    """Convenience function for relevance gate.
+    
+    Per PRD Section 226-237:
+    - Agent responds ONLY if keyword_hit OR
+    - Agent responds if (active_alert AND question)
+    
+    Args:
+        text: User input text
+        mission_state: Optional MissionState for active alert check
+        
+    Returns:
+        List of relevant domain names
+    """
+    if not text:
+        return []
+    
+    # Create a gate for matching
+    tenant_id = mission_state.tenant_id if mission_state else "default"
+    gate = RelevanceGate(tenant_id)
+    
+    # Match domains
+    domains = gate.match_domains(text)
+    
+    # Check active alerts condition if mission provided
+    if mission_state and not domains:
+        # Check if there's a question + active alert
+        if gate._is_question(text) and gate.has_active_alerts_with_state(mission_state):
+            # Return domain based on active alerts
+            if mission_state.burn_alert:
+                return ["finance"]
+            if mission_state.error_spike:
+                return ["ops"]
+            if mission_state.churn_rate and mission_state.churn_rate > 0.03:
+                return ["bi"]
+    
+    return domains
